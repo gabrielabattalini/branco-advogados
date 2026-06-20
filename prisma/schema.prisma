@@ -1,0 +1,107 @@
+// Banco do Sistema Jurídico — Branco Advogados
+// Dev: SQLite (local). Produção: trocar provider para "postgresql" + DATABASE_URL do Neon/Vercel.
+// Enums são representados como String para portabilidade SQLite -> Postgres.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id       String   @id @default(cuid())
+  nome     String
+  iniciais String
+  email    String   @unique
+  papel    String // socio | advogado | estagiario | administrativo
+  ativo    Boolean  @default(true)
+  criadoEm DateTime @default(now())
+}
+
+model Contato {
+  id            String   @id @default(cuid())
+  tipo          String // pf | pj
+  nome          String
+  documento     String
+  tipoContato   String // cliente | parte_contraria | perito | correspondente
+  iniciais      String
+  processosCount Int     @default(0)
+  criadoEm      DateTime @default(now())
+}
+
+model Processo {
+  id                  String       @id @default(cuid())
+  numero              String       @unique
+  area                String // trabalhista | civel
+  tribunal            String
+  status              String       @default("Em andamento")
+  cliente             String
+  parteContraria      String
+  responsavel         String // nome
+  responsavelIniciais String
+  valorCausa          String
+  distribuido         String
+  fase                String
+  criadoEm            DateTime     @default(now())
+  tarefas             Tarefa[]
+  documentos          Documento[]
+  publicacoes         Publicacao[]
+}
+
+model Tarefa {
+  id           String    @id @default(cuid())
+  titulo       String
+  processoId   String?
+  processo     Processo? @relation(fields: [processoId], references: [id])
+  area         String // trabalhista | civel
+  prazo        String
+  data         String // ISO yyyy-mm-dd (posição no calendário)
+  prazoUrgente Boolean   @default(false)
+  status       String    @default("a_fazer") // a_fazer | em_curso | concluida
+  responsavel  String // iniciais
+  origem       String    @default("manual") // manual | aasp
+  criadoEm     DateTime  @default(now())
+}
+
+model Documento {
+  id              String   @id @default(cuid())
+  processoId      String
+  processo        Processo @relation(fields: [processoId], references: [id])
+  ordem           Int
+  nome            String
+  data            String
+  driveFileId     String?
+  caminhoServidor String?
+  criadoEm        DateTime @default(now())
+
+  @@unique([processoId, ordem])
+}
+
+model Publicacao {
+  id                 String    @id @default(cuid())
+  processoId         String?
+  processo           Processo? @relation(fields: [processoId], references: [id])
+  numero             String
+  area               String
+  tribunal           String
+  tipo               String
+  partes             String
+  despacho           String
+  prazo              String
+  processoCadastrado Boolean   @default(false)
+  statusTriagem      String    @default("pendente") // pendente | processada | ignorada
+  criadoEm           DateTime  @default(now())
+}
+
+model EventoAgenda {
+  id       String   @id @default(cuid())
+  hora     String
+  tipo     String // reuniao | audiencia | prazo | atendimento
+  titulo   String
+  detalhe  String
+  ini      String
+  criadoEm DateTime @default(now())
+}
