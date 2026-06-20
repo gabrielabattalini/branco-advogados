@@ -1,14 +1,15 @@
 // Banco do Sistema Jurídico — Branco Advogados
-// Dev: SQLite (local). Produção: trocar provider para "postgresql" + DATABASE_URL do Neon/Vercel.
-// Enums são representados como String para portabilidade SQLite -> Postgres.
+// Postgres (Neon) — mesma base em dev e produção (Vercel).
+// Usa a conexão DIRETA (DATABASE_URL_UNPOOLED) por ser a mais estável com o Prisma.
+// Enums são representados como String (portável).
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL_UNPOOLED")
 }
 
 model Usuario {
