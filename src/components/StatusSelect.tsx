@@ -1,12 +1,7 @@
 "use client";
 
 import type { Status } from "@/lib/mock";
-
-const styleByStatus: Record<Status, string> = {
-  a_fazer: "border-line text-muted",
-  em_curso: "border-info/40 text-info",
-  concluida: "border-ok/40 text-ok",
-};
+import { STATUS_LIST, corDoStatus } from "@/lib/mock";
 
 export function StatusSelect({
   value,
@@ -17,6 +12,7 @@ export function StatusSelect({
   onChange: (s: Status) => void;
   compact?: boolean;
 }) {
+  const c = corDoStatus(value);
   return (
     <select
       value={value}
@@ -25,12 +21,14 @@ export function StatusSelect({
       className={
         "cursor-pointer rounded border bg-surface " +
         (compact ? "px-1.5 py-0.5 text-[10.5px] " : "px-2 py-1 text-[11px] ") +
-        styleByStatus[value]
+        `${c.border} ${c.text}`
       }
     >
-      <option value="a_fazer">A fazer</option>
-      <option value="em_curso">Em curso</option>
-      <option value="concluida">Concluída</option>
+      {STATUS_LIST.map((s) => (
+        <option key={s.key} value={s.key}>
+          {s.label}
+        </option>
+      ))}
     </select>
   );
 }

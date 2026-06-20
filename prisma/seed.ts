@@ -77,6 +77,7 @@ async function main() {
     await prisma.tarefa.create({
       data: {
         titulo: t.titulo,
+        descricao: t.descricao ?? null,
         processoId: procByNumero[t.processo] ?? null,
         area: t.area,
         prazo: t.prazo,

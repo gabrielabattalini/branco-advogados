@@ -1,5 +1,10 @@
 export type Area = "trabalhista" | "civel";
-export type Status = "a_fazer" | "em_curso" | "concluida";
+export type Status =
+  | "a_fazer"
+  | "em_curso"
+  | "em_correcao"
+  | "aguardando"
+  | "concluida";
 
 /**
  * Classifica o processo a partir do número único do CNJ
@@ -19,6 +24,7 @@ export const usuarioAtual = {
   nome: "Gabriel",
   iniciais: "GB",
   papel: "Advogado",
+  area: "civel" as Area,
 };
 
 export type Tarefa = {
@@ -64,12 +70,51 @@ export const kpis = [
 export const statusLabel: Record<Status, string> = {
   a_fazer: "A fazer",
   em_curso: "Em curso",
+  em_correcao: "Em correção",
+  aguardando: "Aguardando",
   concluida: "Concluída",
 };
+
+/** Status disponíveis e a ordem das colunas no quadro. */
+export const STATUS_LIST: { key: Status; label: string; cor: string }[] = [
+  { key: "a_fazer", label: "A fazer", cor: "gray" },
+  { key: "em_curso", label: "Em curso", cor: "info" },
+  { key: "em_correcao", label: "Em correção", cor: "amber" },
+  { key: "aguardando", label: "Aguardando", cor: "navy" },
+  { key: "concluida", label: "Concluída", cor: "ok" },
+];
+
+/** Classes Tailwind por cor de status. */
+export function corStatus(cor: string): {
+  bg: string;
+  text: string;
+  border: string;
+} {
+  switch (cor) {
+    case "info":
+      return { bg: "bg-info/15", text: "text-info", border: "border-info/40" };
+    case "amber":
+      return {
+        bg: "bg-trab-bg",
+        text: "text-trab-text",
+        border: "border-trab-text/40",
+      };
+    case "ok":
+      return { bg: "bg-ok/15", text: "text-ok", border: "border-ok/40" };
+    case "navy":
+      return { bg: "bg-navy/10", text: "text-navy", border: "border-navy/30" };
+    default:
+      return { bg: "bg-navy/5", text: "text-muted", border: "border-line" };
+  }
+}
+
+export const corDoStatus = (s: string) =>
+  corStatus(STATUS_LIST.find((x) => x.key === s)?.cor ?? "gray");
 
 export type TarefaFull = {
   id: string;
   titulo: string;
+  descricao?: string;
   processo: string;
   area: Area;
   data: string; // ISO yyyy-mm-dd
@@ -88,14 +133,22 @@ export const semana = [
 ];
 
 export const tarefasFull: TarefaFull[] = [
-  { id: "1", titulo: "Revisar contrato de locação", processo: "1005432-21.2024.8.26.0309", area: "civel", data: "2026-06-15", prazo: "15/06", status: "concluida", responsavel: "AB" },
-  { id: "2", titulo: "Protocolar petição inicial", processo: "0010567-89.2025.5.15.0042", area: "trabalhista", data: "2026-06-16", prazo: "16/06", status: "concluida", responsavel: "GB" },
-  { id: "3", titulo: "Juntar documentos do cliente", processo: "0010567-89.2025.5.15.0042", area: "trabalhista", data: "2026-06-17", prazo: "17/06", status: "em_curso", responsavel: "PL" },
-  { id: "4", titulo: "Ligar para o cliente Aurora", processo: "1001234-55.2024.8.26.0309", area: "civel", data: "2026-06-17", prazo: "17/06", status: "a_fazer", responsavel: "GB" },
-  { id: "5", titulo: "Calcular liquidação trabalhista", processo: "0050123-44.2025.5.15.0010", area: "trabalhista", data: "2026-06-18", prazo: "18/06", status: "a_fazer", responsavel: "CS" },
-  { id: "6", titulo: "Analisar despacho e dar ciência", processo: "0050123-44.2025.5.15.0010", area: "trabalhista", data: "2026-06-19", prazo: "Hoje", prazoUrgente: true, status: "a_fazer", responsavel: "GB" },
-  { id: "7", titulo: "Audiência Habita — preparar", processo: "1009876-12.2023.8.26.0114", area: "civel", data: "2026-06-19", prazo: "Hoje", prazoUrgente: true, status: "em_curso", responsavel: "AB" },
-  { id: "8", titulo: "Elaborar contestação", processo: "0010567-89.2025.5.15.0042", area: "trabalhista", data: "2026-06-22", prazo: "22/06", status: "a_fazer", responsavel: "GB" },
+  // Cível — as tarefas do Gabriel, espalhadas por junho/2026.
+  { id: "1", titulo: "Revisar contrato de locação", descricao: "Conferir cláusulas de reajuste e multa.", processo: "1005432-21.2024.8.26.0309", area: "civel", data: "2026-06-03", prazo: "03/06", status: "concluida", responsavel: "GB" },
+  { id: "2", titulo: "Protocolar petição inicial", descricao: "Ação de cobrança contra o banco.", processo: "1001234-55.2024.8.26.0309", area: "civel", data: "2026-06-05", prazo: "05/06", status: "concluida", responsavel: "GB" },
+  { id: "3", titulo: "Analisar documentos do condomínio", descricao: "Convenção e atas de assembleia.", processo: "1005432-21.2024.8.26.0309", area: "civel", data: "2026-06-10", prazo: "10/06", status: "em_curso", responsavel: "GB" },
+  { id: "4", titulo: "Elaborar réplica", descricao: "Responder à contestação da Habita.", processo: "1009876-12.2023.8.26.0114", area: "civel", data: "2026-06-12", prazo: "12/06", status: "em_correcao", responsavel: "GB" },
+  { id: "5", titulo: "Reunião com cliente Aurora", descricao: "Alinhar estratégia do recurso.", processo: "1005432-21.2024.8.26.0309", area: "civel", data: "2026-06-15", prazo: "15/06", status: "concluida", responsavel: "GB" },
+  { id: "6", titulo: "Calcular atualização do débito", descricao: "Aguardando planilha do contador.", processo: "1001234-55.2024.8.26.0309", area: "civel", data: "2026-06-17", prazo: "17/06", status: "aguardando", responsavel: "GB" },
+  { id: "7", titulo: "Analisar despacho e dar ciência", descricao: "Despacho de saneamento — verificar pontos controvertidos.", processo: "1009876-12.2023.8.26.0114", area: "civel", data: "2026-06-19", prazo: "Hoje", prazoUrgente: true, status: "a_fazer", responsavel: "GB" },
+  { id: "8", titulo: "Preparar audiência Habita", descricao: "Rol de testemunhas e quesitos.", processo: "1009876-12.2023.8.26.0114", area: "civel", data: "2026-06-19", prazo: "Hoje", prazoUrgente: true, status: "em_curso", responsavel: "GB" },
+  { id: "9", titulo: "Juntar procuração atualizada", descricao: "Instrumento com os novos poderes.", processo: "1001234-55.2024.8.26.0309", area: "civel", data: "2026-06-22", prazo: "22/06", status: "a_fazer", responsavel: "GB" },
+  { id: "10", titulo: "Protocolar cumprimento de sentença", descricao: "Iniciar a fase de execução.", processo: "1009876-12.2023.8.26.0114", area: "civel", data: "2026-06-24", prazo: "24/06", status: "a_fazer", responsavel: "GB" },
+  { id: "11", titulo: "Manifestar sobre laudo pericial", descricao: "Prazo de 15 dias para impugnação.", processo: "1005432-21.2024.8.26.0309", area: "civel", data: "2026-06-26", prazo: "26/06", status: "a_fazer", responsavel: "GB" },
+  { id: "12", titulo: "Preparar razões de apelação", descricao: "Recurso da sentença de improcedência.", processo: "1001234-55.2024.8.26.0309", area: "civel", data: "2026-06-30", prazo: "30/06", status: "a_fazer", responsavel: "GB" },
+  // Trabalhista — de outros advogados (não aparece pro Gabriel).
+  { id: "13", titulo: "Elaborar contestação", descricao: "Defesa na reclamatória.", processo: "0010567-89.2025.5.15.0042", area: "trabalhista", data: "2026-06-22", prazo: "22/06", status: "a_fazer", responsavel: "AB" },
+  { id: "14", titulo: "Calcular liquidação", descricao: "Apurar verbas rescisórias.", processo: "0050123-44.2025.5.15.0010", area: "trabalhista", data: "2026-06-18", prazo: "18/06", status: "concluida", responsavel: "PL" },
 ];
 
 export type TipoPessoa = "pf" | "pj";

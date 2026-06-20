@@ -4,15 +4,9 @@ import { ChevronLeft, Plus, Upload, FileText, Check } from "lucide-react";
 import { getFichaProcesso } from "@/lib/data";
 import { AreaTag } from "@/components/AreaTag";
 import { Avatar } from "@/components/Avatar";
-import type { Status } from "@/lib/mock";
+import { statusLabel, corDoStatus } from "@/lib/mock";
 
 export const dynamic = "force-dynamic";
-
-const tStatus: Record<Status, { label: string; cls: string }> = {
-  a_fazer: { label: "A fazer", cls: "bg-navy/5 text-muted" },
-  em_curso: { label: "Em curso", cls: "bg-info/15 text-info" },
-  concluida: { label: "Concluída", cls: "bg-ok/15 text-ok" },
-};
 
 const estadoPub: Record<string, { label: string; cls: string }> = {
   pendente: { label: "pendente", cls: "text-muted" },
@@ -101,10 +95,11 @@ export default async function ProcessoPage({
             </span>
             <span
               className={
-                "rounded px-2 py-0.5 text-[11px] " + (tStatus[t.status] ?? tStatus.a_fazer).cls
+                "rounded px-2 py-0.5 text-[11px] " +
+                `${corDoStatus(t.status).bg} ${corDoStatus(t.status).text}`
               }
             >
-              {(tStatus[t.status] ?? tStatus.a_fazer).label}
+              {statusLabel[t.status] ?? t.status}
             </span>
           </div>
         ))}

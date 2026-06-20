@@ -8,16 +8,18 @@ import type {
   EventoAgenda,
   Intimacao,
 } from "@/lib/mock";
-import { HOJE_ISO } from "@/lib/mock";
+import { HOJE_ISO, usuarioAtual } from "@/lib/mock";
 
 export async function getTarefas(): Promise<TarefaFull[]> {
   const rows = await prisma.tarefa.findMany({
+    where: { area: usuarioAtual.area },
     orderBy: { criadoEm: "desc" },
     include: { processo: true },
   });
   return rows.map((r) => ({
     id: r.id,
     titulo: r.titulo,
+    descricao: r.descricao ?? undefined,
     processo: r.processo?.numero ?? "",
     area: r.area as Area,
     data: r.data,
@@ -208,7 +210,7 @@ export async function getPainel(): Promise<PainelData> {
     audiencias,
   ] = await Promise.all([
     prisma.tarefa.findMany({
-      where: { status: { not: "concluida" } },
+      where: { area: usuarioAtual.area, status: { not: "concluida" } },
       include: { processo: true },
       orderBy: { criadoEm: "desc" },
       take: 5,
@@ -218,9 +220,15 @@ export async function getPainel(): Promise<PainelData> {
       where: { statusTriagem: "pendente" },
       take: 2,
     }),
-    prisma.tarefa.count({ where: { status: { not: "concluida" } } }),
     prisma.tarefa.count({
-      where: { data: HOJE_ISO, status: { not: "concluida" } },
+      where: { area: usuarioAtual.area, status: { not: "concluida" } },
+    }),
+    prisma.tarefa.count({
+      where: {
+        area: usuarioAtual.area,
+        data: HOJE_ISO,
+        status: { not: "concluida" },
+      },
     }),
     prisma.publicacao.count({ where: { statusTriagem: "pendente" } }),
     prisma.eventoAgenda.count({ where: { tipo: "audiencia" } }),

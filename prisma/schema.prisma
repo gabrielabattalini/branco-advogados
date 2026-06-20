@@ -57,6 +57,7 @@ model Processo {
 model Tarefa {
   id           String    @id @default(cuid())
   titulo       String
+  descricao    String?
   processoId   String?
   processo     Processo? @relation(fields: [processoId], references: [id])
   area         String // trabalhista | civel

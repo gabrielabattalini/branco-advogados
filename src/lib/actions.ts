@@ -3,16 +3,17 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { HOJE_ISO, HOJE_BR, responsaveis } from "@/lib/mock";
+import { HOJE_ISO, HOJE_BR, responsaveis, STATUS_LIST } from "@/lib/mock";
 
 export type ActionResult = { ok: true } | { ok: false; erro: string };
 
 const AREAS = ["trabalhista", "civel"];
-const STATUSES = ["a_fazer", "em_curso", "concluida"];
+const STATUSES = STATUS_LIST.map((s) => s.key as string);
 const INICIAIS = responsaveis.map((r) => r.iniciais);
 
 export async function criarTarefa(input: {
   titulo: string;
+  descricao: string;
   processoNumero: string;
   area: string;
   data: string;
@@ -34,6 +35,7 @@ export async function criarTarefa(input: {
     await prisma.tarefa.create({
       data: {
         titulo,
+        descricao: input.descricao?.trim() || null,
         processoId: processo?.id ?? null,
         area,
         data: input.data || HOJE_ISO,
@@ -64,6 +66,51 @@ export async function atualizarStatusTarefa(
     return { ok: true };
   } catch {
     return { ok: false, erro: "Não foi possível atualizar o status." };
+  }
+}
+
+export async function editarTarefa(input: {
+  id: string;
+  titulo: string;
+  descricao: string;
+  processoNumero: string;
+  status: string;
+  data: string;
+  prazo: string;
+  responsavel: string;
+}): Promise<ActionResult> {
+  const titulo = input.titulo.trim();
+  if (!titulo) return { ok: false, erro: "Informe o título da tarefa." };
+  if (!STATUSES.includes(input.status))
+    return { ok: false, erro: "Status inválido." };
+  const responsavel = INICIAIS.includes(input.responsavel)
+    ? input.responsavel
+    : INICIAIS[0];
+  try {
+    const processo = input.processoNumero
+      ? await prisma.processo.findUnique({
+          where: { numero: input.processoNumero },
+        })
+      : null;
+    const [, mm, dd] = (input.data || HOJE_ISO).split("-");
+    await prisma.tarefa.update({
+      where: { id: input.id },
+      data: {
+        titulo,
+        descricao: input.descricao?.trim() || null,
+        processoId: processo?.id ?? null,
+        status: input.status,
+        data: input.data,
+        prazo: input.prazo || `${dd}/${mm}`,
+        responsavel,
+      },
+    });
+    revalidatePath("/tarefas");
+    revalidatePath("/painel");
+    revalidatePath("/processos");
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Não foi possível salvar a tarefa." };
   }
 }
 
