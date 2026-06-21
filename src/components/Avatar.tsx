@@ -33,3 +33,31 @@ export function Avatar({ ini, size = 22 }: { ini: string; size?: number }) {
     </span>
   );
 }
+
+export function AvatarGroup({
+  inis,
+  size = 22,
+}: {
+  inis: string[];
+  size?: number;
+}) {
+  const mostra = inis.slice(0, 3);
+  return (
+    <div className="flex items-center">
+      {mostra.map((ini, i) => (
+        <span
+          key={ini + i}
+          className={
+            "inline-flex rounded-full ring-1 ring-surface " +
+            (i > 0 ? "-ml-1.5" : "")
+          }
+        >
+          <Avatar ini={ini} size={size} />
+        </span>
+      ))}
+      {inis.length > 3 && (
+        <span className="ml-1 text-[10px] text-faint">+{inis.length - 3}</span>
+      )}
+    </div>
+  );
+}

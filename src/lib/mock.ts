@@ -23,7 +23,6 @@ export const HOJE_BR = "19/06/2026";
 export const usuarioAtual = {
   nome: "Gabriel",
   iniciais: "GB",
-  papel: "Advogado",
   area: "civel" as Area,
 };
 
@@ -121,7 +120,7 @@ export type TarefaFull = {
   prazo: string;
   prazoUrgente?: boolean;
   status: Status;
-  responsavel: string;
+  responsaveis: string[];
 };
 
 export const semana = [
@@ -133,22 +132,22 @@ export const semana = [
 ];
 
 export const tarefasFull: TarefaFull[] = [
-  // Cível — as tarefas do Gabriel, espalhadas por junho/2026.
-  { id: "1", titulo: "Revisar contrato de locação", descricao: "Conferir cláusulas de reajuste e multa.", processo: "1005432-21.2024.8.26.0309", area: "civel", data: "2026-06-03", prazo: "03/06", status: "concluida", responsavel: "GB" },
-  { id: "2", titulo: "Protocolar petição inicial", descricao: "Ação de cobrança contra o banco.", processo: "1001234-55.2024.8.26.0309", area: "civel", data: "2026-06-05", prazo: "05/06", status: "concluida", responsavel: "GB" },
-  { id: "3", titulo: "Analisar documentos do condomínio", descricao: "Convenção e atas de assembleia.", processo: "1005432-21.2024.8.26.0309", area: "civel", data: "2026-06-10", prazo: "10/06", status: "em_curso", responsavel: "GB" },
-  { id: "4", titulo: "Elaborar réplica", descricao: "Responder à contestação da Habita.", processo: "1009876-12.2023.8.26.0114", area: "civel", data: "2026-06-12", prazo: "12/06", status: "em_correcao", responsavel: "GB" },
-  { id: "5", titulo: "Reunião com cliente Aurora", descricao: "Alinhar estratégia do recurso.", processo: "1005432-21.2024.8.26.0309", area: "civel", data: "2026-06-15", prazo: "15/06", status: "concluida", responsavel: "GB" },
-  { id: "6", titulo: "Calcular atualização do débito", descricao: "Aguardando planilha do contador.", processo: "1001234-55.2024.8.26.0309", area: "civel", data: "2026-06-17", prazo: "17/06", status: "aguardando", responsavel: "GB" },
-  { id: "7", titulo: "Analisar despacho e dar ciência", descricao: "Despacho de saneamento — verificar pontos controvertidos.", processo: "1009876-12.2023.8.26.0114", area: "civel", data: "2026-06-19", prazo: "Hoje", prazoUrgente: true, status: "a_fazer", responsavel: "GB" },
-  { id: "8", titulo: "Preparar audiência Habita", descricao: "Rol de testemunhas e quesitos.", processo: "1009876-12.2023.8.26.0114", area: "civel", data: "2026-06-19", prazo: "Hoje", prazoUrgente: true, status: "em_curso", responsavel: "GB" },
-  { id: "9", titulo: "Juntar procuração atualizada", descricao: "Instrumento com os novos poderes.", processo: "1001234-55.2024.8.26.0309", area: "civel", data: "2026-06-22", prazo: "22/06", status: "a_fazer", responsavel: "GB" },
-  { id: "10", titulo: "Protocolar cumprimento de sentença", descricao: "Iniciar a fase de execução.", processo: "1009876-12.2023.8.26.0114", area: "civel", data: "2026-06-24", prazo: "24/06", status: "a_fazer", responsavel: "GB" },
-  { id: "11", titulo: "Manifestar sobre laudo pericial", descricao: "Prazo de 15 dias para impugnação.", processo: "1005432-21.2024.8.26.0309", area: "civel", data: "2026-06-26", prazo: "26/06", status: "a_fazer", responsavel: "GB" },
-  { id: "12", titulo: "Preparar razões de apelação", descricao: "Recurso da sentença de improcedência.", processo: "1001234-55.2024.8.26.0309", area: "civel", data: "2026-06-30", prazo: "30/06", status: "a_fazer", responsavel: "GB" },
-  // Trabalhista — de outros advogados (não aparece pro Gabriel).
-  { id: "13", titulo: "Elaborar contestação", descricao: "Defesa na reclamatória.", processo: "0010567-89.2025.5.15.0042", area: "trabalhista", data: "2026-06-22", prazo: "22/06", status: "a_fazer", responsavel: "AB" },
-  { id: "14", titulo: "Calcular liquidação", descricao: "Apurar verbas rescisórias.", processo: "0050123-44.2025.5.15.0010", area: "trabalhista", data: "2026-06-18", prazo: "18/06", status: "concluida", responsavel: "PL" },
+  // Cível — espalhadas por junho/2026.
+  { id: "1", titulo: "Revisar contrato de locação", descricao: "Conferir cláusulas de reajuste e multa.", processo: "1005432-21.2024.8.26.0309", area: "civel", data: "2026-06-03", prazo: "03/06", status: "concluida", responsaveis: ["GB"] },
+  { id: "2", titulo: "Protocolar petição inicial", descricao: "Ação de cobrança contra o banco.", processo: "1001234-55.2024.8.26.0309", area: "civel", data: "2026-06-05", prazo: "05/06", status: "concluida", responsaveis: ["GB"] },
+  { id: "3", titulo: "Analisar documentos do condomínio", descricao: "Convenção e atas de assembleia.", processo: "1005432-21.2024.8.26.0309", area: "civel", data: "2026-06-10", prazo: "10/06", status: "em_curso", responsaveis: ["GB", "AB"] },
+  { id: "4", titulo: "Elaborar réplica", descricao: "Responder à contestação da Habita.", processo: "1009876-12.2023.8.26.0114", area: "civel", data: "2026-06-12", prazo: "12/06", status: "em_correcao", responsaveis: ["GB"] },
+  { id: "5", titulo: "Reunião com cliente Aurora", descricao: "Alinhar estratégia do recurso.", processo: "1005432-21.2024.8.26.0309", area: "civel", data: "2026-06-15", prazo: "15/06", status: "concluida", responsaveis: ["GB"] },
+  { id: "6", titulo: "Calcular atualização do débito", descricao: "Aguardando planilha do contador.", processo: "1001234-55.2024.8.26.0309", area: "civel", data: "2026-06-17", prazo: "17/06", status: "aguardando", responsaveis: ["GB"] },
+  { id: "7", titulo: "Analisar despacho e dar ciência", descricao: "Despacho de saneamento — verificar pontos controvertidos.", processo: "1009876-12.2023.8.26.0114", area: "civel", data: "2026-06-19", prazo: "Hoje", prazoUrgente: true, status: "a_fazer", responsaveis: ["GB", "CS"] },
+  { id: "8", titulo: "Preparar audiência Habita", descricao: "Rol de testemunhas e quesitos.", processo: "1009876-12.2023.8.26.0114", area: "civel", data: "2026-06-19", prazo: "Hoje", prazoUrgente: true, status: "em_curso", responsaveis: ["GB", "AB"] },
+  { id: "9", titulo: "Juntar procuração atualizada", descricao: "Instrumento com os novos poderes.", processo: "1001234-55.2024.8.26.0309", area: "civel", data: "2026-06-22", prazo: "22/06", status: "a_fazer", responsaveis: ["GB"] },
+  { id: "10", titulo: "Protocolar cumprimento de sentença", descricao: "Iniciar a fase de execução.", processo: "1009876-12.2023.8.26.0114", area: "civel", data: "2026-06-24", prazo: "24/06", status: "a_fazer", responsaveis: ["GB"] },
+  { id: "11", titulo: "Manifestar sobre laudo pericial", descricao: "Prazo de 15 dias para impugnação.", processo: "1005432-21.2024.8.26.0309", area: "civel", data: "2026-06-26", prazo: "26/06", status: "a_fazer", responsaveis: ["GB"] },
+  { id: "12", titulo: "Preparar razões de apelação", descricao: "Recurso da sentença de improcedência.", processo: "1001234-55.2024.8.26.0309", area: "civel", data: "2026-06-30", prazo: "30/06", status: "a_fazer", responsaveis: ["GB"] },
+  // Trabalhista — de outros advogados.
+  { id: "13", titulo: "Elaborar contestação", descricao: "Defesa na reclamatória.", processo: "0010567-89.2025.5.15.0042", area: "trabalhista", data: "2026-06-22", prazo: "22/06", status: "a_fazer", responsaveis: ["AB"] },
+  { id: "14", titulo: "Calcular liquidação", descricao: "Apurar verbas rescisórias.", processo: "0050123-44.2025.5.15.0010", area: "trabalhista", data: "2026-06-18", prazo: "18/06", status: "concluida", responsaveis: ["PL"] },
 ];
 
 export type TipoPessoa = "pf" | "pj";
@@ -243,15 +242,15 @@ export type EventoAgenda = {
   tipo: "reuniao" | "audiencia" | "prazo" | "atendimento";
   titulo: string;
   detalhe: string;
-  ini: string;
+  participantes: string[];
 };
 
 export const eventosAgenda: EventoAgenda[] = [
-  { hora: "09:00", tipo: "reuniao", titulo: "Cliente — Construtora Habita", detalhe: "Sala 2 · 09:00 – 10:00 · Dra. Ana Branco", ini: "AB" },
-  { hora: "10:30", tipo: "prazo", titulo: "Contestação — proc. …5.15.0042", detalhe: "Prazo fatal · Dr. Gabriel", ini: "GB" },
-  { hora: "11:00", tipo: "audiencia", titulo: "TRT15 · 2ª Vara do Trabalho de Jundiaí", detalhe: "11:00 – 12:00 · Dr. Gabriel", ini: "GB" },
-  { hora: "14:00", tipo: "reuniao", titulo: "Alinhamento da equipe cível", detalhe: "Online · Teams · 14:00 – 15:00", ini: "" },
-  { hora: "16:00", tipo: "atendimento", titulo: "Novo cliente — Direito do Consumidor", detalhe: "Recepção · 16:00 · Est. Pedro Lima", ini: "PL" },
+  { hora: "09:00", tipo: "reuniao", titulo: "Cliente — Construtora Habita", detalhe: "Sala 2 · 09:00 – 10:00", participantes: ["AB"] },
+  { hora: "10:30", tipo: "prazo", titulo: "Contestação — proc. …5.15.0042", detalhe: "Prazo fatal", participantes: ["GB"] },
+  { hora: "11:00", tipo: "audiencia", titulo: "TRT15 · 2ª Vara do Trabalho de Jundiaí", detalhe: "11:00 – 12:00", participantes: ["GB"] },
+  { hora: "14:00", tipo: "reuniao", titulo: "Alinhamento da equipe cível", detalhe: "Online · Teams · 14:00 – 15:00", participantes: ["GB", "AB", "CS", "PL"] },
+  { hora: "16:00", tipo: "atendimento", titulo: "Novo cliente — Direito do Consumidor", detalhe: "Recepção · 16:00", participantes: ["PL"] },
 ];
 
 export type Intimacao = {

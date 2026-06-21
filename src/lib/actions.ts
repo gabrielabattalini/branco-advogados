@@ -4,6 +4,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { HOJE_ISO, HOJE_BR, responsaveis, STATUS_LIST } from "@/lib/mock";
+import { getPapel } from "@/lib/sessao";
+import { cookies } from "next/headers";
 
 export type ActionResult = { ok: true } | { ok: false; erro: string };
 
@@ -18,14 +20,13 @@ export async function criarTarefa(input: {
   area: string;
   data: string;
   prazo: string;
-  responsavel: string;
+  responsaveis: string[];
 }): Promise<ActionResult> {
   const titulo = input.titulo.trim();
   if (!titulo) return { ok: false, erro: "Informe o título da tarefa." };
   const area = AREAS.includes(input.area) ? input.area : "civel";
-  const responsavel = INICIAIS.includes(input.responsavel)
-    ? input.responsavel
-    : INICIAIS[0];
+  const resp = (input.responsaveis ?? []).filter((r) => INICIAIS.includes(r));
+  const resps = resp.length ? resp : [INICIAIS[0]];
   try {
     const processo = input.processoNumero
       ? await prisma.processo.findUnique({
@@ -41,7 +42,7 @@ export async function criarTarefa(input: {
         data: input.data || HOJE_ISO,
         prazo: input.prazo,
         status: "a_fazer",
-        responsavel,
+        responsaveis: resps,
         origem: "manual",
       },
     });
@@ -77,15 +78,15 @@ export async function editarTarefa(input: {
   status: string;
   data: string;
   prazo: string;
-  responsavel: string;
+  responsaveis: string[];
 }): Promise<ActionResult> {
   const titulo = input.titulo.trim();
   if (!titulo) return { ok: false, erro: "Informe o título da tarefa." };
   if (!STATUSES.includes(input.status))
     return { ok: false, erro: "Status inválido." };
-  const responsavel = INICIAIS.includes(input.responsavel)
-    ? input.responsavel
-    : INICIAIS[0];
+  const resp = (input.responsaveis ?? []).filter((r) => INICIAIS.includes(r));
+  const resps = resp.length ? resp : [INICIAIS[0]];
+  const podeMudarPrazo = (await getPapel()) === "coordenador";
   try {
     const processo = input.processoNumero
       ? await prisma.processo.findUnique({
@@ -100,9 +101,11 @@ export async function editarTarefa(input: {
         descricao: input.descricao?.trim() || null,
         processoId: processo?.id ?? null,
         status: input.status,
-        data: input.data,
-        prazo: input.prazo || `${dd}/${mm}`,
-        responsavel,
+        responsaveis: resps,
+        // Prazo/data só o coordenador pode alterar.
+        ...(podeMudarPrazo
+          ? { data: input.data, prazo: input.prazo || `${dd}/${mm}` }
+          : {}),
       },
     });
     revalidatePath("/tarefas");
@@ -112,6 +115,58 @@ export async function editarTarefa(input: {
   } catch {
     return { ok: false, erro: "Não foi possível salvar a tarefa." };
   }
+}
+
+export async function excluirTarefa(id: string): Promise<ActionResult> {
+  if ((await getPapel()) !== "coordenador")
+    return { ok: false, erro: "Apenas coordenadores podem excluir tarefas." };
+  try {
+    await prisma.tarefa.delete({ where: { id } });
+    revalidatePath("/tarefas");
+    revalidatePath("/painel");
+    revalidatePath("/processos");
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Não foi possível excluir a tarefa." };
+  }
+}
+
+export async function criarEvento(input: {
+  titulo: string;
+  tipo: string;
+  hora: string;
+  detalhe: string;
+  participantes: string[];
+}): Promise<ActionResult> {
+  const titulo = input.titulo.trim();
+  if (!titulo) return { ok: false, erro: "Informe o título do evento." };
+  const tiposOk = ["reuniao", "audiencia", "prazo", "atendimento"];
+  const tipo = tiposOk.includes(input.tipo) ? input.tipo : "reuniao";
+  const parts = (input.participantes ?? []).filter((r) => INICIAIS.includes(r));
+  try {
+    await prisma.eventoAgenda.create({
+      data: {
+        titulo,
+        tipo,
+        hora: input.hora || "09:00",
+        detalhe: input.detalhe?.trim() || "",
+        participantes: parts,
+      },
+    });
+    revalidatePath("/agenda");
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Não foi possível criar o evento." };
+  }
+}
+
+export async function definirPapel(papel: string): Promise<ActionResult> {
+  const valor = papel === "advogado" ? "advogado" : "coordenador";
+  const store = await cookies();
+  store.set("papel", valor, { path: "/", maxAge: 60 * 60 * 24 * 365 });
+  revalidatePath("/", "layout");
+  return { ok: true };
 }
 
 export async function criarProcesso(input: {
@@ -211,7 +266,7 @@ export async function gerarTarefaDaIntimacao(
           data: HOJE_ISO,
           prazo: pub.prazo,
           status: "a_fazer",
-          responsavel: responsaveis[0].iniciais,
+          responsaveis: [responsaveis[0].iniciais],
           origem: "aasp",
         },
       });

@@ -9,10 +9,25 @@ import type {
   Intimacao,
 } from "@/lib/mock";
 import { HOJE_ISO, usuarioAtual } from "@/lib/mock";
+import { getPapel } from "@/lib/sessao";
+
+// Filtros de visibilidade conforme o perfil (coordenador vê tudo).
+async function escopoTarefas() {
+  const papel = await getPapel();
+  return papel === "coordenador"
+    ? {}
+    : { responsaveis: { has: usuarioAtual.iniciais } };
+}
+async function escopoAgenda() {
+  const papel = await getPapel();
+  return papel === "coordenador"
+    ? {}
+    : { participantes: { has: usuarioAtual.iniciais } };
+}
 
 export async function getTarefas(): Promise<TarefaFull[]> {
   const rows = await prisma.tarefa.findMany({
-    where: { area: usuarioAtual.area },
+    where: await escopoTarefas(),
     orderBy: { criadoEm: "desc" },
     include: { processo: true },
   });
@@ -26,7 +41,7 @@ export async function getTarefas(): Promise<TarefaFull[]> {
     prazo: r.prazo,
     prazoUrgente: r.prazoUrgente,
     status: r.status as Status,
-    responsavel: r.responsavel,
+    responsaveis: r.responsaveis,
   }));
 }
 
@@ -92,13 +107,14 @@ export async function getFichaProcesso(
     tarefas: p.tarefas.map((t) => ({
       id: t.id,
       titulo: t.titulo,
+      descricao: t.descricao ?? undefined,
       processo: p.numero,
       area: t.area as Area,
       data: t.data,
       prazo: t.prazo,
       prazoUrgente: t.prazoUrgente,
       status: t.status as Status,
-      responsavel: t.responsavel,
+      responsaveis: t.responsaveis,
     })),
     documentos: p.documentos.map((d) => ({
       ordem: String(d.ordem).padStart(2, "0"),
@@ -119,7 +135,6 @@ export async function getContatos(): Promise<Contato[]> {
     prisma.contato.findMany({ orderBy: { nome: "asc" } }),
     prisma.processo.findMany({ select: { cliente: true, parteContraria: true } }),
   ]);
-  // Contagem dinâmica (não há FK Contato<->Processo; casa por nome).
   const contar = (nome: string) =>
     procs.filter((p) => p.cliente === nome || p.parteContraria === nome).length;
   return rows.map((c) => ({
@@ -134,13 +149,16 @@ export async function getContatos(): Promise<Contato[]> {
 }
 
 export async function getEventosAgenda(): Promise<EventoAgenda[]> {
-  const rows = await prisma.eventoAgenda.findMany({ orderBy: { hora: "asc" } });
+  const rows = await prisma.eventoAgenda.findMany({
+    where: await escopoAgenda(),
+    orderBy: { hora: "asc" },
+  });
   return rows.map((e) => ({
     hora: e.hora,
     tipo: e.tipo as EventoAgenda["tipo"],
     titulo: e.titulo,
     detalhe: e.detalhe,
-    ini: e.ini,
+    participantes: e.participantes,
   }));
 }
 
@@ -200,6 +218,9 @@ export type PainelData = {
 };
 
 export async function getPainel(): Promise<PainelData> {
+  const minhasTarefas = await escopoTarefas();
+  const minhasAgendas = await escopoAgenda();
+
   const [
     tarefas,
     eventos,
@@ -210,28 +231,30 @@ export async function getPainel(): Promise<PainelData> {
     audiencias,
   ] = await Promise.all([
     prisma.tarefa.findMany({
-      where: { area: usuarioAtual.area, status: { not: "concluida" } },
+      where: { ...minhasTarefas, status: { not: "concluida" } },
       include: { processo: true },
       orderBy: { criadoEm: "desc" },
       take: 5,
     }),
-    prisma.eventoAgenda.findMany({ orderBy: { hora: "asc" }, take: 3 }),
+    prisma.eventoAgenda.findMany({
+      where: minhasAgendas,
+      orderBy: { hora: "asc" },
+      take: 3,
+    }),
     prisma.publicacao.findMany({
       where: { statusTriagem: "pendente" },
       take: 2,
     }),
     prisma.tarefa.count({
-      where: { area: usuarioAtual.area, status: { not: "concluida" } },
+      where: { ...minhasTarefas, status: { not: "concluida" } },
     }),
     prisma.tarefa.count({
-      where: {
-        area: usuarioAtual.area,
-        data: HOJE_ISO,
-        status: { not: "concluida" },
-      },
+      where: { ...minhasTarefas, data: HOJE_ISO, status: { not: "concluida" } },
     }),
     prisma.publicacao.count({ where: { statusTriagem: "pendente" } }),
-    prisma.eventoAgenda.count({ where: { tipo: "audiencia" } }),
+    prisma.eventoAgenda.count({
+      where: { ...minhasAgendas, tipo: "audiencia" },
+    }),
   ]);
 
   return {

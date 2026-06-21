@@ -65,7 +65,7 @@ model Tarefa {
   data         String // ISO yyyy-mm-dd (posição no calendário)
   prazoUrgente Boolean   @default(false)
   status       String    @default("a_fazer") // a_fazer | em_curso | concluida
-  responsavel  String // iniciais
+  responsaveis String[] // iniciais (pode ter mais de um)
   origem       String    @default("manual") // manual | aasp
   criadoEm     DateTime  @default(now())
 }
@@ -104,8 +104,8 @@ model EventoAgenda {
   id       String   @id @default(cuid())
   hora     String
   tipo     String // reuniao | audiencia | prazo | atendimento
-  titulo   String
-  detalhe  String
-  ini      String
-  criadoEm DateTime @default(now())
+  titulo        String
+  detalhe       String
+  participantes String[]
+  criadoEm      DateTime @default(now())
 }

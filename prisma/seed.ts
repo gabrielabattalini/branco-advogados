@@ -84,7 +84,7 @@ async function main() {
         data: t.data,
         prazoUrgente: !!t.prazoUrgente,
         status: t.status,
-        responsavel: t.responsavel,
+        responsaveis: t.responsaveis,
         origem: "manual",
       },
     });
@@ -153,7 +153,7 @@ async function main() {
         tipo: e.tipo,
         titulo: e.titulo,
         detalhe: e.detalhe,
-        ini: e.ini,
+        participantes: e.participantes,
       },
     });
   }

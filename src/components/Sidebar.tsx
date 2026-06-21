@@ -23,7 +23,7 @@ const nav = [
   { href: "/publicacoes", label: "Publicações", Icon: Newspaper },
 ];
 
-export function Sidebar() {
+export function Sidebar({ papel }: { papel: string }) {
   const pathname = usePathname();
   return (
     <aside className="flex w-60 shrink-0 flex-col bg-navy px-3 py-5">
@@ -61,7 +61,9 @@ export function Sidebar() {
         </div>
         <div className="leading-tight">
           <div className="text-sm text-cream">{usuarioAtual.nome} B.</div>
-          <div className="text-[11px] text-cream/40">{usuarioAtual.papel}</div>
+          <div className="text-[11px] text-cream/40">
+            {papel === "coordenador" ? "Coordenador" : "Advogado"}
+          </div>
         </div>
       </div>
     </aside>

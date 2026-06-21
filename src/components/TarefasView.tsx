@@ -8,11 +8,13 @@ import {
   semana,
   corDoStatus,
   HOJE_ISO,
+  responsaveis,
   type Status,
   type TarefaFull,
   type Processo,
 } from "@/lib/mock";
-import { Avatar } from "@/components/Avatar";
+import { AreaTag } from "@/components/AreaTag";
+import { AvatarGroup } from "@/components/Avatar";
 import { StatusSelect } from "@/components/StatusSelect";
 import { NovaTarefaModal } from "@/components/NovaTarefaModal";
 import { atualizarStatusTarefa } from "@/lib/actions";
@@ -28,7 +30,7 @@ const NOMES_MES = [
 
 function gridMes(ano: number, mes: number) {
   const primeiro = new Date(ano, mes - 1, 1);
-  const offset = (primeiro.getDay() + 6) % 7; // segunda = 0
+  const offset = (primeiro.getDay() + 6) % 7;
   const semanas: { iso: string; dia: number; doMes: boolean }[][] = [];
   let cur = new Date(ano, mes - 1, 1 - offset);
   for (let w = 0; w < 6; w++) {
@@ -49,14 +51,19 @@ function gridMes(ano: number, mes: number) {
 export function TarefasView({
   tarefas,
   processos,
+  papel,
 }: {
   tarefas: TarefaFull[];
   processos: Processo[];
+  papel: string;
 }) {
   const router = useRouter();
+  const coord = papel === "coordenador";
   const [view, setView] = useState<View>("calendario");
   const [calMode, setCalMode] = useState<CalMode>("semana");
   const [mesAtual, setMesAtual] = useState({ ano: 2026, mes: 6 });
+  const [filtroAdv, setFiltroAdv] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState("");
   const [showNova, setShowNova] = useState(false);
   const [editar, setEditar] = useState<TarefaFull | null>(null);
 
@@ -66,6 +73,15 @@ export function TarefasView({
   };
   const prazoCls = (urgente?: boolean) =>
     urgente ? "font-medium text-danger" : "text-muted";
+
+  const visiveis = tarefas.filter(
+    (t) =>
+      (!filtroAdv || t.responsaveis.includes(filtroAdv)) &&
+      (!filtroStatus || t.status === filtroStatus),
+  );
+
+  const selCls =
+    "rounded-md border border-line bg-surface px-2.5 py-1.5 text-[12px] text-muted outline-none";
 
   const tabBtn = (v: View, label: string) => (
     <button
@@ -107,8 +123,11 @@ export function TarefasView({
             {t.descricao}
           </div>
         )}
-        <div className="mt-0.5 font-mono text-[10.5px] text-faint">
-          {t.processo ? "…" + t.processo.slice(-12) : "sem processo"}
+        <div className="mt-1 flex items-center gap-1.5">
+          {coord && <AreaTag area={t.area} />}
+          <span className="font-mono text-[10.5px] text-faint">
+            {t.processo ? "…" + t.processo.slice(-12) : "sem processo"}
+          </span>
         </div>
       </button>
       <div className="mt-2 flex items-center justify-between gap-2">
@@ -117,7 +136,7 @@ export function TarefasView({
           <span className={"text-[11px] " + prazoCls(t.prazoUrgente)}>
             {t.prazo}
           </span>
-          <Avatar ini={t.responsavel} />
+          <AvatarGroup inis={t.responsaveis} size={20} />
         </div>
       </div>
     </div>
@@ -126,7 +145,7 @@ export function TarefasView({
   const quadro = (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
       {STATUS_LIST.map((col) => {
-        const items = tarefas.filter((t) => t.status === col.key);
+        const items = visiveis.filter((t) => t.status === col.key);
         return (
           <div
             key={col.key}
@@ -153,7 +172,7 @@ export function TarefasView({
   const calendarioSemana = (
     <div className="grid grid-cols-5 gap-2">
       {semana.map((d) => {
-        const items = tarefas.filter((t) => t.data === d.data);
+        const items = visiveis.filter((t) => t.data === d.data);
         return (
           <div
             key={d.data}
@@ -190,18 +209,14 @@ export function TarefasView({
                   <div className="text-[11.5px] leading-tight text-ink">
                     {t.titulo}
                   </div>
-                  {t.descricao && (
-                    <div className="mt-0.5 line-clamp-2 text-[10px] text-muted">
-                      {t.descricao}
-                    </div>
-                  )}
                 </button>
-                <div className="mt-1.5">
+                <div className="mt-1.5 flex items-center justify-between gap-1">
                   <StatusSelect
                     value={t.status}
                     onChange={(s) => setStatus(t.id, s)}
                     compact
                   />
+                  <AvatarGroup inis={t.responsaveis} size={18} />
                 </div>
               </div>
             ))}
@@ -252,7 +267,7 @@ export function TarefasView({
         {gridMes(mesAtual.ano, mesAtual.mes)
           .flat()
           .map((cel) => {
-            const items = tarefas.filter((t) => t.data === cel.iso);
+            const items = visiveis.filter((t) => t.data === cel.iso);
             const hoje = cel.iso === HOJE_ISO;
             return (
               <div
@@ -313,7 +328,7 @@ export function TarefasView({
 
   const lista = (
     <div className="overflow-hidden rounded-lg border border-line bg-surface">
-      {tarefas.map((t, i) => (
+      {visiveis.map((t, i) => (
         <div
           key={t.id}
           className={
@@ -335,7 +350,8 @@ export function TarefasView({
               {t.processo || "sem processo"}
             </div>
           </button>
-          <Avatar ini={t.responsavel} />
+          {coord && <AreaTag area={t.area} />}
+          <AvatarGroup inis={t.responsaveis} size={22} />
           <span
             className={"w-12 text-right text-[11px] " + prazoCls(t.prazoUrgente)}
           >
@@ -364,8 +380,43 @@ export function TarefasView({
         </div>
       </div>
 
-      <div className="mb-4 flex items-center gap-1.5 text-[12px] text-faint">
-        <Lock size={13} /> Mostrando apenas as suas tarefas (Cível)
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-1.5 text-[12px] text-faint">
+          <Lock size={13} />
+          {coord
+            ? "Todas as tarefas do escritório"
+            : "Apenas as suas tarefas"}
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          {coord && (
+            <select
+              value={filtroAdv}
+              onChange={(e) => setFiltroAdv(e.target.value)}
+              className={selCls}
+              aria-label="Filtrar por advogado"
+            >
+              <option value="">Todos os advogados</option>
+              {responsaveis.map((r) => (
+                <option key={r.iniciais} value={r.iniciais}>
+                  {r.nome}
+                </option>
+              ))}
+            </select>
+          )}
+          <select
+            value={filtroStatus}
+            onChange={(e) => setFiltroStatus(e.target.value)}
+            className={selCls}
+            aria-label="Filtrar por status"
+          >
+            <option value="">Todos os status</option>
+            {STATUS_LIST.map((s) => (
+              <option key={s.key} value={s.key}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {view === "calendario" && calendario}
@@ -375,6 +426,7 @@ export function TarefasView({
       {showNova && (
         <NovaTarefaModal
           processos={processos}
+          papel={papel}
           onClose={() => setShowNova(false)}
         />
       )}
@@ -382,6 +434,7 @@ export function TarefasView({
         <NovaTarefaModal
           processos={processos}
           tarefa={editar}
+          papel={papel}
           onClose={() => setEditar(null)}
         />
       )}

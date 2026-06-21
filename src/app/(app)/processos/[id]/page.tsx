@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, Plus, Upload, FileText, Check } from "lucide-react";
 import { getFichaProcesso } from "@/lib/data";
 import { AreaTag } from "@/components/AreaTag";
-import { Avatar } from "@/components/Avatar";
+import { AvatarGroup } from "@/components/Avatar";
 import { statusLabel, corDoStatus } from "@/lib/mock";
 
 export const dynamic = "force-dynamic";
@@ -89,7 +89,7 @@ export default async function ProcessoPage({
             }
           >
             <div className="min-w-0 flex-1 text-[13px] text-ink">{t.titulo}</div>
-            <Avatar ini={t.responsavel} />
+            <AvatarGroup inis={t.responsaveis} />
             <span className="w-12 text-right text-[11px] text-muted">
               {t.prazo}
             </span>
