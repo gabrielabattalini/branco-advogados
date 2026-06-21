@@ -1,0 +1,18 @@
+name: Lembretes de audiência
+
+# Chama o endpoint que dispara os lembretes de audiência por e-mail.
+# Roda a cada ~10 minutos (o GitHub pode atrasar alguns minutos no plano free).
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  disparar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Disparar lembretes
+        run: |
+          curl -fsS -X POST \
+            "https://branco-advogados-two.vercel.app/api/lembretes/disparar" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" || true

@@ -8,6 +8,7 @@ import {
   Scale,
   ListChecks,
   Calendar,
+  Gavel,
   Folder,
   Newspaper,
   ShieldCheck,
@@ -21,6 +22,7 @@ const navBase = [
   { href: "/processos", label: "Processos", Icon: Scale },
   { href: "/tarefas", label: "Tarefas", Icon: ListChecks },
   { href: "/agenda", label: "Agenda", Icon: Calendar },
+  { href: "/audiencias", label: "Audiências", Icon: Gavel },
   { href: "/documentos", label: "Documentos", Icon: Folder },
   { href: "/publicacoes", label: "Publicações", Icon: Newspaper },
 ];

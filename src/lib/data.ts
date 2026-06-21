@@ -183,16 +183,73 @@ export async function getContatos(): Promise<Contato[]> {
 }
 
 export async function getEventosAgenda(): Promise<EventoAgenda[]> {
-  const rows = await prisma.eventoAgenda.findMany({
-    where: await escopoAgenda(),
-    orderBy: { hora: "asc" },
-  });
-  return rows.map((e) => ({
+  const escopo = await escopoAgenda();
+  const [rows, audi] = await Promise.all([
+    prisma.eventoAgenda.findMany({ where: escopo, orderBy: { hora: "asc" } }),
+    // Audiências do dia entram na agenda como itens do tipo "audiencia".
+    prisma.audiencia.findMany({
+      where: { data: HOJE_ISO, status: { not: "cancelada" }, ...escopo },
+      orderBy: { hora: "asc" },
+    }),
+  ]);
+  const eventos: EventoAgenda[] = rows.map((e) => ({
     hora: e.hora,
     tipo: e.tipo as EventoAgenda["tipo"],
     titulo: e.titulo,
     detalhe: e.detalhe,
     participantes: e.participantes,
+  }));
+  const audiencias: EventoAgenda[] = audi.map((a) => ({
+    hora: a.hora,
+    tipo: "audiencia",
+    titulo: a.titulo,
+    detalhe: [a.local, a.partes].filter(Boolean).join(" · "),
+    participantes: a.participantes,
+  }));
+  return [...eventos, ...audiencias].sort((x, y) =>
+    x.hora.localeCompare(y.hora),
+  );
+}
+
+export type LembreteDTO = { id: string; offsetMin: number; enviado: boolean };
+export type AudienciaDTO = {
+  id: string;
+  processoNumero: string;
+  titulo: string;
+  data: string;
+  hora: string;
+  tipo: string;
+  local: string;
+  partes: string;
+  participantes: string[];
+  observacoes: string;
+  status: string;
+  lembretes: LembreteDTO[];
+};
+
+export async function getAudiencias(): Promise<AudienciaDTO[]> {
+  const rows = await prisma.audiencia.findMany({
+    where: await escopoAgenda(),
+    include: { processo: true, lembretes: { orderBy: { offsetMin: "desc" } } },
+    orderBy: { inicioUtc: "asc" },
+  });
+  return rows.map((a) => ({
+    id: a.id,
+    processoNumero: a.processo?.numero ?? "",
+    titulo: a.titulo,
+    data: a.data,
+    hora: a.hora,
+    tipo: a.tipo,
+    local: a.local,
+    partes: a.partes,
+    participantes: a.participantes,
+    observacoes: a.observacoes,
+    status: a.status,
+    lembretes: a.lembretes.map((l) => ({
+      id: l.id,
+      offsetMin: l.offsetMin,
+      enviado: !!l.enviadoEm,
+    })),
   }));
 }
 

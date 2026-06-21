@@ -8,10 +8,12 @@ import {
   documentosPorProcesso,
   publicacoesPorProcesso,
   eventosAgenda,
+  audienciasSeed,
   intimacoes,
   classificarArea,
 } from "../src/lib/mock";
 import { hashSenha } from "../src/lib/seguranca";
+import { instanteBRT } from "../src/lib/audiencia";
 
 const prisma = new PrismaClient();
 
@@ -29,6 +31,8 @@ async function main() {
   await prisma.tarefa.deleteMany();
   await prisma.documento.deleteMany();
   await prisma.publicacao.deleteMany();
+  await prisma.lembrete.deleteMany();
+  await prisma.audiencia.deleteMany();
   await prisma.processo.deleteMany();
   await prisma.contato.deleteMany();
   await prisma.usuario.deleteMany();
@@ -163,6 +167,25 @@ async function main() {
         titulo: e.titulo,
         detalhe: e.detalhe,
         participantes: e.participantes.map(mapIni),
+      },
+    });
+  }
+
+  for (const a of audienciasSeed) {
+    await prisma.audiencia.create({
+      data: {
+        processoId: procByNumero[a.processoNumero] ?? null,
+        titulo: a.titulo,
+        data: a.data,
+        hora: a.hora,
+        inicioUtc: instanteBRT(a.data, a.hora),
+        tipo: a.tipo,
+        local: a.local,
+        partes: a.partes,
+        participantes: a.participantes,
+        observacoes: a.observacoes,
+        status: a.status,
+        lembretes: { create: a.lembretes.map((offsetMin) => ({ offsetMin })) },
       },
     });
   }

@@ -54,6 +54,7 @@ model Processo {
   tarefas             Tarefa[]
   documentos          Documento[]
   publicacoes         Publicacao[]
+  audiencias          Audiencia[]
 }
 
 model Tarefa {
@@ -111,4 +112,31 @@ model EventoAgenda {
   detalhe       String
   participantes String[]
   criadoEm      DateTime @default(now())
+}
+
+model Audiencia {
+  id            String     @id @default(cuid())
+  processoId    String?
+  processo      Processo?  @relation(fields: [processoId], references: [id])
+  titulo        String
+  data          String // yyyy-mm-dd (horário de Brasília)
+  hora          String // HH:MM (horário de Brasília)
+  inicioUtc     DateTime // instante absoluto (data+hora BRT convertidos p/ UTC)
+  tipo          String     @default("instrucao") // instrucao | conciliacao | inicial | una | outra
+  local         String     @default("")
+  partes        String     @default("")
+  participantes String[]
+  observacoes   String     @default("")
+  status        String     @default("agendada") // agendada | realizada | cancelada
+  criadoEm      DateTime   @default(now())
+  lembretes     Lembrete[]
+}
+
+model Lembrete {
+  id          String    @id @default(cuid())
+  audienciaId String
+  audiencia   Audiencia @relation(fields: [audienciaId], references: [id], onDelete: Cascade)
+  offsetMin   Int // minutos antes do início
+  enviadoEm   DateTime? // nulo até ser enviado (evita reenvio)
+  criadoEm    DateTime  @default(now())
 }

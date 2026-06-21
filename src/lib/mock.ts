@@ -277,9 +277,27 @@ export type EventoAgenda = {
 export const eventosAgenda: EventoAgenda[] = [
   { hora: "09:00", tipo: "reuniao", titulo: "Cliente — Construtora Habita", detalhe: "Sala 2 · 09:00 – 10:00", participantes: ["AB"] },
   { hora: "10:30", tipo: "prazo", titulo: "Contestação — proc. …5.15.0042", detalhe: "Prazo fatal", participantes: ["GB"] },
-  { hora: "11:00", tipo: "audiencia", titulo: "TRT15 · 2ª Vara do Trabalho de Jundiaí", detalhe: "11:00 – 12:00", participantes: ["GB"] },
   { hora: "14:00", tipo: "reuniao", titulo: "Alinhamento da equipe cível", detalhe: "Online · Teams · 14:00 – 15:00", participantes: ["GB", "AB", "CS", "PL"] },
   { hora: "16:00", tipo: "atendimento", titulo: "Novo cliente — Direito do Consumidor", detalhe: "Recepção · 16:00", participantes: ["PL"] },
+];
+
+// Audiências de demonstração (iniciais já na equipe real). A de 19/06 também
+// aparece na agenda do dia.
+export const audienciasSeed: {
+  processoNumero: string;
+  titulo: string;
+  data: string;
+  hora: string;
+  tipo: string;
+  local: string;
+  partes: string;
+  participantes: string[];
+  observacoes: string;
+  status: string;
+  lembretes: number[];
+}[] = [
+  { processoNumero: "0010567-89.2025.5.15.0042", titulo: "Audiência de instrução — João da Silva", data: "2026-06-19", hora: "11:00", tipo: "instrucao", local: "TRT15 · 2ª Vara do Trabalho de Jundiaí", partes: "João da Silva × Indústria Metalúrgica Zardetto Ltda", participantes: ["GB", "MR"], observacoes: "Levar rol de testemunhas.", status: "agendada", lembretes: [1440, 120, 30] },
+  { processoNumero: "1005432-21.2024.8.26.0309", titulo: "Audiência de conciliação — Cond. Aurora", data: "2026-07-10", hora: "14:30", tipo: "conciliacao", local: "TJSP · 3ª Vara Cível de Jundiaí", partes: "Condomínio Edifício Aurora × Construtora Habita S.A.", participantes: ["MN", "KA"], observacoes: "", status: "agendada", lembretes: [2880, 60] },
 ];
 
 export type Intimacao = {

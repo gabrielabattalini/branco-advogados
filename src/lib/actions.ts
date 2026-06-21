@@ -5,6 +5,21 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { HOJE_ISO, HOJE_BR, STATUS_LIST } from "@/lib/mock";
 import { getSessao, ehGestor } from "@/lib/sessao";
+import { instanteBRT } from "@/lib/audiencia";
+
+const TIPOS_AUDIENCIA = ["instrucao", "conciliacao", "inicial", "una", "outra"];
+const STATUS_AUDIENCIA = ["agendada", "realizada", "cancelada"];
+const MAX_OFFSET = 30 * 1440; // 30 dias em minutos
+
+function limparOffsets(lembretes: number[] | undefined): number[] {
+  return [
+    ...new Set(
+      (lembretes ?? []).filter(
+        (m) => Number.isInteger(m) && m > 0 && m <= MAX_OFFSET,
+      ),
+    ),
+  ];
+}
 
 export type ActionResult = { ok: true } | { ok: false; erro: string };
 
@@ -416,5 +431,172 @@ export async function ignorarIntimacao(id: string): Promise<ActionResult> {
     return { ok: true };
   } catch {
     return { ok: false, erro: "Não foi possível ignorar a intimação." };
+  }
+}
+
+// ---- Audiências ----
+
+type AudienciaInput = {
+  processoNumero: string;
+  titulo: string;
+  data: string;
+  hora: string;
+  tipo: string;
+  local: string;
+  partes: string;
+  participantes: string[];
+  observacoes: string;
+  lembretes: number[];
+};
+
+function validarAudiencia(input: AudienciaInput): string | null {
+  if (!input.titulo.trim()) return "Informe o título da audiência.";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.data) || !/^\d{2}:\d{2}$/.test(input.hora))
+    return "Informe data e horário válidos.";
+  return null;
+}
+
+export async function criarAudiencia(
+  input: AudienciaInput,
+): Promise<ActionResult> {
+  const s = await getSessao();
+  if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
+  const erroVal = validarAudiencia(input);
+  if (erroVal) return { ok: false, erro: erroVal };
+  const tipo = TIPOS_AUDIENCIA.includes(input.tipo) ? input.tipo : "instrucao";
+  const inicio = instanteBRT(input.data, input.hora);
+  if (inicio.getTime() <= Date.now())
+    return {
+      ok: false,
+      erro: "Informe uma data e horário futuros para a audiência.",
+    };
+  try {
+    const validas = await iniciaisValidas();
+    const parts = (input.participantes ?? []).filter((r) => validas.has(r));
+    const processo = input.processoNumero
+      ? await prisma.processo.findUnique({
+          where: { numero: input.processoNumero },
+        })
+      : null;
+    await prisma.audiencia.create({
+      data: {
+        processoId: processo?.id ?? null,
+        titulo: input.titulo.trim(),
+        data: input.data,
+        hora: input.hora,
+        inicioUtc: inicio,
+        tipo,
+        local: input.local?.trim() || "",
+        partes: input.partes?.trim() || "",
+        participantes: parts,
+        observacoes: input.observacoes?.trim() || "",
+        lembretes: { create: limparOffsets(input.lembretes).map((offsetMin) => ({ offsetMin })) },
+      },
+    });
+    revalidatePath("/audiencias");
+    revalidatePath("/agenda");
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Não foi possível criar a audiência." };
+  }
+}
+
+export async function editarAudiencia(
+  input: AudienciaInput & { id: string; status: string },
+): Promise<ActionResult> {
+  const s = await getSessao();
+  if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
+  const erroVal = validarAudiencia(input);
+  if (erroVal) return { ok: false, erro: erroVal };
+  const tipo = TIPOS_AUDIENCIA.includes(input.tipo) ? input.tipo : "instrucao";
+  const status = STATUS_AUDIENCIA.includes(input.status)
+    ? input.status
+    : "agendada";
+  try {
+    const gestor = ehGestor(s.papel);
+    const alvo = await prisma.audiencia.findUnique({
+      where: { id: input.id },
+      select: { participantes: true },
+    });
+    if (!alvo) return { ok: false, erro: "Audiência não encontrada." };
+    if (!gestor && !alvo.participantes.includes(s.iniciais))
+      return { ok: false, erro: "Sem permissão para editar esta audiência." };
+    const inicio = instanteBRT(input.data, input.hora);
+    if (status === "agendada" && inicio.getTime() <= Date.now())
+      return {
+        ok: false,
+        erro: "Informe uma data e horário futuros para a audiência.",
+      };
+    const validas = await iniciaisValidas();
+    // Só um gestor altera a lista de participantes (evita remover colegas).
+    const parts = gestor
+      ? (input.participantes ?? []).filter((r) => validas.has(r))
+      : alvo.participantes;
+    const processo = input.processoNumero
+      ? await prisma.processo.findUnique({
+          where: { numero: input.processoNumero },
+        })
+      : null;
+    // Preserva o estado de envio dos lembretes cujo offset não mudou: só
+    // remove os retirados e cria os novos (evita reenvio de e-mail).
+    const existentes = await prisma.lembrete.findMany({
+      where: { audienciaId: input.id },
+      select: { offsetMin: true },
+    });
+    const offsetsAtuais = new Set(existentes.map((e) => e.offsetMin));
+    const novos = limparOffsets(input.lembretes);
+    const novosSet = new Set(novos);
+    const remover = [...offsetsAtuais].filter((o) => !novosSet.has(o));
+    const criar = novos.filter((o) => !offsetsAtuais.has(o));
+    await prisma.$transaction([
+      prisma.lembrete.deleteMany({
+        where: { audienciaId: input.id, offsetMin: { in: remover } },
+      }),
+      prisma.audiencia.update({
+        where: { id: input.id },
+        data: {
+          processoId: processo?.id ?? null,
+          titulo: input.titulo.trim(),
+          data: input.data,
+          hora: input.hora,
+          inicioUtc: inicio,
+          tipo,
+          status,
+          local: input.local?.trim() || "",
+          partes: input.partes?.trim() || "",
+          participantes: parts,
+          observacoes: input.observacoes?.trim() || "",
+          lembretes: { create: criar.map((offsetMin) => ({ offsetMin })) },
+        },
+      }),
+    ]);
+    revalidatePath("/audiencias");
+    revalidatePath("/agenda");
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Não foi possível salvar a audiência." };
+  }
+}
+
+export async function excluirAudiencia(id: string): Promise<ActionResult> {
+  const s = await getSessao();
+  if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
+  try {
+    const alvo = await prisma.audiencia.findUnique({
+      where: { id },
+      select: { participantes: true },
+    });
+    if (!alvo) return { ok: false, erro: "Audiência não encontrada." };
+    if (!ehGestor(s.papel) && !alvo.participantes.includes(s.iniciais))
+      return { ok: false, erro: "Sem permissão para excluir esta audiência." };
+    await prisma.audiencia.delete({ where: { id } });
+    revalidatePath("/audiencias");
+    revalidatePath("/agenda");
+    revalidatePath("/painel");
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Não foi possível excluir a audiência." };
   }
 }
