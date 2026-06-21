@@ -169,6 +169,26 @@ export async function definirPapel(papel: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+export async function salvarPerfil(input: {
+  nome: string;
+  email: string;
+  area: string;
+  papel: string;
+}): Promise<ActionResult> {
+  const store = await cookies();
+  const opts = { path: "/", maxAge: 60 * 60 * 24 * 365 };
+  store.set("nome", input.nome.trim() || "Gabriel Branco", opts);
+  store.set("email", input.email.trim() || "gabriel@brancoadvogados.com", opts);
+  store.set("area", input.area === "trabalhista" ? "trabalhista" : "civel", opts);
+  store.set(
+    "papel",
+    input.papel === "advogado" ? "advogado" : "coordenador",
+    opts,
+  );
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 export async function criarProcesso(input: {
   numero: string;
   area: string;
