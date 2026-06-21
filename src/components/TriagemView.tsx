@@ -34,15 +34,10 @@ export function TriagemView({ intimacoes }: { intimacoes: Intimacao[] }) {
   ];
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <div className="mb-4">
-        <h1 className="font-serif text-2xl text-navy">
-          Triagem de publicações
-        </h1>
-        <div className="mt-1 flex items-center gap-2 text-[12px] text-faint">
-          <FileText size={14} /> relacao-aasp-19-06-2026.pdf · {total} intimações
-          na fila
-        </div>
+    <div>
+      <div className="mb-4 flex items-center gap-2 text-[12px] text-faint">
+        <FileText size={14} /> relacao-aasp-19-06-2026.pdf · {total} intimações na
+        fila
       </div>
 
       <div className="mb-4 flex items-center gap-3 rounded-lg border border-dashed border-line bg-surface px-4 py-3 text-sm text-muted">

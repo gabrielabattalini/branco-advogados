@@ -199,7 +199,40 @@ export async function getIntimacoesPendentes(): Promise<Intimacao[]> {
     partes: p.partes,
     despacho: p.despacho,
     prazo: p.prazo,
+    data: p.data,
     processoCadastrado: p.processoCadastrado,
+  }));
+}
+
+// Todas as publicações posicionadas por dia (visão de calendário).
+export type PublicacaoCal = {
+  id: string;
+  numero: string;
+  tribunal: string;
+  tipo: string;
+  area: Area;
+  data: string; // ISO yyyy-mm-dd
+  prazo: string;
+  partes: string;
+  despacho: string;
+  statusTriagem: string; // pendente | processada | ignorada
+};
+
+export async function getPublicacoes(): Promise<PublicacaoCal[]> {
+  const rows = await prisma.publicacao.findMany({
+    orderBy: { data: "asc" },
+  });
+  return rows.map((p) => ({
+    id: p.id,
+    numero: p.numero,
+    tribunal: p.tribunal,
+    tipo: p.tipo,
+    area: p.area as Area,
+    data: p.data,
+    prazo: p.prazo,
+    partes: p.partes,
+    despacho: p.despacho,
+    statusTriagem: p.statusTriagem,
   }));
 }
 

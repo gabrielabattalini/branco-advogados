@@ -221,12 +221,20 @@ export type PublicacaoProc = {
   titulo: string;
   origem: string;
   estado: "gerou_tarefa" | "arquivada";
+  data: string;
 };
 
 export const publicacoesPorProcesso: Record<string, PublicacaoProc[]> = {
   "0010567-89.2025.5.15.0042": [
-    { titulo: "Intimação para apresentar contestação", origem: "TRT15 · publicado 19/06/2026", estado: "gerou_tarefa" },
-    { titulo: "Despacho de saneamento", origem: "TRT15 · publicado 02/05/2026", estado: "arquivada" },
+    { titulo: "Intimação para apresentar contestação", origem: "TRT15 · publicado 05/06/2026", estado: "gerou_tarefa", data: "2026-06-05" },
+    { titulo: "Despacho de saneamento", origem: "TRT15 · publicado 11/06/2026", estado: "arquivada", data: "2026-06-11" },
+  ],
+  "1005432-21.2024.8.26.0309": [
+    { titulo: "Manifeste-se sobre os documentos", origem: "TJSP · publicado 09/06/2026", estado: "gerou_tarefa", data: "2026-06-09" },
+    { titulo: "Decisão interlocutória", origem: "TJSP · publicado 16/06/2026", estado: "arquivada", data: "2026-06-16" },
+  ],
+  "1009876-12.2023.8.26.0114": [
+    { titulo: "Sentença publicada", origem: "TJSP · publicado 13/06/2026", estado: "gerou_tarefa", data: "2026-06-13" },
   ],
 };
 
@@ -262,11 +270,12 @@ export type Intimacao = {
   partes: string;
   despacho: string;
   prazo: string;
+  data: string; // ISO yyyy-mm-dd (data da publicação)
   processoCadastrado: boolean;
 };
 
 export const intimacoes: Intimacao[] = [
-  { id: "i1", tribunal: "TRT15", tipo: "Intimação", numero: "0010567-89.2025.5.15.0042", area: "trabalhista", partes: "João da Silva × Indústria Metalúrgica Zardetto Ltda", despacho: "Intimação para apresentar contestação no prazo legal.", prazo: "04/07/2026", processoCadastrado: true },
-  { id: "i2", tribunal: "TJSP", tipo: "Despacho", numero: "1005432-21.2024.8.26.0309", area: "civel", partes: "Condomínio Edifício Aurora × Construtora Habita S.A.", despacho: "Manifeste-se sobre os documentos juntados, em 5 dias.", prazo: "26/06/2026", processoCadastrado: true },
-  { id: "i3", tribunal: "TRT15", tipo: "Sentença", numero: "0021987-54.2025.5.15.0010", area: "trabalhista", partes: "Maria Oliveira × Comércio de Alimentos BomPreço Ltda", despacho: "Sentença publicada — ciência às partes.", prazo: "30/06/2026", processoCadastrado: false },
+  { id: "i1", tribunal: "TRT15", tipo: "Intimação", numero: "0010567-89.2025.5.15.0042", area: "trabalhista", partes: "João da Silva × Indústria Metalúrgica Zardetto Ltda", despacho: "Intimação para apresentar contestação no prazo legal.", prazo: "04/07/2026", data: "2026-06-18", processoCadastrado: true },
+  { id: "i2", tribunal: "TJSP", tipo: "Despacho", numero: "1005432-21.2024.8.26.0309", area: "civel", partes: "Condomínio Edifício Aurora × Construtora Habita S.A.", despacho: "Manifeste-se sobre os documentos juntados, em 5 dias.", prazo: "26/06/2026", data: "2026-06-19", processoCadastrado: true },
+  { id: "i3", tribunal: "TRT15", tipo: "Sentença", numero: "0021987-54.2025.5.15.0010", area: "trabalhista", partes: "Maria Oliveira × Comércio de Alimentos BomPreço Ltda", despacho: "Sentença publicada — ciência às partes.", prazo: "30/06/2026", data: "2026-06-19", processoCadastrado: false },
 ];

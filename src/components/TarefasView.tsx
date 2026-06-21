@@ -18,35 +18,10 @@ import { AvatarGroup } from "@/components/Avatar";
 import { StatusSelect } from "@/components/StatusSelect";
 import { NovaTarefaModal } from "@/components/NovaTarefaModal";
 import { atualizarStatusTarefa } from "@/lib/actions";
+import { DOWS, NOMES_MES, gridMes } from "@/lib/calendario";
 
 type View = "calendario" | "quadro" | "lista";
 type CalMode = "semana" | "mes";
-
-const DOWS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
-const NOMES_MES = [
-  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
-  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
-];
-
-function gridMes(ano: number, mes: number) {
-  const primeiro = new Date(ano, mes - 1, 1);
-  const offset = (primeiro.getDay() + 6) % 7;
-  const semanas: { iso: string; dia: number; doMes: boolean }[][] = [];
-  let cur = new Date(ano, mes - 1, 1 - offset);
-  for (let w = 0; w < 6; w++) {
-    const dias: { iso: string; dia: number; doMes: boolean }[] = [];
-    for (let d = 0; d < 7; d++) {
-      const y = cur.getFullYear();
-      const m = cur.getMonth() + 1;
-      const dd = cur.getDate();
-      const iso = `${y}-${String(m).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
-      dias.push({ iso, dia: dd, doMes: cur.getMonth() === mes - 1 });
-      cur = new Date(y, cur.getMonth(), dd + 1);
-    }
-    semanas.push(dias);
-  }
-  return semanas.filter((s) => s.some((d) => d.doMes));
-}
 
 export function TarefasView({
   tarefas,

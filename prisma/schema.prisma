@@ -95,6 +95,7 @@ model Publicacao {
   partes             String
   despacho           String
   prazo              String
+  data               String    @default("2026-06-19")
   processoCadastrado Boolean   @default(false)
   statusTriagem      String    @default("pendente") // pendente | processada | ignorada
   criadoEm           DateTime  @default(now())

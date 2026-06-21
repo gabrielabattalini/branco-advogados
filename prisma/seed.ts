@@ -8,6 +8,7 @@ import {
   publicacoesPorProcesso,
   eventosAgenda,
   intimacoes,
+  classificarArea,
 } from "../src/lib/mock";
 
 const prisma = new PrismaClient();
@@ -117,6 +118,7 @@ async function main() {
         partes: i.partes,
         despacho: i.despacho,
         prazo: i.prazo,
+        data: i.data,
         processoCadastrado: i.processoCadastrado,
         statusTriagem: "pendente",
       },
@@ -132,12 +134,13 @@ async function main() {
         data: {
           processoId: pid,
           numero,
-          area: "trabalhista",
+          area: classificarArea(numero),
           tribunal: (pub.origem.split("·")[0] ?? "").trim() || "—",
           tipo: "Publicação",
           partes: "",
           despacho: pub.titulo,
           prazo: "",
+          data: pub.data,
           processoCadastrado: true,
           statusTriagem:
             pub.estado === "gerou_tarefa" ? "processada" : "ignorada",
