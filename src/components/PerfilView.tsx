@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check } from "lucide-react";
+import { Check, LogOut } from "lucide-react";
 import { salvarPerfil } from "@/lib/actions";
-import { alterarSenha } from "@/lib/auth-actions";
+import { alterarSenha, sair } from "@/lib/auth-actions";
 
 const inputCls =
   "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-navy/60";
@@ -214,6 +214,23 @@ export function PerfilView({
             </span>
           )}
         </div>
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface p-5">
+        <div>
+          <div className="text-[14px] text-ink">Encerrar sessão</div>
+          <div className="text-[12px] text-muted">
+            Sair desta conta neste navegador.
+          </div>
+        </div>
+        <form action={sair}>
+          <button
+            type="submit"
+            className="inline-flex items-center gap-1.5 rounded-md border border-line px-4 py-2 text-sm text-danger transition-colors hover:bg-cream"
+          >
+            <LogOut size={16} /> Sair da conta
+          </button>
+        </form>
       </div>
     </div>
   );
