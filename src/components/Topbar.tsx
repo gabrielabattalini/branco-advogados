@@ -1,4 +1,5 @@
 import { Search, Bell, LogOut } from "lucide-react";
+import { labelPapel } from "@/lib/papeis";
 import { sair } from "@/lib/auth-actions";
 
 export function Topbar({ nome, papel }: { nome: string; papel: string }) {
@@ -11,9 +12,7 @@ export function Topbar({ nome, papel }: { nome: string; papel: string }) {
       <div className="flex items-center gap-4">
         <div className="text-right leading-tight">
           <div className="text-[13px] text-ink">{nome}</div>
-          <div className="text-[11px] text-faint">
-            {papel === "coordenador" ? "Coordenador" : "Advogado"}
-          </div>
+          <div className="text-[11px] text-faint">{labelPapel(papel)}</div>
         </div>
         <button
           className="text-muted transition-colors hover:text-ink"

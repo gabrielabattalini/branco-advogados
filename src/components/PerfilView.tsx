@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, LogOut } from "lucide-react";
+import { ehGestor, labelPapel } from "@/lib/papeis";
 import { salvarPerfil } from "@/lib/actions";
 import { alterarSenha, sair } from "@/lib/auth-actions";
 
@@ -123,12 +124,12 @@ export function PerfilView({
         <div className="rounded-md bg-cream px-3 py-2.5 text-[12px] text-muted">
           Seu perfil de acesso é{" "}
           <span className="font-medium text-navy">
-            {inicial.papel === "coordenador" ? "Coordenador" : "Advogado"}
+            {labelPapel(inicial.papel)}
           </span>
           .{" "}
-          {inicial.papel === "coordenador"
+          {ehGestor(inicial.papel)
             ? "Você vê todas as tarefas e agendas do escritório, pode alterar prazos e excluir tarefas."
-            : "Você vê e mexe apenas nas suas tarefas e na sua agenda. O coordenador pode ajustar seu acesso."}
+            : "Você vê e mexe apenas nas suas tarefas e na sua agenda. Um gestor pode ajustar seu acesso."}
         </div>
 
         <div className="flex items-center gap-3">

@@ -17,7 +17,7 @@ datasource db {
 model Usuario {
   id        String   @id @default(cuid())
   nome      String
-  iniciais  String
+  iniciais  String   @unique
   email     String   @unique
   senhaHash String? // hash scrypt "salt:hash"; nulo até definir senha
   area      String   @default("civel") // civel | trabalhista

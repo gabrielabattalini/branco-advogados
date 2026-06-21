@@ -10,10 +10,12 @@ import {
   Calendar,
   Folder,
   Newspaper,
+  ShieldCheck,
   UserCog,
 } from "lucide-react";
+import { ehGestor, labelPapel } from "@/lib/papeis";
 
-const nav = [
+const navBase = [
   { href: "/painel", label: "Painel", Icon: LayoutDashboard },
   { href: "/contatos", label: "Contatos", Icon: Users },
   { href: "/processos", label: "Processos", Icon: Scale },
@@ -21,7 +23,6 @@ const nav = [
   { href: "/agenda", label: "Agenda", Icon: Calendar },
   { href: "/documentos", label: "Documentos", Icon: Folder },
   { href: "/publicacoes", label: "Publicações", Icon: Newspaper },
-  { href: "/perfil", label: "Perfil", Icon: UserCog },
 ];
 
 export function Sidebar({
@@ -34,6 +35,13 @@ export function Sidebar({
   iniciais: string;
 }) {
   const pathname = usePathname();
+  const nav = [
+    ...navBase,
+    ...(ehGestor(papel)
+      ? [{ href: "/admin", label: "Administração", Icon: ShieldCheck }]
+      : []),
+    { href: "/perfil", label: "Perfil", Icon: UserCog },
+  ];
   return (
     <aside className="flex w-60 shrink-0 flex-col bg-navy px-3 py-5">
       <div className="px-3 pb-6">
@@ -70,9 +78,7 @@ export function Sidebar({
         </div>
         <div className="leading-tight">
           <div className="text-sm text-cream">{nome}</div>
-          <div className="text-[11px] text-cream/40">
-            {papel === "coordenador" ? "Coordenador" : "Advogado"}
-          </div>
+          <div className="text-[11px] text-cream/40">{labelPapel(papel)}</div>
         </div>
       </div>
     </aside>

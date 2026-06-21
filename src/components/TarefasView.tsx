@@ -8,11 +8,12 @@ import {
   semana,
   corDoStatus,
   HOJE_ISO,
-  responsaveis,
   type Status,
   type TarefaFull,
   type Processo,
 } from "@/lib/mock";
+import { ehGestor } from "@/lib/papeis";
+import type { Responsavel } from "@/lib/data";
 import { AreaTag } from "@/components/AreaTag";
 import { AvatarGroup } from "@/components/Avatar";
 import { StatusSelect } from "@/components/StatusSelect";
@@ -26,16 +27,18 @@ type CalMode = "semana" | "mes";
 export function TarefasView({
   tarefas,
   processos,
+  responsaveis,
   papel,
   me,
 }: {
   tarefas: TarefaFull[];
   processos: Processo[];
+  responsaveis: Responsavel[];
   papel: string;
   me: string;
 }) {
   const router = useRouter();
-  const coord = papel === "coordenador";
+  const coord = ehGestor(papel);
   const [view, setView] = useState<View>("calendario");
   const [calMode, setCalMode] = useState<CalMode>("semana");
   const [mesAtual, setMesAtual] = useState({ ano: 2026, mes: 6 });
@@ -403,6 +406,7 @@ export function TarefasView({
       {showNova && (
         <NovaTarefaModal
           processos={processos}
+          responsaveis={responsaveis}
           papel={papel}
           me={me}
           onClose={() => setShowNova(false)}
@@ -411,6 +415,7 @@ export function TarefasView({
       {editar && (
         <NovaTarefaModal
           processos={processos}
+          responsaveis={responsaveis}
           tarefa={editar}
           papel={papel}
           me={me}

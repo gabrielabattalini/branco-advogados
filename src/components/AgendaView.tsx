@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, RefreshCw, Lock } from "lucide-react";
 import type { EventoAgenda } from "@/lib/mock";
+import { ehGestor } from "@/lib/papeis";
+import type { Responsavel } from "@/lib/data";
 import { AvatarGroup } from "@/components/Avatar";
 import { NovoEventoModal } from "@/components/NovoEventoModal";
 
@@ -19,13 +21,15 @@ const tipoMap: Record<string, { label: string; bar: string; tag: string }> = {
 
 export function AgendaView({
   eventos,
+  responsaveis,
   papel,
 }: {
   eventos: EventoAgenda[];
+  responsaveis: Responsavel[];
   papel: string;
 }) {
   const [showNovo, setShowNovo] = useState(false);
-  const coord = papel === "coordenador";
+  const coord = ehGestor(papel);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -105,7 +109,12 @@ export function AgendaView({
         )}
       </div>
 
-      {showNovo && <NovoEventoModal onClose={() => setShowNovo(false)} />}
+      {showNovo && (
+        <NovoEventoModal
+          responsaveis={responsaveis}
+          onClose={() => setShowNovo(false)}
+        />
+      )}
     </div>
   );
 }

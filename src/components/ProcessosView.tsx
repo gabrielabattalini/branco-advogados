@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Search, Plus, ChevronRight } from "lucide-react";
 import type { Area, Processo } from "@/lib/mock";
+import type { Responsavel } from "@/lib/data";
 import { AreaTag } from "@/components/AreaTag";
 import { Avatar } from "@/components/Avatar";
 import { NovoProcessoModal } from "@/components/NovoProcessoModal";
@@ -16,7 +17,13 @@ const filtros: { key: Filtro; label: string }[] = [
   { key: "civel", label: "Cível" },
 ];
 
-export function ProcessosView({ processos }: { processos: Processo[] }) {
+export function ProcessosView({
+  processos,
+  responsaveis,
+}: {
+  processos: Processo[];
+  responsaveis: Responsavel[];
+}) {
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [showNovo, setShowNovo] = useState(false);
@@ -101,7 +108,12 @@ export function ProcessosView({ processos }: { processos: Processo[] }) {
         {filtrados.length} de {processos.length} processos
       </div>
 
-      {showNovo && <NovoProcessoModal onClose={() => setShowNovo(false)} />}
+      {showNovo && (
+        <NovoProcessoModal
+          responsaveis={responsaveis}
+          onClose={() => setShowNovo(false)}
+        />
+      )}
     </div>
   );
 }

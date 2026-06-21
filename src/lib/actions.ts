@@ -3,14 +3,22 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { HOJE_ISO, HOJE_BR, responsaveis, STATUS_LIST } from "@/lib/mock";
-import { getSessao } from "@/lib/sessao";
+import { HOJE_ISO, HOJE_BR, STATUS_LIST } from "@/lib/mock";
+import { getSessao, ehGestor } from "@/lib/sessao";
 
 export type ActionResult = { ok: true } | { ok: false; erro: string };
 
 const AREAS = ["trabalhista", "civel"];
 const STATUSES = STATUS_LIST.map((s) => s.key as string);
-const INICIAIS = responsaveis.map((r) => r.iniciais);
+
+// Iniciais válidas = usuários ativos no banco (equipe atual).
+async function iniciaisValidas(): Promise<Set<string>> {
+  const us = await prisma.usuario.findMany({
+    where: { ativo: true },
+    select: { iniciais: true },
+  });
+  return new Set(us.map((u) => u.iniciais));
+}
 
 export async function criarTarefa(input: {
   titulo: string;
@@ -26,9 +34,10 @@ export async function criarTarefa(input: {
   const titulo = input.titulo.trim();
   if (!titulo) return { ok: false, erro: "Informe o título da tarefa." };
   const area = AREAS.includes(input.area) ? input.area : "civel";
-  const resp = (input.responsaveis ?? []).filter((r) => INICIAIS.includes(r));
-  const resps = resp.length ? resp : [INICIAIS[0]];
   try {
+    const validas = await iniciaisValidas();
+    const resp = (input.responsaveis ?? []).filter((r) => validas.has(r));
+    const resps = resp.length ? resp : [s.iniciais];
     const processo = input.processoNumero
       ? await prisma.processo.findUnique({
           where: { numero: input.processoNumero },
@@ -69,7 +78,7 @@ export async function atualizarStatusTarefa(
       select: { responsaveis: true },
     });
     if (!tarefa) return { ok: false, erro: "Tarefa não encontrada." };
-    if (s.papel !== "coordenador" && !tarefa.responsaveis.includes(s.iniciais))
+    if (!ehGestor(s.papel) && !tarefa.responsaveis.includes(s.iniciais))
       return { ok: false, erro: "Sem permissão para esta tarefa." };
     await prisma.tarefa.update({ where: { id }, data: { status } });
     revalidatePath("/tarefas");
@@ -94,19 +103,20 @@ export async function editarTarefa(input: {
   if (!titulo) return { ok: false, erro: "Informe o título da tarefa." };
   if (!STATUSES.includes(input.status))
     return { ok: false, erro: "Status inválido." };
-  const resp = (input.responsaveis ?? []).filter((r) => INICIAIS.includes(r));
-  const resps = resp.length ? resp : [INICIAIS[0]];
   const s = await getSessao();
   if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
-  const coord = s.papel === "coordenador";
+  const gestor = ehGestor(s.papel);
   try {
+    const validas = await iniciaisValidas();
+    const resp = (input.responsaveis ?? []).filter((r) => validas.has(r));
+    const resps = resp.length ? resp : [s.iniciais];
     const alvo = await prisma.tarefa.findUnique({
       where: { id: input.id },
       select: { responsaveis: true },
     });
     if (!alvo) return { ok: false, erro: "Tarefa não encontrada." };
-    // Só o coordenador ou um responsável pela tarefa pode editá-la.
-    if (!coord && !alvo.responsaveis.includes(s.iniciais))
+    // Só um gestor ou um responsável pela tarefa pode editá-la.
+    if (!gestor && !alvo.responsaveis.includes(s.iniciais))
       return { ok: false, erro: "Sem permissão para editar esta tarefa." };
     const processo = input.processoNumero
       ? await prisma.processo.findUnique({
@@ -122,8 +132,8 @@ export async function editarTarefa(input: {
         processoId: processo?.id ?? null,
         status: input.status,
         responsaveis: resps,
-        // Prazo/data só o coordenador pode alterar.
-        ...(coord
+        // Prazo/data só um gestor pode alterar.
+        ...(gestor
           ? { data: input.data, prazo: input.prazo || `${dd}/${mm}` }
           : {}),
       },
@@ -140,8 +150,8 @@ export async function editarTarefa(input: {
 export async function excluirTarefa(id: string): Promise<ActionResult> {
   const s = await getSessao();
   if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
-  if (s.papel !== "coordenador")
-    return { ok: false, erro: "Apenas coordenadores podem excluir tarefas." };
+  if (!ehGestor(s.papel))
+    return { ok: false, erro: "Você não tem permissão para excluir tarefas." };
   try {
     await prisma.tarefa.delete({ where: { id } });
     revalidatePath("/tarefas");
@@ -166,8 +176,9 @@ export async function criarEvento(input: {
   if (!titulo) return { ok: false, erro: "Informe o título do evento." };
   const tiposOk = ["reuniao", "audiencia", "prazo", "atendimento"];
   const tipo = tiposOk.includes(input.tipo) ? input.tipo : "reuniao";
-  const parts = (input.participantes ?? []).filter((r) => INICIAIS.includes(r));
   try {
+    const validas = await iniciaisValidas();
+    const parts = (input.participantes ?? []).filter((r) => validas.has(r));
     await prisma.eventoAgenda.create({
       data: {
         titulo,
@@ -288,8 +299,8 @@ export async function gerarTarefaDaIntimacao(
             status: "Em andamento",
             cliente,
             parteContraria,
-            responsavel: responsaveis[0].nome,
-            responsavelIniciais: responsaveis[0].iniciais,
+            responsavel: s.nome,
+            responsavelIniciais: s.iniciais,
             valorCausa: "—",
             distribuido: HOJE_BR,
             fase: "Conhecimento",
@@ -310,7 +321,7 @@ export async function gerarTarefaDaIntimacao(
           data: HOJE_ISO,
           prazo: pub.prazo,
           status: "a_fazer",
-          responsaveis: [responsaveis[0].iniciais],
+          responsaveis: [s.iniciais],
           origem: "aasp",
         },
       });

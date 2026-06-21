@@ -7,13 +7,13 @@ import { Modal } from "@/components/Modal";
 import { AreaTag } from "@/components/AreaTag";
 import {
   classificarArea,
-  responsaveis,
-  usuarioAtual,
   HOJE_ISO,
   STATUS_LIST,
   type Processo,
   type TarefaFull,
 } from "@/lib/mock";
+import { ehGestor } from "@/lib/papeis";
+import type { Responsavel } from "@/lib/data";
 import { criarTarefa, editarTarefa, excluirTarefa } from "@/lib/actions";
 
 const inputCls =
@@ -22,12 +22,14 @@ const labelCls = "mb-1 block text-[12px] text-muted";
 
 export function NovaTarefaModal({
   processos,
+  responsaveis,
   tarefa,
   papel,
   me,
   onClose,
 }: {
   processos: Processo[];
+  responsaveis: Responsavel[];
   tarefa?: TarefaFull;
   papel: string;
   me?: string;
@@ -35,14 +37,14 @@ export function NovaTarefaModal({
 }) {
   const router = useRouter();
   const edicao = !!tarefa;
-  const coord = papel === "coordenador";
+  const coord = ehGestor(papel);
   const [titulo, setTitulo] = useState(tarefa?.titulo ?? "");
   const [descricao, setDescricao] = useState(tarefa?.descricao ?? "");
   const [numero, setNumero] = useState(
     tarefa?.processo ?? processos[0]?.numero ?? "",
   );
   const [resps, setResps] = useState<string[]>(
-    tarefa?.responsaveis ?? [me || usuarioAtual.iniciais],
+    tarefa?.responsaveis ?? (me ? [me] : []),
   );
   const [status, setStatus] = useState<string>(tarefa?.status ?? "a_fazer");
   const [data, setData] = useState(tarefa?.data ?? HOJE_ISO);

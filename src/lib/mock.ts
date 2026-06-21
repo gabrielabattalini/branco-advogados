@@ -238,12 +238,33 @@ export const publicacoesPorProcesso: Record<string, PublicacaoProc[]> = {
   ],
 };
 
-export const responsaveis = [
-  { iniciais: "AB", nome: "Dra. Ana Branco" },
-  { iniciais: "GB", nome: "Dr. Gabriel" },
-  { iniciais: "CS", nome: "Dr. Carlos Souza" },
-  { iniciais: "PL", nome: "Est. Pedro Lima" },
+// Equipe real do escritório (fonte do seed). A lista "atribuível" em runtime
+// vem do banco (getResponsaveis), para refletir quem o admin cadastrar.
+export const equipeInicial: {
+  iniciais: string;
+  nome: string;
+  email: string;
+  papel: string;
+  area: string;
+}[] = [
+  { iniciais: "LB", nome: "Luiz Carlos Branco", email: "luizcarlos@brancoadvogados.com", papel: "socio", area: "civel" },
+  { iniciais: "DB", nome: "Débora", email: "debora@brancoadvogados.com", papel: "coordenador", area: "civel" },
+  { iniciais: "MR", nome: "Mauro", email: "mauro@brancoadvogados.com", papel: "coordenador", area: "trabalhista" },
+  { iniciais: "KA", nome: "Karen", email: "karen@brancoadvogados.com", papel: "coordenador", area: "civel" },
+  { iniciais: "MN", nome: "Mariana", email: "mariana@brancoadvogados.com", papel: "advogado", area: "civel" },
+  { iniciais: "GB", nome: "Gabriel", email: "gabriel@brancoadvogados.com", papel: "advogado", area: "civel" },
+  { iniciais: "LS", nome: "Laís", email: "lais@brancoadvogados.com", papel: "advogado", area: "trabalhista" },
+  { iniciais: "MT", nome: "Matheus", email: "matheus@brancoadvogados.com", papel: "advogado", area: "civel" },
+  { iniciais: "JU", nome: "Julia", email: "julia@brancoadvogados.com", papel: "advogado", area: "trabalhista" },
 ];
+
+// Remapeia as iniciais dos dados de demonstração (equipe antiga) para a real.
+export const REMAP_DEMO: Record<string, string> = {
+  AB: "DB",
+  CS: "MR",
+  PL: "MT",
+  GB: "GB",
+};
 
 export type EventoAgenda = {
   hora: string;

@@ -4,19 +4,28 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/Modal";
 import { AreaTag } from "@/components/AreaTag";
-import { responsaveis, classificarArea } from "@/lib/mock";
+import { classificarArea } from "@/lib/mock";
+import type { Responsavel } from "@/lib/data";
 import { criarProcesso } from "@/lib/actions";
 
 const inputCls =
   "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-navy/60";
 const labelCls = "mb-1 block text-[12px] text-muted";
 
-export function NovoProcessoModal({ onClose }: { onClose: () => void }) {
+export function NovoProcessoModal({
+  responsaveis,
+  onClose,
+}: {
+  responsaveis: Responsavel[];
+  onClose: () => void;
+}) {
   const router = useRouter();
   const [numero, setNumero] = useState("");
   const [cliente, setCliente] = useState("");
   const [parteContraria, setParteContraria] = useState("");
-  const [responsavel, setResponsavel] = useState(responsaveis[0].iniciais);
+  const [responsavel, setResponsavel] = useState(
+    responsaveis[0]?.iniciais ?? "",
+  );
   const [tribunal, setTribunal] = useState("");
   const [valorCausa, setValorCausa] = useState("");
   const [salvando, setSalvando] = useState(false);
@@ -31,7 +40,12 @@ export function NovoProcessoModal({ onClose }: { onClose: () => void }) {
     setSalvando(true);
     setErro("");
     try {
-      const r = responsaveis.find((x) => x.iniciais === responsavel)!;
+      const r = responsaveis.find((x) => x.iniciais === responsavel);
+      if (!r) {
+        setErro("Selecione um responsável.");
+        setSalvando(false);
+        return;
+      }
       const res = await criarProcesso({
         numero: numero.trim(),
         area: area ?? "civel",

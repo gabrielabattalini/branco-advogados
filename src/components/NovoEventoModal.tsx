@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import { Modal } from "@/components/Modal";
-import { responsaveis } from "@/lib/mock";
+import type { Responsavel } from "@/lib/data";
 import { criarEvento } from "@/lib/actions";
 
 const inputCls =
@@ -18,7 +18,13 @@ const TIPOS = [
   { key: "atendimento", label: "Atendimento" },
 ];
 
-export function NovoEventoModal({ onClose }: { onClose: () => void }) {
+export function NovoEventoModal({
+  responsaveis,
+  onClose,
+}: {
+  responsaveis: Responsavel[];
+  onClose: () => void;
+}) {
   const router = useRouter();
   const [titulo, setTitulo] = useState("");
   const [tipo, setTipo] = useState("reuniao");

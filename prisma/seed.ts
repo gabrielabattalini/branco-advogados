@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import {
-  responsaveis,
+  equipeInicial,
+  REMAP_DEMO,
   contatos,
   processos,
   tarefasFull,
@@ -17,27 +18,11 @@ const prisma = new PrismaClient();
 // Senha inicial das contas semeadas (o usuário deve trocar no Perfil).
 const SENHA_INICIAL = "Branco@2026";
 
-const papeis: Record<string, string> = {
-  GB: "coordenador",
-  AB: "advogado",
-  CS: "advogado",
-  PL: "advogado",
-};
-
-const areasUsuario: Record<string, string> = {
-  GB: "civel",
-  AB: "civel",
-  CS: "civel",
-  PL: "trabalhista",
-};
-
-// Deriva um e-mail limpo a partir do nome (sem Dr./Dra./Est.).
-const emailDe = (nome: string) =>
-  nome
-    .replace(/^(Dr\.|Dra\.|Est\.)\s*/i, "")
-    .trim()
-    .split(/\s+/)[0]
-    .toLowerCase() + "@brancoadvogados.com";
+// Remapeia as iniciais dos dados de demonstração para a equipe real.
+const equipeByIni: Record<string, { nome: string; iniciais: string }> =
+  Object.fromEntries(equipeInicial.map((p) => [p.iniciais, p]));
+const mapIni = (i: string) => REMAP_DEMO[i] ?? i;
+const nomeDe = (ini: string) => equipeByIni[mapIni(ini)]?.nome ?? "—";
 
 async function main() {
   // Limpa (ordem respeita as FKs)
@@ -49,15 +34,15 @@ async function main() {
   await prisma.usuario.deleteMany();
   await prisma.eventoAgenda.deleteMany();
 
-  for (const r of responsaveis) {
+  for (const p of equipeInicial) {
     await prisma.usuario.create({
       data: {
-        nome: r.nome,
-        iniciais: r.iniciais,
-        email: emailDe(r.nome),
+        nome: p.nome,
+        iniciais: p.iniciais,
+        email: p.email,
         senhaHash: hashSenha(SENHA_INICIAL),
-        area: areasUsuario[r.iniciais] ?? "civel",
-        papel: papeis[r.iniciais] ?? "advogado",
+        area: p.area,
+        papel: p.papel,
       },
     });
   }
@@ -85,8 +70,8 @@ async function main() {
         status: p.status,
         cliente: p.cliente,
         parteContraria: p.parteContraria,
-        responsavel: p.responsavel,
-        responsavelIniciais: p.responsavelIniciais,
+        responsavel: nomeDe(p.responsavelIniciais),
+        responsavelIniciais: mapIni(p.responsavelIniciais),
         valorCausa: p.valorCausa,
         distribuido: p.distribuido,
         fase: p.fase,
@@ -106,7 +91,7 @@ async function main() {
         data: t.data,
         prazoUrgente: !!t.prazoUrgente,
         status: t.status,
-        responsaveis: t.responsaveis,
+        responsaveis: t.responsaveis.map(mapIni),
         origem: "manual",
       },
     });
@@ -177,7 +162,7 @@ async function main() {
         tipo: e.tipo,
         titulo: e.titulo,
         detalhe: e.detalhe,
-        participantes: e.participantes,
+        participantes: e.participantes.map(mapIni),
       },
     });
   }

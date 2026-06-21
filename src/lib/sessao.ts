@@ -2,8 +2,11 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 import { assinarToken, lerToken } from "@/lib/seguranca";
+import { PAPEIS, type Papel } from "@/lib/papeis";
 
-export type Papel = "advogado" | "coordenador";
+export type { Papel };
+export { PAPEIS, LABEL_PAPEL, ehGestor, labelPapel } from "@/lib/papeis";
+
 export type AreaPerfil = "civel" | "trabalhista";
 
 export type Sessao = {
@@ -31,7 +34,7 @@ export const getSessao = cache(async (): Promise<Sessao | null> => {
     nome: u.nome,
     email: u.email,
     area: u.area === "trabalhista" ? "trabalhista" : "civel",
-    papel: u.papel === "coordenador" ? "coordenador" : "advogado",
+    papel: PAPEIS.includes(u.papel as Papel) ? (u.papel as Papel) : "advogado",
     iniciais: u.iniciais,
   };
 });

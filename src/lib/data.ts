@@ -9,23 +9,54 @@ import type {
   Intimacao,
 } from "@/lib/mock";
 import { HOJE_ISO } from "@/lib/mock";
-import { getSessao } from "@/lib/sessao";
+import { getSessao, ehGestor } from "@/lib/sessao";
 
-// Filtros de visibilidade conforme o perfil (coordenador vê tudo). Sem sessão,
+// Filtros de visibilidade conforme o perfil (gestor vê tudo). Sem sessão,
 // nada é retornado (defesa em profundidade — as páginas já exigem login).
 async function escopoTarefas() {
   const s = await getSessao();
   if (!s) return { id: "__sem_sessao__" };
-  return s.papel === "coordenador"
-    ? {}
-    : { responsaveis: { has: s.iniciais } };
+  return ehGestor(s.papel) ? {} : { responsaveis: { has: s.iniciais } };
 }
 async function escopoAgenda() {
   const s = await getSessao();
   if (!s) return { id: "__sem_sessao__" };
-  return s.papel === "coordenador"
-    ? {}
-    : { participantes: { has: s.iniciais } };
+  return ehGestor(s.papel) ? {} : { participantes: { has: s.iniciais } };
+}
+
+// Equipe atribuível (usuários ativos) — alimenta os seletores de responsável.
+export type Responsavel = { iniciais: string; nome: string };
+export async function getResponsaveis(): Promise<Responsavel[]> {
+  return prisma.usuario.findMany({
+    where: { ativo: true },
+    orderBy: { nome: "asc" },
+    select: { iniciais: true, nome: true },
+  });
+}
+
+// Todos os usuários (para a Administração).
+export type UsuarioAdmin = {
+  id: string;
+  nome: string;
+  email: string;
+  papel: string;
+  area: string;
+  iniciais: string;
+  ativo: boolean;
+};
+export async function getUsuarios(): Promise<UsuarioAdmin[]> {
+  const rows = await prisma.usuario.findMany({
+    orderBy: [{ ativo: "desc" }, { nome: "asc" }],
+  });
+  return rows.map((u) => ({
+    id: u.id,
+    nome: u.nome,
+    email: u.email,
+    papel: u.papel,
+    area: u.area,
+    iniciais: u.iniciais,
+    ativo: u.ativo,
+  }));
 }
 
 export async function getTarefas(): Promise<TarefaFull[]> {
