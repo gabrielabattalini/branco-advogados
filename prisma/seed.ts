@@ -10,15 +10,34 @@ import {
   intimacoes,
   classificarArea,
 } from "../src/lib/mock";
+import { hashSenha } from "../src/lib/seguranca";
 
 const prisma = new PrismaClient();
 
+// Senha inicial das contas semeadas (o usuário deve trocar no Perfil).
+const SENHA_INICIAL = "Branco@2026";
+
 const papeis: Record<string, string> = {
-  GB: "socio",
+  GB: "coordenador",
   AB: "advogado",
   CS: "advogado",
-  PL: "estagiario",
+  PL: "advogado",
 };
+
+const areasUsuario: Record<string, string> = {
+  GB: "civel",
+  AB: "civel",
+  CS: "civel",
+  PL: "trabalhista",
+};
+
+// Deriva um e-mail limpo a partir do nome (sem Dr./Dra./Est.).
+const emailDe = (nome: string) =>
+  nome
+    .replace(/^(Dr\.|Dra\.|Est\.)\s*/i, "")
+    .trim()
+    .split(/\s+/)[0]
+    .toLowerCase() + "@brancoadvogados.com";
 
 async function main() {
   // Limpa (ordem respeita as FKs)
@@ -35,7 +54,9 @@ async function main() {
       data: {
         nome: r.nome,
         iniciais: r.iniciais,
-        email: `${r.iniciais.toLowerCase()}@brancoadvogados.com`,
+        email: emailDe(r.nome),
+        senhaHash: hashSenha(SENHA_INICIAL),
+        area: areasUsuario[r.iniciais] ?? "civel",
         papel: papeis[r.iniciais] ?? "advogado",
       },
     });

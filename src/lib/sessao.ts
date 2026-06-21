@@ -1,9 +1,13 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
+import { prisma } from "@/lib/db";
+import { assinarToken, lerToken } from "@/lib/seguranca";
 
 export type Papel = "advogado" | "coordenador";
 export type AreaPerfil = "civel" | "trabalhista";
 
 export type Sessao = {
+  id: string;
   nome: string;
   email: string;
   area: AreaPerfil;
@@ -11,26 +15,45 @@ export type Sessao = {
   iniciais: string;
 };
 
-// Padrão até existir login Microsoft (usuário "atual" da demonstração).
-const PADRAO: Sessao = {
-  nome: "Gabriel Branco",
-  email: "gabriel@brancoadvogados.com",
-  area: "civel",
-  papel: "coordenador",
-  iniciais: "GB",
-};
+const COOKIE = "sessao";
+const MAX_AGE = 60 * 60 * 24 * 30; // 30 dias
 
-export async function getSessao(): Promise<Sessao> {
+// Lê e valida a sessão a partir do cookie assinado. cache() deduplica as
+// chamadas dentro de um mesmo render (layout + página + data layer).
+export const getSessao = cache(async (): Promise<Sessao | null> => {
   const c = await cookies();
+  const userId = lerToken(c.get(COOKIE)?.value);
+  if (!userId) return null;
+  const u = await prisma.usuario.findUnique({ where: { id: userId } });
+  if (!u || !u.ativo) return null;
   return {
-    nome: c.get("nome")?.value || PADRAO.nome,
-    email: c.get("email")?.value || PADRAO.email,
-    area: c.get("area")?.value === "trabalhista" ? "trabalhista" : "civel",
-    papel: c.get("papel")?.value === "advogado" ? "advogado" : "coordenador",
-    iniciais: PADRAO.iniciais,
+    id: u.id,
+    nome: u.nome,
+    email: u.email,
+    area: u.area === "trabalhista" ? "trabalhista" : "civel",
+    papel: u.papel === "coordenador" ? "coordenador" : "advogado",
+    iniciais: u.iniciais,
   };
-}
+});
 
 export async function getPapel(): Promise<Papel> {
-  return (await getSessao()).papel;
+  return (await getSessao())?.papel ?? "advogado";
+}
+
+// Grava/limpa o cookie de sessão. Só pode ser chamado dentro de Server Actions
+// ou Route Handlers (onde escrever cookies é permitido).
+export async function definirSessao(userId: string) {
+  const c = await cookies();
+  c.set(COOKIE, assinarToken(userId), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: MAX_AGE,
+  });
+}
+
+export async function limparSessao() {
+  const c = await cookies();
+  c.delete(COOKIE);
 }

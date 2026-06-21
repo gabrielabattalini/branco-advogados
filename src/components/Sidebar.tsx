@@ -12,7 +12,6 @@ import {
   Newspaper,
   UserCog,
 } from "lucide-react";
-import { usuarioAtual } from "@/lib/mock";
 
 const nav = [
   { href: "/painel", label: "Painel", Icon: LayoutDashboard },
@@ -28,9 +27,11 @@ const nav = [
 export function Sidebar({
   nome,
   papel,
+  iniciais,
 }: {
   nome: string;
   papel: string;
+  iniciais: string;
 }) {
   const pathname = usePathname();
   return (
@@ -65,7 +66,7 @@ export function Sidebar({
       </nav>
       <div className="mt-auto flex items-center gap-3 border-t border-white/10 px-2 pt-4">
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gold/20 text-xs font-medium text-gold-light">
-          {usuarioAtual.iniciais}
+          {iniciais}
         </div>
         <div className="leading-tight">
           <div className="text-sm text-cream">{nome}</div>

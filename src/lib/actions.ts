@@ -4,8 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { HOJE_ISO, HOJE_BR, responsaveis, STATUS_LIST } from "@/lib/mock";
-import { getPapel } from "@/lib/sessao";
-import { cookies } from "next/headers";
+import { getSessao } from "@/lib/sessao";
 
 export type ActionResult = { ok: true } | { ok: false; erro: string };
 
@@ -22,6 +21,8 @@ export async function criarTarefa(input: {
   prazo: string;
   responsaveis: string[];
 }): Promise<ActionResult> {
+  const s = await getSessao();
+  if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
   const titulo = input.titulo.trim();
   if (!titulo) return { ok: false, erro: "Informe o título da tarefa." };
   const area = AREAS.includes(input.area) ? input.area : "civel";
@@ -59,8 +60,17 @@ export async function atualizarStatusTarefa(
   id: string,
   status: string,
 ): Promise<ActionResult> {
+  const s = await getSessao();
+  if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
   if (!STATUSES.includes(status)) return { ok: false, erro: "Status inválido." };
   try {
+    const tarefa = await prisma.tarefa.findUnique({
+      where: { id },
+      select: { responsaveis: true },
+    });
+    if (!tarefa) return { ok: false, erro: "Tarefa não encontrada." };
+    if (s.papel !== "coordenador" && !tarefa.responsaveis.includes(s.iniciais))
+      return { ok: false, erro: "Sem permissão para esta tarefa." };
     await prisma.tarefa.update({ where: { id }, data: { status } });
     revalidatePath("/tarefas");
     revalidatePath("/painel");
@@ -86,8 +96,18 @@ export async function editarTarefa(input: {
     return { ok: false, erro: "Status inválido." };
   const resp = (input.responsaveis ?? []).filter((r) => INICIAIS.includes(r));
   const resps = resp.length ? resp : [INICIAIS[0]];
-  const podeMudarPrazo = (await getPapel()) === "coordenador";
+  const s = await getSessao();
+  if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
+  const coord = s.papel === "coordenador";
   try {
+    const alvo = await prisma.tarefa.findUnique({
+      where: { id: input.id },
+      select: { responsaveis: true },
+    });
+    if (!alvo) return { ok: false, erro: "Tarefa não encontrada." };
+    // Só o coordenador ou um responsável pela tarefa pode editá-la.
+    if (!coord && !alvo.responsaveis.includes(s.iniciais))
+      return { ok: false, erro: "Sem permissão para editar esta tarefa." };
     const processo = input.processoNumero
       ? await prisma.processo.findUnique({
           where: { numero: input.processoNumero },
@@ -103,7 +123,7 @@ export async function editarTarefa(input: {
         status: input.status,
         responsaveis: resps,
         // Prazo/data só o coordenador pode alterar.
-        ...(podeMudarPrazo
+        ...(coord
           ? { data: input.data, prazo: input.prazo || `${dd}/${mm}` }
           : {}),
       },
@@ -118,7 +138,9 @@ export async function editarTarefa(input: {
 }
 
 export async function excluirTarefa(id: string): Promise<ActionResult> {
-  if ((await getPapel()) !== "coordenador")
+  const s = await getSessao();
+  if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
+  if (s.papel !== "coordenador")
     return { ok: false, erro: "Apenas coordenadores podem excluir tarefas." };
   try {
     await prisma.tarefa.delete({ where: { id } });
@@ -138,6 +160,8 @@ export async function criarEvento(input: {
   detalhe: string;
   participantes: string[];
 }): Promise<ActionResult> {
+  const s = await getSessao();
+  if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
   const titulo = input.titulo.trim();
   if (!titulo) return { ok: false, erro: "Informe o título do evento." };
   const tiposOk = ["reuniao", "audiencia", "prazo", "atendimento"];
@@ -161,32 +185,28 @@ export async function criarEvento(input: {
   }
 }
 
-export async function definirPapel(papel: string): Promise<ActionResult> {
-  const valor = papel === "advogado" ? "advogado" : "coordenador";
-  const store = await cookies();
-  store.set("papel", valor, { path: "/", maxAge: 60 * 60 * 24 * 365 });
-  revalidatePath("/", "layout");
-  return { ok: true };
-}
-
 export async function salvarPerfil(input: {
   nome: string;
-  email: string;
   area: string;
-  papel: string;
 }): Promise<ActionResult> {
-  const store = await cookies();
-  const opts = { path: "/", maxAge: 60 * 60 * 24 * 365 };
-  store.set("nome", input.nome.trim() || "Gabriel Branco", opts);
-  store.set("email", input.email.trim() || "gabriel@brancoadvogados.com", opts);
-  store.set("area", input.area === "trabalhista" ? "trabalhista" : "civel", opts);
-  store.set(
-    "papel",
-    input.papel === "advogado" ? "advogado" : "coordenador",
-    opts,
-  );
-  revalidatePath("/", "layout");
-  return { ok: true };
+  const s = await getSessao();
+  if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
+  const nome = input.nome.trim();
+  if (!nome) return { ok: false, erro: "Informe seu nome." };
+  if (nome.length > 120) return { ok: false, erro: "Nome muito longo." };
+  try {
+    await prisma.usuario.update({
+      where: { id: s.id },
+      data: {
+        nome,
+        area: input.area === "trabalhista" ? "trabalhista" : "civel",
+      },
+    });
+    revalidatePath("/", "layout");
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Não foi possível salvar o perfil." };
+  }
 }
 
 export async function criarProcesso(input: {
@@ -199,6 +219,8 @@ export async function criarProcesso(input: {
   responsavelIniciais: string;
   valorCausa: string;
 }): Promise<ActionResult> {
+  const s = await getSessao();
+  if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
   const numero = input.numero.trim();
   if (numero.replace(/\D/g, "").length < 14 || !input.cliente.trim()) {
     return { ok: false, erro: "Número (CNJ) e cliente são obrigatórios." };
@@ -236,6 +258,8 @@ export async function criarProcesso(input: {
 export async function gerarTarefaDaIntimacao(
   id: string,
 ): Promise<ActionResult> {
+  const s = await getSessao();
+  if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
   try {
     const resultado = await prisma.$transaction(async (tx) => {
       // Lock otimista: só processa se ainda estiver pendente (idempotente).
@@ -312,7 +336,66 @@ export async function gerarTarefaDaIntimacao(
   }
 }
 
+export async function criarDocumento(input: {
+  processoNumero: string;
+  nome: string;
+}): Promise<ActionResult> {
+  const s = await getSessao();
+  if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
+  const nome = input.nome.trim();
+  if (!nome) return { ok: false, erro: "Informe o nome do documento." };
+  if (nome.length > 255)
+    return { ok: false, erro: "Nome muito longo (máx. 255 caracteres)." };
+  try {
+    const processo = await prisma.processo.findUnique({
+      where: { numero: input.processoNumero },
+    });
+    if (!processo) return { ok: false, erro: "Selecione um processo válido." };
+
+    // Numeração sequencial por processo (01, 02, 03…). A constraint
+    // @@unique([processoId, ordem]) garante que duas anexações simultâneas não
+    // recebam o mesmo número; em caso de corrida (P2002) tentamos a próxima.
+    for (let tentativa = 0; tentativa < 5; tentativa++) {
+      const ultimo = await prisma.documento.findFirst({
+        where: { processoId: processo.id },
+        orderBy: { ordem: "desc" },
+        select: { ordem: true },
+      });
+      const proximaOrdem = (ultimo?.ordem ?? 0) + 1;
+      try {
+        await prisma.documento.create({
+          data: {
+            processoId: processo.id,
+            ordem: proximaOrdem,
+            nome,
+            data: HOJE_BR,
+          },
+        });
+        revalidatePath("/documentos");
+        revalidatePath("/processos");
+        return { ok: true };
+      } catch (e) {
+        if (
+          e instanceof Prisma.PrismaClientKnownRequestError &&
+          e.code === "P2002"
+        ) {
+          continue; // outra anexação pegou esse número — recalcula e tenta de novo
+        }
+        throw e;
+      }
+    }
+    return {
+      ok: false,
+      erro: "Conflito de numeração — tente anexar novamente.",
+    };
+  } catch {
+    return { ok: false, erro: "Não foi possível anexar o documento." };
+  }
+}
+
 export async function ignorarIntimacao(id: string): Promise<ActionResult> {
+  const s = await getSessao();
+  if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
   try {
     await prisma.publicacao.updateMany({
       where: { id, statusTriagem: "pendente" },

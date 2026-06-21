@@ -24,11 +24,13 @@ export function NovaTarefaModal({
   processos,
   tarefa,
   papel,
+  me,
   onClose,
 }: {
   processos: Processo[];
   tarefa?: TarefaFull;
   papel: string;
+  me?: string;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -40,7 +42,7 @@ export function NovaTarefaModal({
     tarefa?.processo ?? processos[0]?.numero ?? "",
   );
   const [resps, setResps] = useState<string[]>(
-    tarefa?.responsaveis ?? [usuarioAtual.iniciais],
+    tarefa?.responsaveis ?? [me || usuarioAtual.iniciais],
   );
   const [status, setStatus] = useState<string>(tarefa?.status ?? "a_fazer");
   const [data, setData] = useState(tarefa?.data ?? HOJE_ISO);

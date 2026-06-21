@@ -1,15 +1,24 @@
 import { getPainel } from "@/lib/data";
+import { getSessao } from "@/lib/sessao";
 import { AreaTag } from "@/components/AreaTag";
 
 export const dynamic = "force-dynamic";
 
 export default async function PainelPage() {
-  const { kpis, tarefas, eventos, publicacoes } = await getPainel();
+  const [{ kpis, tarefas, eventos, publicacoes }, sessao] = await Promise.all([
+    getPainel(),
+    getSessao(),
+  ]);
+  const primeiroNome =
+    (sessao?.nome ?? "")
+      .replace(/^(Dr\.|Dra\.|Est\.)\s*/i, "")
+      .trim()
+      .split(/\s+/)[0] || "bem-vindo(a)";
 
   return (
     <div className="mx-auto max-w-5xl">
       <header className="mb-6">
-        <h1 className="font-serif text-2xl text-navy">Bom dia, Gabriel</h1>
+        <h1 className="font-serif text-2xl text-navy">Bom dia, {primeiroNome}</h1>
         <p className="text-sm text-muted">Sexta-feira, 19 de junho de 2026</p>
       </header>
 

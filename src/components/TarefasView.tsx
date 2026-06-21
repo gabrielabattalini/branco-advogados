@@ -27,10 +27,12 @@ export function TarefasView({
   tarefas,
   processos,
   papel,
+  me,
 }: {
   tarefas: TarefaFull[];
   processos: Processo[];
   papel: string;
+  me: string;
 }) {
   const router = useRouter();
   const coord = papel === "coordenador";
@@ -402,6 +404,7 @@ export function TarefasView({
         <NovaTarefaModal
           processos={processos}
           papel={papel}
+          me={me}
           onClose={() => setShowNova(false)}
         />
       )}
@@ -410,6 +413,7 @@ export function TarefasView({
           processos={processos}
           tarefa={editar}
           papel={papel}
+          me={me}
           onClose={() => setEditar(null)}
         />
       )}

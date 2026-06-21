@@ -8,21 +8,24 @@ import type {
   EventoAgenda,
   Intimacao,
 } from "@/lib/mock";
-import { HOJE_ISO, usuarioAtual } from "@/lib/mock";
-import { getPapel } from "@/lib/sessao";
+import { HOJE_ISO } from "@/lib/mock";
+import { getSessao } from "@/lib/sessao";
 
-// Filtros de visibilidade conforme o perfil (coordenador vê tudo).
+// Filtros de visibilidade conforme o perfil (coordenador vê tudo). Sem sessão,
+// nada é retornado (defesa em profundidade — as páginas já exigem login).
 async function escopoTarefas() {
-  const papel = await getPapel();
-  return papel === "coordenador"
+  const s = await getSessao();
+  if (!s) return { id: "__sem_sessao__" };
+  return s.papel === "coordenador"
     ? {}
-    : { responsaveis: { has: usuarioAtual.iniciais } };
+    : { responsaveis: { has: s.iniciais } };
 }
 async function escopoAgenda() {
-  const papel = await getPapel();
-  return papel === "coordenador"
+  const s = await getSessao();
+  if (!s) return { id: "__sem_sessao__" };
+  return s.papel === "coordenador"
     ? {}
-    : { participantes: { has: usuarioAtual.iniciais } };
+    : { participantes: { has: s.iniciais } };
 }
 
 export async function getTarefas(): Promise<TarefaFull[]> {
@@ -163,20 +166,25 @@ export async function getEventosAgenda(): Promise<EventoAgenda[]> {
 }
 
 export type PastaDocumentos = {
+  id: string;
   numero: string;
   cliente: string;
+  area: Area;
   docs: { ordem: string; nome: string; data: string }[];
 };
 
+// Todos os processos (com suas pastas, mesmo vazias) — a busca/anexo precisa
+// alcançar processos que ainda não têm nenhum documento.
 export async function getPastasDocumentos(): Promise<PastaDocumentos[]> {
   const procs = await prisma.processo.findMany({
-    where: { documentos: { some: {} } },
     include: { documentos: { orderBy: { ordem: "asc" } } },
     orderBy: { criadoEm: "asc" },
   });
   return procs.map((p) => ({
+    id: p.id,
     numero: p.numero,
     cliente: p.cliente,
+    area: p.area as Area,
     docs: p.documentos.map((d) => ({
       ordem: String(d.ordem).padStart(2, "0"),
       nome: d.nome,
