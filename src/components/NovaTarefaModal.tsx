@@ -13,7 +13,6 @@ import {
   type TarefaFull,
 } from "@/lib/mock";
 import { ehGestor } from "@/lib/papeis";
-import { brData } from "@/lib/audiencia";
 import { somarDiasUteis, somarDiasCorridos } from "@/lib/diasUteis";
 import type { Responsavel } from "@/lib/data";
 import { criarTarefa, editarTarefa, excluirTarefa } from "@/lib/actions";
@@ -50,14 +49,14 @@ export function NovaTarefaModal({
   );
   const [status, setStatus] = useState<string>(tarefa?.status ?? "a_fazer");
 
-  // Prazo: calcular por dias (úteis/corridos) ou informar a data final direto.
-  const [modoPrazo, setModoPrazo] = useState<"dias" | "data">(
-    edicao ? "data" : "dias",
-  );
+  // Prazo: o cálculo por dias (úteis/corridos) preenche a data final, que
+  // também pode ser escolhida direto no calendário.
   const [prazoBase, setPrazoBase] = useState(HOJE_ISO);
   const [prazoDias, setPrazoDias] = useState(5);
   const [prazoTipo, setPrazoTipo] = useState<"uteis" | "corridos">("uteis");
-  const [prazoData, setPrazoData] = useState(tarefa?.data ?? HOJE_ISO);
+  const [dataFinal, setDataFinal] = useState(
+    tarefa?.data ?? somarDiasUteis(HOJE_ISO, 5),
+  );
 
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
@@ -77,21 +76,17 @@ export function NovaTarefaModal({
       : processos
   ).slice(0, 8);
 
-  const dataFinal =
-    modoPrazo === "dias"
-      ? prazoTipo === "uteis"
-        ? somarDiasUteis(prazoBase, prazoDias)
-        : somarDiasCorridos(prazoBase, prazoDias)
-      : prazoData;
+  const recalcular = (base: string, dias: number, tipo: "uteis" | "corridos") =>
+    setDataFinal(
+      tipo === "uteis"
+        ? somarDiasUteis(base, dias)
+        : somarDiasCorridos(base, dias),
+    );
 
   const toggleResp = (ini: string) =>
     setResps((rs) =>
       rs.includes(ini) ? rs.filter((x) => x !== ini) : [...rs, ini],
     );
-
-  const pill = (ativo: boolean) =>
-    "rounded-md px-2.5 py-1 text-[12px] transition-colors " +
-    (ativo ? "bg-navy text-cream" : "border border-line text-muted hover:bg-surface");
 
   const submit = async () => {
     if (!titulo.trim() || salvando) return;
@@ -205,24 +200,44 @@ export function NovaTarefaModal({
         </div>
         <div>
           <label className={labelCls}>Responsáveis (uma ou mais pessoas)</label>
-          <div className="flex flex-wrap gap-2">
-            {responsaveis.map((r) => {
-              const sel = resps.includes(r.iniciais);
+          <div className="flex flex-col gap-2.5">
+            {[
+              { area: "civel", titulo: "Cível" },
+              { area: "trabalhista", titulo: "Trabalhista" },
+            ].map((grupo) => {
+              const pessoas = responsaveis.filter((r) =>
+                grupo.area === "trabalhista"
+                  ? r.area === "trabalhista"
+                  : r.area !== "trabalhista",
+              );
+              if (pessoas.length === 0) return null;
               return (
-                <button
-                  type="button"
-                  key={r.iniciais}
-                  onClick={() => toggleResp(r.iniciais)}
-                  className={
-                    "flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[12px] " +
-                    (sel
-                      ? "border-navy bg-navy/10 text-navy"
-                      : "border-line text-muted hover:bg-surface")
-                  }
-                >
-                  {sel && <Check size={12} />}
-                  {r.nome}
-                </button>
+                <div key={grupo.area}>
+                  <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-faint">
+                    {grupo.titulo}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {pessoas.map((r) => {
+                      const sel = resps.includes(r.iniciais);
+                      return (
+                        <button
+                          type="button"
+                          key={r.iniciais}
+                          onClick={() => toggleResp(r.iniciais)}
+                          className={
+                            "flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[12px] " +
+                            (sel
+                              ? "border-navy bg-navy/10 text-navy"
+                              : "border-line text-muted hover:bg-surface")
+                          }
+                        >
+                          {sel && <Check size={12} />}
+                          {r.nome}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -311,94 +326,73 @@ export function NovaTarefaModal({
         <div>
           <label className={labelCls}>Prazo</label>
           {coord ? (
-            <>
-              <div className="mb-2 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setModoPrazo("dias")}
-                  className={pill(modoPrazo === "dias")}
-                >
-                  Calcular por dias
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setModoPrazo("data")}
-                  className={pill(modoPrazo === "data")}
-                >
-                  Já tenho a data final
-                </button>
-              </div>
-
-              {modoPrazo === "dias" ? (
-                <div className="flex flex-col gap-2">
-                  <div className="flex flex-wrap items-end gap-2">
-                    <div>
-                      <label className="mb-1 block text-[11px] text-faint">
-                        A partir de
-                      </label>
-                      <input
-                        type="date"
-                        className={inputCls}
-                        value={prazoBase}
-                        onChange={(e) => setPrazoBase(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[11px] text-faint">
-                        Prazo
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        className="w-20 rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-navy/60"
-                        value={prazoDias}
-                        onChange={(e) => setPrazoDias(Number(e.target.value))}
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[11px] text-faint">
-                        Tipo
-                      </label>
-                      <select
-                        className={inputCls}
-                        value={prazoTipo}
-                        onChange={(e) =>
-                          setPrazoTipo(e.target.value as "uteis" | "corridos")
-                        }
-                      >
-                        <option value="uteis">dias úteis</option>
-                        <option value="corridos">dias corridos</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="rounded-md bg-cream px-3 py-2 text-[12.5px] text-ink">
-                    Prazo final:{" "}
-                    <span className="font-medium text-navy">
-                      {brData(dataFinal)}
-                    </span>
-                    <span className="text-faint">
-                      {" "}
-                      ({prazoDias || 0}{" "}
-                      {prazoTipo === "uteis" ? "dias úteis" : "dias corridos"})
-                    </span>
-                  </div>
-                  {prazoTipo === "uteis" && (
-                    <p className="text-[11px] text-faint">
-                      Desconta fins de semana e feriados nacionais. Feriados
-                      locais e forenses (recesso) não entram — confira datas
-                      próximas a feriados.
-                    </p>
-                  )}
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-wrap items-end gap-2">
+                <div>
+                  <label className="mb-1 block text-[11px] text-faint">
+                    A partir de
+                  </label>
+                  <input
+                    type="date"
+                    className={inputCls}
+                    value={prazoBase}
+                    onChange={(e) => {
+                      setPrazoBase(e.target.value);
+                      recalcular(e.target.value, prazoDias, prazoTipo);
+                    }}
+                  />
                 </div>
-              ) : (
+                <div>
+                  <label className="mb-1 block text-[11px] text-faint">
+                    Prazo
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    className="w-20 rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-navy/60"
+                    value={prazoDias}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      setPrazoDias(n);
+                      recalcular(prazoBase, n, prazoTipo);
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] text-faint">
+                    Tipo
+                  </label>
+                  <select
+                    className={inputCls}
+                    value={prazoTipo}
+                    onChange={(e) => {
+                      const t = e.target.value as "uteis" | "corridos";
+                      setPrazoTipo(t);
+                      recalcular(prazoBase, prazoDias, t);
+                    }}
+                  >
+                    <option value="uteis">dias úteis</option>
+                    <option value="corridos">dias corridos</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] text-faint">
+                  Data final do prazo
+                </label>
                 <input
                   type="date"
                   className={inputCls}
-                  value={prazoData}
-                  onChange={(e) => setPrazoData(e.target.value)}
+                  value={dataFinal}
+                  onChange={(e) => setDataFinal(e.target.value)}
                 />
-              )}
-            </>
+                <p className="mt-1 text-[11px] text-faint">
+                  É preenchida pelo cálculo acima, mas você pode ajustar a data
+                  direto no calendário. Dias úteis descontam fins de semana e
+                  feriados nacionais (não os locais nem o recesso forense).
+                </p>
+              </div>
+            </div>
           ) : (
             <>
               <input

@@ -26,12 +26,12 @@ async function escopoAgenda() {
 }
 
 // Equipe atribuível (usuários ativos) — alimenta os seletores de responsável.
-export type Responsavel = { iniciais: string; nome: string };
+export type Responsavel = { iniciais: string; nome: string; area: string };
 export async function getResponsaveis(): Promise<Responsavel[]> {
   return prisma.usuario.findMany({
     where: { ativo: true },
     orderBy: { nome: "asc" },
-    select: { iniciais: true, nome: true },
+    select: { iniciais: true, nome: true, area: true },
   });
 }
 
