@@ -398,14 +398,29 @@ export function TarefasView({
             value={filtroAdv}
             onChange={(e) => setFiltroAdv(e.target.value)}
             className={selCls}
-            aria-label="Filtrar por advogado"
+            aria-label="Filtrar por pessoa"
           >
-            <option value="">Todos os advogados</option>
-            {responsaveis.map((r) => (
-              <option key={r.iniciais} value={r.iniciais}>
-                {r.nome}
-              </option>
-            ))}
+            <option value="">Todas as pessoas</option>
+            {[
+              { area: "civel", titulo: "Cível" },
+              { area: "trabalhista", titulo: "Trabalhista" },
+            ].map((g) => {
+              const pessoas = responsaveis.filter((r) =>
+                g.area === "trabalhista"
+                  ? r.area === "trabalhista"
+                  : r.area !== "trabalhista",
+              );
+              if (pessoas.length === 0) return null;
+              return (
+                <optgroup key={g.area} label={g.titulo}>
+                  {pessoas.map((r) => (
+                    <option key={r.iniciais} value={r.iniciais}>
+                      {r.nome}
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
           </select>
         )}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 md:ml-auto">
