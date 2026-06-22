@@ -252,7 +252,7 @@ export const equipeInicial: {
   { iniciais: "MR", nome: "Mauro", email: "mauro@brancoadvogados.com", papel: "coordenador", area: "trabalhista" },
   { iniciais: "KA", nome: "Karen", email: "karen@brancoadvogados.com", papel: "coordenador", area: "civel" },
   { iniciais: "MN", nome: "Mariana", email: "mariana@brancoadvogados.com", papel: "advogado", area: "civel" },
-  { iniciais: "GB", nome: "Gabriel", email: "gabriel@brancoadvogados.com", papel: "advogado", area: "civel" },
+  { iniciais: "GB", nome: "Gabriel", email: "gabriel@brancoadvogados.com", papel: "coordenador", area: "civel" },
   { iniciais: "LS", nome: "Laís", email: "lais@brancoadvogados.com", papel: "advogado", area: "trabalhista" },
   { iniciais: "MT", nome: "Matheus", email: "matheus@brancoadvogados.com", papel: "advogado", area: "civel" },
   { iniciais: "JU", nome: "Julia", email: "julia@brancoadvogados.com", papel: "advogado", area: "trabalhista" },
