@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Plus, Bell, Gavel, MapPin, Video } from "lucide-react";
 import { AvatarGroup } from "@/components/Avatar";
 import { NovaAudienciaModal } from "@/components/NovaAudienciaModal";
@@ -32,7 +33,8 @@ export function AudienciasView({
   papel: string;
   me: string;
 }) {
-  const [showNova, setShowNova] = useState(false);
+  const searchParams = useSearchParams();
+  const [showNova, setShowNova] = useState(searchParams.get("novo") === "1");
   const [editar, setEditar] = useState<AudienciaDTO | null>(null);
 
   // Próximas (agendadas) primeiro; depois realizadas/canceladas.

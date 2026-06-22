@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Lock, Plus } from "lucide-react";
 import {
   STATUS_LIST,
@@ -46,7 +46,10 @@ export function TarefasView({
   const [statusSel, setStatusSel] = useState<string[]>(
     STATUS_LIST.map((s) => s.key),
   );
-  const [showNova, setShowNova] = useState(false);
+  const searchParams = useSearchParams();
+  const [showNova, setShowNova] = useState(
+    searchParams.get("novo") === "1",
+  );
   const [editar, setEditar] = useState<TarefaFull | null>(null);
 
   const setStatus = async (id: string, status: Status) => {

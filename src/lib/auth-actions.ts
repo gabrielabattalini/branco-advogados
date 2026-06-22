@@ -337,6 +337,56 @@ export async function alternarAtivo(input: {
   }
 }
 
+export async function editarUsuario(input: {
+  id: string;
+  nome: string;
+  email: string;
+  area: string;
+  novaSenha?: string;
+}): Promise<ActionResult> {
+  const s = await getSessao();
+  if (!s || !ehGestor(s.papel))
+    return { ok: false, erro: "Sem permissão para esta ação." };
+  const nome = input.nome.trim();
+  const email = input.email.trim().toLowerCase();
+  if (!nome || !email) return { ok: false, erro: "Preencha nome e e-mail." };
+  if (nome.length > 120) return { ok: false, erro: "Nome muito longo." };
+  if (!email.endsWith(DOMINIO))
+    return { ok: false, erro: `O e-mail deve ser ${DOMINIO}.` };
+  if (input.novaSenha && input.novaSenha.length < 8)
+    return { ok: false, erro: "A nova senha deve ter ao menos 8 caracteres." };
+  try {
+    const alvo = await prisma.usuario.findUnique({
+      where: { id: input.id },
+      select: { papel: true },
+    });
+    if (!alvo) return { ok: false, erro: "Usuário não encontrado." };
+    // Só o Sócio diretor edita a conta de outro sócio (protege a direção).
+    if (s.papel !== "socio" && alvo.papel === "socio" && input.id !== s.id)
+      return {
+        ok: false,
+        erro: "Apenas o Sócio diretor pode alterar essa conta.",
+      };
+    const area = input.area === "trabalhista" ? "trabalhista" : "civel";
+    await prisma.usuario.update({
+      where: { id: input.id },
+      data: {
+        nome,
+        email,
+        area,
+        ...(input.novaSenha ? { senhaHash: hashSenha(input.novaSenha) } : {}),
+      },
+    });
+    revalidatePath("/admin");
+    revalidatePath("/", "layout");
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")
+      return { ok: false, erro: "Já existe uma conta com esse e-mail." };
+    return { ok: false, erro: "Não foi possível salvar o usuário." };
+  }
+}
+
 export async function sair() {
   await limparSessao();
   redirect("/login");

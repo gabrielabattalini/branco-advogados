@@ -10,6 +10,7 @@ import type {
 } from "@/lib/mock";
 import { HOJE_ISO } from "@/lib/mock";
 import { getSessao, ehGestor } from "@/lib/sessao";
+import { brData } from "@/lib/audiencia";
 
 // Filtros de visibilidade conforme o perfil (gestor vê tudo). Sem sessão,
 // nada é retornado (defesa em profundidade — as páginas já exigem login).
@@ -44,6 +45,70 @@ export type UsuarioAdmin = {
   iniciais: string;
   ativo: boolean;
 };
+// Itens pesquisáveis pela busca global (processos, contatos, tarefas, audiências).
+export type ItemBusca = {
+  tipo: string;
+  titulo: string;
+  sub: string;
+  href: string;
+};
+
+export async function getBuscaGlobal(): Promise<ItemBusca[]> {
+  const [escT, escA] = [await escopoTarefas(), await escopoAgenda()];
+  const [procs, conts, tars, audis] = await Promise.all([
+    prisma.processo.findMany({
+      select: { id: true, numero: true, cliente: true },
+      orderBy: { criadoEm: "desc" },
+    }),
+    prisma.contato.findMany({
+      select: { nome: true, documento: true },
+      orderBy: { nome: "asc" },
+    }),
+    prisma.tarefa.findMany({
+      where: escT,
+      select: { titulo: true, processo: { select: { numero: true } } },
+      orderBy: { criadoEm: "desc" },
+      take: 300,
+    }),
+    prisma.audiencia.findMany({
+      where: escA,
+      select: { titulo: true, data: true, hora: true },
+      orderBy: { inicioUtc: "desc" },
+      take: 300,
+    }),
+  ]);
+  const itens: ItemBusca[] = [];
+  for (const p of procs)
+    itens.push({
+      tipo: "Processo",
+      titulo: p.numero,
+      sub: p.cliente,
+      href: `/processos/${p.id}`,
+    });
+  for (const c of conts)
+    itens.push({
+      tipo: "Contato",
+      titulo: c.nome,
+      sub: c.documento,
+      href: "/contatos",
+    });
+  for (const t of tars)
+    itens.push({
+      tipo: "Tarefa",
+      titulo: t.titulo,
+      sub: t.processo?.numero ?? "",
+      href: "/tarefas",
+    });
+  for (const a of audis)
+    itens.push({
+      tipo: "Audiência",
+      titulo: a.titulo,
+      sub: `${brData(a.data)} ${a.hora}`,
+      href: "/audiencias",
+    });
+  return itens;
+}
+
 export async function getUsuarios(): Promise<UsuarioAdmin[]> {
   const rows = await prisma.usuario.findMany({
     orderBy: [{ ativo: "desc" }, { nome: "asc" }],

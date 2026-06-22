@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import { Modal } from "@/components/Modal";
 import { Avatar } from "@/components/Avatar";
+import { EditarUsuarioModal } from "@/components/EditarUsuarioModal";
 import { PAPEIS, labelPapel } from "@/lib/papeis";
 import { criarUsuario, alterarPapel, alternarAtivo } from "@/lib/auth-actions";
 import type { UsuarioAdmin } from "@/lib/data";
@@ -29,6 +30,7 @@ export function AdminView({
   const [showNovo, setShowNovo] = useState(false);
   const [erro, setErro] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [editando, setEditando] = useState<UsuarioAdmin | null>(null);
 
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
@@ -77,6 +79,9 @@ export function AdminView({
   // Não posso mexer em mim mesmo; só o sócio mexe em sócios.
   const podeEditar = (u: UsuarioAdmin) =>
     u.id !== me.id && (souSocio || u.papel !== "socio");
+  // Dados (nome/e-mail/senha) podem ser editados inclusive na própria conta.
+  const podeEditarDetalhes = (u: UsuarioAdmin) =>
+    u.id === me.id || souSocio || u.papel !== "socio";
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -152,6 +157,13 @@ export function AdminView({
                 }
               >
                 {u.ativo ? "Desativar" : "Ativar"}
+              </button>
+              <button
+                onClick={() => setEditando(u)}
+                disabled={!podeEditarDetalhes(u) || busy === u.id}
+                className="inline-flex items-center gap-1 rounded-md border border-line px-2.5 py-1.5 text-[12px] text-navy hover:bg-cream disabled:opacity-40"
+              >
+                <Pencil size={12} /> Editar
               </button>
             </div>
           );
@@ -262,6 +274,13 @@ export function AdminView({
             </p>
           </div>
         </Modal>
+      )}
+
+      {editando && (
+        <EditarUsuarioModal
+          usuario={editando}
+          onClose={() => setEditando(null)}
+        />
       )}
     </div>
   );

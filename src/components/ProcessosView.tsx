@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Search, Plus, ChevronRight } from "lucide-react";
 import type { Area, Processo } from "@/lib/mock";
 import type { Responsavel } from "@/lib/data";
@@ -24,9 +25,10 @@ export function ProcessosView({
   processos: Processo[];
   responsaveis: Responsavel[];
 }) {
+  const searchParams = useSearchParams();
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("todos");
-  const [showNovo, setShowNovo] = useState(false);
+  const [showNovo, setShowNovo] = useState(searchParams.get("novo") === "1");
 
   const filtrados = processos.filter((p) => {
     const okFiltro = filtro === "todos" || p.area === filtro;
