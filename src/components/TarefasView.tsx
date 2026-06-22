@@ -43,7 +43,9 @@ export function TarefasView({
   const [calMode, setCalMode] = useState<CalMode>("semana");
   const [mesAtual, setMesAtual] = useState({ ano: 2026, mes: 6 });
   const [filtroAdv, setFiltroAdv] = useState("");
-  const [filtroStatus, setFiltroStatus] = useState("");
+  const [statusSel, setStatusSel] = useState<string[]>(
+    STATUS_LIST.map((s) => s.key),
+  );
   const [showNova, setShowNova] = useState(false);
   const [editar, setEditar] = useState<TarefaFull | null>(null);
 
@@ -54,10 +56,18 @@ export function TarefasView({
   const prazoCls = (urgente?: boolean) =>
     urgente ? "font-medium text-danger" : "text-muted";
 
+  const todosMarcados = statusSel.length === STATUS_LIST.length;
+  const toggleStatus = (key: string) =>
+    setStatusSel((sel) =>
+      sel.includes(key) ? sel.filter((k) => k !== key) : [...sel, key],
+    );
+  const toggleTodos = () =>
+    setStatusSel(todosMarcados ? [] : STATUS_LIST.map((s) => s.key));
+
   const visiveis = tarefas.filter(
     (t) =>
       (!filtroAdv || t.responsaveis.includes(filtroAdv)) &&
-      (!filtroStatus || t.status === filtroStatus),
+      statusSel.includes(t.status),
   );
 
   const selCls =
@@ -360,42 +370,53 @@ export function TarefasView({
         </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex items-center gap-1.5 text-[12px] text-faint">
           <Lock size={13} />
           {coord
             ? "Todas as tarefas do escritório"
             : "Apenas as suas tarefas"}
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          {coord && (
-            <select
-              value={filtroAdv}
-              onChange={(e) => setFiltroAdv(e.target.value)}
-              className={selCls}
-              aria-label="Filtrar por advogado"
-            >
-              <option value="">Todos os advogados</option>
-              {responsaveis.map((r) => (
-                <option key={r.iniciais} value={r.iniciais}>
-                  {r.nome}
-                </option>
-              ))}
-            </select>
-          )}
+        {coord && (
           <select
-            value={filtroStatus}
-            onChange={(e) => setFiltroStatus(e.target.value)}
+            value={filtroAdv}
+            onChange={(e) => setFiltroAdv(e.target.value)}
             className={selCls}
-            aria-label="Filtrar por status"
+            aria-label="Filtrar por advogado"
           >
-            <option value="">Todos os status</option>
-            {STATUS_LIST.map((s) => (
-              <option key={s.key} value={s.key}>
-                {s.label}
+            <option value="">Todos os advogados</option>
+            {responsaveis.map((r) => (
+              <option key={r.iniciais} value={r.iniciais}>
+                {r.nome}
               </option>
             ))}
           </select>
+        )}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 md:ml-auto">
+          <span className="text-[12px] text-faint">Status:</span>
+          <label className="inline-flex cursor-pointer items-center gap-1.5 text-[12px] font-medium text-muted">
+            <input
+              type="checkbox"
+              className="h-3.5 w-3.5 accent-navy"
+              checked={todosMarcados}
+              onChange={toggleTodos}
+            />
+            Todos
+          </label>
+          {STATUS_LIST.map((s) => (
+            <label
+              key={s.key}
+              className="inline-flex cursor-pointer items-center gap-1.5 text-[12px] text-muted"
+            >
+              <input
+                type="checkbox"
+                className="h-3.5 w-3.5 accent-navy"
+                checked={statusSel.includes(s.key)}
+                onChange={() => toggleStatus(s.key)}
+              />
+              {s.label}
+            </label>
+          ))}
         </div>
       </div>
 
