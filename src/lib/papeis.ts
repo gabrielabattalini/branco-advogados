@@ -1,13 +1,19 @@
 // Papéis de acesso — módulo puro (sem deps de servidor), usável no client.
 
-export type Papel = "advogado" | "coordenador" | "socio";
+export type Papel = "advogado" | "coordenador" | "socio" | "administrativo";
 
-export const PAPEIS: Papel[] = ["socio", "coordenador", "advogado"];
+export const PAPEIS: Papel[] = [
+  "socio",
+  "coordenador",
+  "advogado",
+  "administrativo",
+];
 
 export const LABEL_PAPEL: Record<string, string> = {
   socio: "Sócio diretor",
   coordenador: "Coordenador",
   advogado: "Advogado",
+  administrativo: "Administrativo",
 };
 
 export function labelPapel(papel: string): string {

@@ -256,6 +256,7 @@ export const equipeInicial: {
   { iniciais: "LS", nome: "Laís", email: "lais@brancoadvogados.com", papel: "advogado", area: "trabalhista" },
   { iniciais: "MT", nome: "Matheus", email: "matheus@brancoadvogados.com", papel: "advogado", area: "civel" },
   { iniciais: "JU", nome: "Julia", email: "julia@brancoadvogados.com", papel: "advogado", area: "trabalhista" },
+  { iniciais: "SU", nome: "Suelen", email: "suelen@brancoadvogados.com", papel: "administrativo", area: "civel" },
 ];
 
 // Remapeia as iniciais dos dados de demonstração (equipe antiga) para a real.
