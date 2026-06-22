@@ -289,6 +289,8 @@ export const audienciasSeed: {
   data: string;
   hora: string;
   tipo: string;
+  modalidade: string;
+  link: string;
   local: string;
   partes: string;
   participantes: string[];
@@ -296,8 +298,8 @@ export const audienciasSeed: {
   status: string;
   lembretes: number[];
 }[] = [
-  { processoNumero: "0010567-89.2025.5.15.0042", titulo: "Audiência de instrução — João da Silva", data: "2026-06-19", hora: "11:00", tipo: "instrucao", local: "TRT15 · 2ª Vara do Trabalho de Jundiaí", partes: "João da Silva × Indústria Metalúrgica Zardetto Ltda", participantes: ["GB", "MR"], observacoes: "Levar rol de testemunhas.", status: "agendada", lembretes: [1440, 120, 30] },
-  { processoNumero: "1005432-21.2024.8.26.0309", titulo: "Audiência de conciliação — Cond. Aurora", data: "2026-07-10", hora: "14:30", tipo: "conciliacao", local: "TJSP · 3ª Vara Cível de Jundiaí", partes: "Condomínio Edifício Aurora × Construtora Habita S.A.", participantes: ["MN", "KA"], observacoes: "", status: "agendada", lembretes: [2880, 60] },
+  { processoNumero: "0010567-89.2025.5.15.0042", titulo: "Audiência de instrução — João da Silva", data: "2026-06-19", hora: "11:00", tipo: "instrucao", modalidade: "presencial", link: "", local: "TRT15 · 2ª Vara do Trabalho de Jundiaí", partes: "João da Silva × Indústria Metalúrgica Zardetto Ltda", participantes: ["GB", "MR"], observacoes: "Levar rol de testemunhas.", status: "agendada", lembretes: [1440, 120, 30] },
+  { processoNumero: "1005432-21.2024.8.26.0309", titulo: "Audiência de conciliação — Cond. Aurora", data: "2026-07-10", hora: "14:30", tipo: "conciliacao", modalidade: "virtual", link: "https://meet.google.com/abc-defg-hij", local: "TJSP · 3ª Vara Cível de Jundiaí", partes: "Condomínio Edifício Aurora × Construtora Habita S.A.", participantes: ["MN", "KA"], observacoes: "", status: "agendada", lembretes: [2880, 60] },
 ];
 
 export type Intimacao = {

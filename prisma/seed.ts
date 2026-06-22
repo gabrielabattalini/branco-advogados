@@ -180,6 +180,8 @@ async function main() {
         hora: a.hora,
         inicioUtc: instanteBRT(a.data, a.hora),
         tipo: a.tipo,
+        modalidade: a.modalidade,
+        link: a.link,
         local: a.local,
         partes: a.partes,
         participantes: a.participantes,

@@ -1,10 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Bell, Gavel, MapPin } from "lucide-react";
+import { Plus, Bell, Gavel, MapPin, Video } from "lucide-react";
 import { AvatarGroup } from "@/components/Avatar";
 import { NovaAudienciaModal } from "@/components/NovaAudienciaModal";
-import { brData, labelTipoAudiencia, formatOffset } from "@/lib/audiencia";
+import {
+  brData,
+  labelTipoAudiencia,
+  formatOffset,
+  linkSeguro,
+} from "@/lib/audiencia";
 import type { Processo } from "@/lib/mock";
 import type { Responsavel, AudienciaDTO } from "@/lib/data";
 
@@ -37,10 +42,18 @@ export function AudienciasView({
   const Card = (a: AudienciaDTO) => {
     const badge = STATUS_BADGE[a.status] ?? STATUS_BADGE.agendada;
     return (
-      <button
+      <div
         key={a.id}
+        role="button"
+        tabIndex={0}
         onClick={() => setEditar(a)}
-        className="flex w-full flex-col gap-2 rounded-lg border border-line bg-surface p-4 text-left transition-colors hover:border-gold/50"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setEditar(a);
+          }
+        }}
+        className="flex w-full cursor-pointer flex-col gap-2 rounded-lg border border-line bg-surface p-4 text-left transition-colors hover:border-gold/50"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -72,8 +85,25 @@ export function AudienciasView({
           </span>
         </div>
 
-        {(a.local || a.partes) && (
+        {(a.modalidade === "virtual" || a.local || a.partes) && (
           <div className="flex flex-col gap-0.5 text-[12px] text-muted">
+            {a.modalidade === "virtual" && (
+              <span className="inline-flex items-center gap-1.5">
+                <Video size={12} className="text-info" />
+                <span className="text-info">Virtual</span>
+                {linkSeguro(a.link) && (
+                  <a
+                    href={linkSeguro(a.link)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-info underline"
+                  >
+                    · entrar na sala
+                  </a>
+                )}
+              </span>
+            )}
             {a.local && (
               <span className="inline-flex items-center gap-1.5">
                 <MapPin size={12} className="text-faint" /> {a.local}
@@ -115,7 +145,7 @@ export function AudienciasView({
             <AvatarGroup inis={a.participantes} size={22} />
           )}
         </div>
-      </button>
+      </div>
     );
   };
 

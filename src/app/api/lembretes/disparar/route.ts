@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { enviarEmail, emailConfigurado } from "@/lib/email";
-import { formatOffset, brData, labelTipoAudiencia } from "@/lib/audiencia";
+import {
+  formatOffset,
+  brData,
+  labelTipoAudiencia,
+  linkSeguro,
+} from "@/lib/audiencia";
 
 export const dynamic = "force-dynamic";
 
@@ -68,13 +73,23 @@ async function processar() {
   <p style="margin:0 0 12px;color:#6e6a60">Faltam ${esc(antecedencia)} para a audiência.</p>
   <ul style="padding-left:18px;line-height:1.6">
     ${linha("Quando", quando)}
+    ${a.modalidade === "virtual" ? linha("Modalidade", "Virtual") : ""}
+    ${
+      a.modalidade === "virtual" && linkSeguro(a.link)
+        ? `<li><strong>Link:</strong> <a href="${esc(linkSeguro(a.link))}">${esc(linkSeguro(a.link))}</a></li>`
+        : ""
+    }
     ${linha("Local", a.local)}
     ${linha("Partes", a.partes)}
     ${linha("Observações", a.observacoes)}
   </ul>
   <p style="color:#9a9488;font-size:12px;margin-top:16px">Branco Advogados · sistema interno</p>
 </div>`;
-    const texto = `Lembrete: ${a.titulo} — ${quando}. ${a.local}`;
+    const texto =
+      `Lembrete: ${a.titulo} — ${quando}. ${a.local}` +
+      (a.modalidade === "virtual" && linkSeguro(a.link)
+        ? ` Link: ${linkSeguro(a.link)}`
+        : "");
     const res = await enviarEmail({ para, assunto, html, texto });
     if (res.enviado) {
       enviados++;

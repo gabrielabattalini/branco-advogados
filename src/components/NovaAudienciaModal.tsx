@@ -52,6 +52,10 @@ export function NovaAudienciaModal({
   const [partes, setPartes] = useState(audiencia?.partes ?? "");
   const [observacoes, setObservacoes] = useState(audiencia?.observacoes ?? "");
   const [status, setStatus] = useState(audiencia?.status ?? "agendada");
+  const [modalidade, setModalidade] = useState(
+    audiencia?.modalidade ?? "presencial",
+  );
+  const [link, setLink] = useState(audiencia?.link ?? "");
   const [parts, setParts] = useState<string[]>(
     audiencia?.participantes ?? (me ? [me] : []),
   );
@@ -78,6 +82,12 @@ export function NovaAudienciaModal({
     if (m > 0 && m <= MAX) addLembrete(m);
   };
 
+  const pill = (ativo: boolean) =>
+    "rounded-md px-3 py-1.5 text-[12px] transition-colors " +
+    (ativo
+      ? "bg-navy text-cream"
+      : "border border-line text-muted hover:bg-surface");
+
   const valido = !!titulo.trim() && !!data && !!hora;
 
   const submit = async () => {
@@ -90,6 +100,8 @@ export function NovaAudienciaModal({
       data,
       hora,
       tipo,
+      modalidade,
+      link,
       local,
       partes,
       participantes: parts,
@@ -233,7 +245,38 @@ export function NovaAudienciaModal({
         </div>
 
         <div>
-          <label className={labelCls}>Vara / local</label>
+          <label className={labelCls}>Modalidade</label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setModalidade("presencial")}
+              className={pill(modalidade === "presencial")}
+            >
+              Presencial
+            </button>
+            <button
+              type="button"
+              onClick={() => setModalidade("virtual")}
+              className={pill(modalidade === "virtual")}
+            >
+              Virtual
+            </button>
+          </div>
+          {modalidade === "virtual" && (
+            <input
+              className={inputCls + " mt-2"}
+              type="url"
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              placeholder="Link da sala (https://…)"
+            />
+          )}
+        </div>
+
+        <div>
+          <label className={labelCls}>
+            {modalidade === "virtual" ? "Vara / órgão" : "Vara / local"}
+          </label>
           <input
             className={inputCls}
             value={local}

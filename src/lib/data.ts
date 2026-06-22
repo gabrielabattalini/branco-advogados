@@ -203,7 +203,9 @@ export async function getEventosAgenda(): Promise<EventoAgenda[]> {
     hora: a.hora,
     tipo: "audiencia",
     titulo: a.titulo,
-    detalhe: [a.local, a.partes].filter(Boolean).join(" · "),
+    detalhe: [a.modalidade === "virtual" ? "Virtual" : "", a.local, a.partes]
+      .filter(Boolean)
+      .join(" · "),
     participantes: a.participantes,
   }));
   return [...eventos, ...audiencias].sort((x, y) =>
@@ -219,6 +221,8 @@ export type AudienciaDTO = {
   data: string;
   hora: string;
   tipo: string;
+  modalidade: string;
+  link: string;
   local: string;
   partes: string;
   participantes: string[];
@@ -240,6 +244,8 @@ export async function getAudiencias(): Promise<AudienciaDTO[]> {
     data: a.data,
     hora: a.hora,
     tipo: a.tipo,
+    modalidade: a.modalidade,
+    link: a.link,
     local: a.local,
     partes: a.partes,
     participantes: a.participantes,

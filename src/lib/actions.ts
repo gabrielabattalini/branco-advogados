@@ -442,12 +442,21 @@ type AudienciaInput = {
   data: string;
   hora: string;
   tipo: string;
+  modalidade: string;
+  link: string;
   local: string;
   partes: string;
   participantes: string[];
   observacoes: string;
   lembretes: number[];
 };
+
+function modalidadeLink(input: { modalidade: string; link: string }) {
+  const modalidade = input.modalidade === "virtual" ? "virtual" : "presencial";
+  const link =
+    modalidade === "virtual" ? (input.link?.trim() || "").slice(0, 500) : "";
+  return { modalidade, link };
+}
 
 function validarAudiencia(input: AudienciaInput): string | null {
   if (!input.titulo.trim()) return "Informe o título da audiência.";
@@ -486,6 +495,7 @@ export async function criarAudiencia(
         hora: input.hora,
         inicioUtc: inicio,
         tipo,
+        ...modalidadeLink(input),
         local: input.local?.trim() || "",
         partes: input.partes?.trim() || "",
         participantes: parts,
@@ -563,6 +573,7 @@ export async function editarAudiencia(
           inicioUtc: inicio,
           tipo,
           status,
+          ...modalidadeLink(input),
           local: input.local?.trim() || "",
           partes: input.partes?.trim() || "",
           participantes: parts,

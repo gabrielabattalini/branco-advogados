@@ -123,6 +123,8 @@ model Audiencia {
   hora          String // HH:MM (horário de Brasília)
   inicioUtc     DateTime // instante absoluto (data+hora BRT convertidos p/ UTC)
   tipo          String     @default("instrucao") // instrucao | conciliacao | inicial | una | outra
+  modalidade    String     @default("presencial") // presencial | virtual
+  link          String     @default("") // link da sala (quando virtual)
   local         String     @default("")
   partes        String     @default("")
   participantes String[]

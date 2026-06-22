@@ -52,3 +52,9 @@ export function paraMinutos(valor: number, unidade: "min" | "h" | "d"): number {
   if (unidade === "h") return valor * 60;
   return valor;
 }
+
+// Só aceita http/https como link clicável (evita javascript:, etc.).
+export function linkSeguro(url: string): string {
+  const u = (url || "").trim();
+  return /^https?:\/\//i.test(u) ? u : "";
+}
