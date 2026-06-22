@@ -15,7 +15,6 @@ import {
 import { ehGestor } from "@/lib/papeis";
 import type { Responsavel } from "@/lib/data";
 import { AreaTag } from "@/components/AreaTag";
-import { AvatarGroup } from "@/components/Avatar";
 import { StatusSelect } from "@/components/StatusSelect";
 import { NovaTarefaModal } from "@/components/NovaTarefaModal";
 import { atualizarStatusTarefa } from "@/lib/actions";
@@ -58,6 +57,16 @@ export function TarefasView({
   };
   const prazoCls = (urgente?: boolean) =>
     urgente ? "font-medium text-danger" : "text-muted";
+
+  // Mostra os responsáveis pelo primeiro nome, separados por " / ".
+  const primeiroNome = (ini: string) => {
+    const r = responsaveis.find((x) => x.iniciais === ini);
+    return (r?.nome ?? ini)
+      .replace(/^(Dr\.|Dra\.|Est\.)\s*/i, "")
+      .split(/\s+/)[0];
+  };
+  const nomesResp = (inis: string[]) =>
+    inis.length ? inis.map(primeiroNome).join(" / ") : "—";
 
   const todosMarcados = statusSel.length === STATUS_LIST.length;
   const toggleStatus = (key: string) =>
@@ -125,12 +134,12 @@ export function TarefasView({
       </button>
       <div className="mt-2 flex items-center justify-between gap-2">
         <StatusSelect value={t.status} onChange={(s) => setStatus(t.id, s)} />
-        <div className="flex items-center gap-2">
-          <span className={"text-[11px] " + prazoCls(t.prazoUrgente)}>
-            {t.prazo}
-          </span>
-          <AvatarGroup inis={t.responsaveis} size={20} />
-        </div>
+        <span className={"text-[11px] " + prazoCls(t.prazoUrgente)}>
+          {t.prazo}
+        </span>
+      </div>
+      <div className="mt-1.5 text-[13px] font-medium text-navy">
+        {nomesResp(t.responsaveis)}
       </div>
     </div>
   );
@@ -203,13 +212,15 @@ export function TarefasView({
                     {t.titulo}
                   </div>
                 </button>
-                <div className="mt-1.5 flex items-center justify-between gap-1">
+                <div className="mt-1.5">
                   <StatusSelect
                     value={t.status}
                     onChange={(s) => setStatus(t.id, s)}
                     compact
                   />
-                  <AvatarGroup inis={t.responsaveis} size={18} />
+                </div>
+                <div className="mt-1 text-[12.5px] font-medium leading-tight text-navy">
+                  {nomesResp(t.responsaveis)}
                 </div>
               </div>
             ))}
@@ -344,7 +355,9 @@ export function TarefasView({
             </div>
           </button>
           {coord && <AreaTag area={t.area} />}
-          <AvatarGroup inis={t.responsaveis} size={22} />
+          <span className="text-[13px] font-medium text-navy">
+            {nomesResp(t.responsaveis)}
+          </span>
           <span
             className={"w-12 text-right text-[11px] " + prazoCls(t.prazoUrgente)}
           >
