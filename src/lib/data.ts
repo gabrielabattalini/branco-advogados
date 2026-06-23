@@ -25,11 +25,12 @@ async function escopoAgenda() {
   return ehGestor(s.papel) ? {} : { participantes: { has: s.iniciais } };
 }
 
-// Equipe atribuível (usuários ativos) — alimenta os seletores de responsável.
+// Equipe atribuível (advogados/coordenadores/sócio ativos) — alimenta os
+// seletores de responsável. O perfil "administrativo" não recebe tarefas.
 export type Responsavel = { iniciais: string; nome: string; area: string };
 export async function getResponsaveis(): Promise<Responsavel[]> {
   return prisma.usuario.findMany({
-    where: { ativo: true },
+    where: { ativo: true, papel: { not: "administrativo" } },
     orderBy: { nome: "asc" },
     select: { iniciais: true, nome: true, area: true },
   });
