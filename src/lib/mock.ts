@@ -247,7 +247,7 @@ export const equipeInicial: {
   papel: string;
   area: string;
 }[] = [
-  { iniciais: "LB", nome: "Luiz Carlos Branco", email: "luizcarlos@brancoadvogados.com", papel: "socio", area: "civel" },
+  { iniciais: "LB", nome: "Luiz Carlos Branco", email: "luizcarlos@brancoadvogados.com", papel: "socio", area: "trabalhista" },
   { iniciais: "DB", nome: "Débora", email: "debora@brancoadvogados.com", papel: "coordenador", area: "civel" },
   { iniciais: "MR", nome: "Mauro", email: "mauro@brancoadvogados.com", papel: "coordenador", area: "civel" },
   { iniciais: "KA", nome: "Karen", email: "karen@brancoadvogados.com", papel: "coordenador", area: "trabalhista" },
