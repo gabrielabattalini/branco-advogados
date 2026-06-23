@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Search } from "lucide-react";
+import { Check, Search, History } from "lucide-react";
 import { Modal } from "@/components/Modal";
 import { AreaTag } from "@/components/AreaTag";
 import {
@@ -24,6 +24,7 @@ const labelCls = "mb-1 block text-[12px] text-muted";
 export function NovaTarefaModal({
   processos,
   responsaveis,
+  ultimosResp,
   tarefa,
   papel,
   me,
@@ -31,6 +32,7 @@ export function NovaTarefaModal({
 }: {
   processos: Processo[];
   responsaveis: Responsavel[];
+  ultimosResp: Record<string, string[]>;
   tarefa?: TarefaFull;
   papel: string;
   me?: string;
@@ -62,6 +64,18 @@ export function NovaTarefaModal({
   const [erro, setErro] = useState("");
 
   const area = numero ? classificarArea(numero) : "civel";
+  // Sugestão: responsáveis da última tarefa deste processo (só os atribuíveis).
+  const sugestao = numero
+    ? (ultimosResp[numero] ?? []).filter((i) =>
+        responsaveis.some((r) => r.iniciais === i),
+      )
+    : [];
+  const nomesSugeridos = sugestao
+    .map((i) => {
+      const r = responsaveis.find((x) => x.iniciais === i);
+      return (r?.nome ?? i).split(/\s+/)[0];
+    })
+    .join(" / ");
   const procSel = processos.find((p) => p.numero === numero);
   const q = procBusca.trim().toLowerCase();
   const qd = q.replace(/\D/g, "");
@@ -320,6 +334,22 @@ export function NovaTarefaModal({
           <div className="mt-1.5 flex items-center gap-2 text-[12px] text-muted">
             Área {numero ? "detectada" : "padrão"}: <AreaTag area={area} />
           </div>
+          {numero && sugestao.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md bg-gold/10 px-2.5 py-1.5 text-[12px]">
+              <History size={13} className="shrink-0 text-gold" />
+              <span className="text-muted">
+                Últimas tarefas deste processo:
+              </span>
+              <span className="font-medium text-navy">{nomesSugeridos}</span>
+              <button
+                type="button"
+                onClick={() => setResps(sugestao)}
+                className="ml-auto shrink-0 rounded border border-gold/50 px-2 py-0.5 text-[11px] font-medium text-navy hover:bg-gold/20"
+              >
+                Usar
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Prazo */}

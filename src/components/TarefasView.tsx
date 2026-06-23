@@ -27,12 +27,14 @@ export function TarefasView({
   tarefas,
   processos,
   responsaveis,
+  ultimosResp,
   papel,
   me,
 }: {
   tarefas: TarefaFull[];
   processos: Processo[];
   responsaveis: Responsavel[];
+  ultimosResp: Record<string, string[]>;
   papel: string;
   me: string;
 }) {
@@ -459,6 +461,7 @@ export function TarefasView({
         <NovaTarefaModal
           processos={processos}
           responsaveis={responsaveis}
+          ultimosResp={ultimosResp}
           papel={papel}
           me={me}
           onClose={() => setShowNova(false)}
@@ -468,6 +471,7 @@ export function TarefasView({
         <NovaTarefaModal
           processos={processos}
           responsaveis={responsaveis}
+          ultimosResp={ultimosResp}
           tarefa={editar}
           papel={papel}
           me={me}

@@ -36,6 +36,24 @@ export async function getResponsaveis(): Promise<Responsavel[]> {
   });
 }
 
+// Responsáveis da tarefa mais recente de cada processo — sugestão ao criar
+// nova tarefa (processos costumam ir para os mesmos responsáveis).
+export async function getUltimosResponsaveis(): Promise<
+  Record<string, string[]>
+> {
+  const tarefas = await prisma.tarefa.findMany({
+    where: { processoId: { not: null } },
+    orderBy: { criadoEm: "desc" },
+    select: { responsaveis: true, processo: { select: { numero: true } } },
+  });
+  const map: Record<string, string[]> = {};
+  for (const t of tarefas) {
+    const num = t.processo?.numero;
+    if (num && !(num in map)) map[num] = t.responsaveis;
+  }
+  return map;
+}
+
 // Todos os usuários (para a Administração).
 export type UsuarioAdmin = {
   id: string;
