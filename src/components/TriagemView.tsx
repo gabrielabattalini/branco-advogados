@@ -54,7 +54,6 @@ function brL(iso: string) {
 function Cartao({
   p,
   pessoas,
-  me,
 }: {
   p: TriagemPub;
   pessoas: Responsavel[];
@@ -62,9 +61,8 @@ function Cartao({
 }) {
   const router = useRouter();
   const processada = p.status === "processada";
-  const [resp, setResp] = useState<string[]>(
-    p.responsaveis.length ? p.responsaveis : me ? [me] : [],
-  );
+  // Sem pré-seleção quando não há histórico (antes caía no usuário logado).
+  const [resp, setResp] = useState<string[]>(p.responsaveis ?? []);
   const [acao, setAcao] = useState(p.acao || "Verificar");
   const [quando, setQuando] = useState(p.dataFatal || p.dataPublicacao || p.disponibilizacao);
   const [busy, setBusy] = useState(false);
