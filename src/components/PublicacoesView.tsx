@@ -4,16 +4,13 @@ import { useState } from "react";
 import { ListChecks, CalendarDays, type LucideIcon } from "lucide-react";
 import { TriagemView } from "@/components/TriagemView";
 import { PublicacoesCalendario } from "@/components/PublicacoesCalendario";
-import type { Intimacao } from "@/lib/mock";
 import type { PublicacaoCal } from "@/lib/data";
 
 type View = "triagem" | "calendario";
 
 export function PublicacoesView({
-  intimacoes,
   publicacoes,
 }: {
-  intimacoes: Intimacao[];
   publicacoes: PublicacaoCal[];
 }) {
   const [view, setView] = useState<View>("triagem");
@@ -43,7 +40,7 @@ export function PublicacoesView({
       </div>
 
       {view === "triagem" ? (
-        <TriagemView intimacoes={intimacoes} />
+        <TriagemView />
       ) : (
         <PublicacoesCalendario publicacoes={publicacoes} />
       )}

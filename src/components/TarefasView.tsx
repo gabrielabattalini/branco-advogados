@@ -5,14 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Lock, Plus } from "lucide-react";
 import {
   STATUS_LIST,
-  semana,
   corDoStatus,
-  HOJE_ISO,
   type Status,
   type TarefaFull,
   type Processo,
 } from "@/lib/mock";
 import { ehGestor } from "@/lib/papeis";
+import { hojeISO, semanaUtil } from "@/lib/hoje";
 import type { Responsavel } from "@/lib/data";
 import { AreaTag } from "@/components/AreaTag";
 import { StatusSelect } from "@/components/StatusSelect";
@@ -42,7 +41,12 @@ export function TarefasView({
   const coord = ehGestor(papel);
   const [view, setView] = useState<View>("calendario");
   const [calMode, setCalMode] = useState<CalMode>("semana");
-  const [mesAtual, setMesAtual] = useState({ ano: 2026, mes: 6 });
+  const HOJE = hojeISO();
+  const semana = semanaUtil(HOJE).map((s) => ({ ...s, hoje: s.data === HOJE }));
+  const [mesAtual, setMesAtual] = useState({
+    ano: Number(HOJE.slice(0, 4)),
+    mes: Number(HOJE.slice(5, 7)),
+  });
   const [filtroAdv, setFiltroAdv] = useState("");
   const [statusSel, setStatusSel] = useState<string[]>(
     STATUS_LIST.map((s) => s.key),
@@ -274,7 +278,7 @@ export function TarefasView({
           .flat()
           .map((cel) => {
             const items = visiveis.filter((t) => t.data === cel.iso);
-            const hoje = cel.iso === HOJE_ISO;
+            const hoje = cel.iso === HOJE;
             return (
               <div
                 key={cel.iso}

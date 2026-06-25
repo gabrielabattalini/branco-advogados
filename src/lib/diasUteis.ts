@@ -63,6 +63,20 @@ function ehDiaUtil(d: Date): boolean {
   return !feriadosNacionais(d.getFullYear()).has(iso(d));
 }
 
+// Recua para o dia útil anterior, se a data cair em fim de semana/feriado
+// (a própria data é devolvida quando já é dia útil). Usado na "margem" do
+// escritório, que sempre antecipa o vencimento em 1 dia.
+export function diaUtilAnterior(baseIso: string): string {
+  if (!baseIso) return baseIso;
+  let d = new Date(`${baseIso}T12:00:00`);
+  let guarda = 0;
+  while (!ehDiaUtil(d) && guarda < 100000) {
+    d = addDias(d, -1);
+    guarda++;
+  }
+  return iso(d);
+}
+
 // Avança n dias úteis a partir do dia base (o dia base não é contado).
 export function somarDiasUteis(baseIso: string, n: number): string {
   if (!baseIso || !Number.isFinite(n) || n <= 0) return baseIso;
@@ -79,5 +93,13 @@ export function somarDiasUteis(baseIso: string, n: number): string {
 
 export function somarDiasCorridos(baseIso: string, n: number): string {
   if (!baseIso || !Number.isFinite(n) || n <= 0) return baseIso;
-  return iso(addDias(new Date(`${baseIso}T12:00:00`), Math.floor(n)));
+  let d = addDias(new Date(`${baseIso}T12:00:00`), Math.floor(n));
+  // CPC art. 224, §1º: vencendo o prazo em dia não útil, prorroga-se para o
+  // 1º dia útil seguinte. (A contagem segue corrida; só o vencimento prorroga.)
+  let guarda = 0;
+  while (!ehDiaUtil(d) && guarda < 100000) {
+    d = addDias(d, 1);
+    guarda++;
+  }
+  return iso(d);
 }

@@ -7,13 +7,17 @@ import { Modal } from "@/components/Modal";
 import { AreaTag } from "@/components/AreaTag";
 import {
   classificarArea,
-  HOJE_ISO,
   STATUS_LIST,
   type Processo,
   type TarefaFull,
 } from "@/lib/mock";
 import { ehGestor } from "@/lib/papeis";
-import { somarDiasUteis, somarDiasCorridos } from "@/lib/diasUteis";
+import { hojeISO, addDiasISO } from "@/lib/hoje";
+import {
+  somarDiasUteis,
+  somarDiasCorridos,
+  diaUtilAnterior,
+} from "@/lib/diasUteis";
 import type { Responsavel } from "@/lib/data";
 import { criarTarefa, editarTarefa, excluirTarefa } from "@/lib/actions";
 
@@ -51,14 +55,27 @@ export function NovaTarefaModal({
   );
   const [status, setStatus] = useState<string>(tarefa?.status ?? "a_fazer");
 
-  // Prazo: o cálculo por dias (úteis/corridos) preenche a data final, que
-  // também pode ser escolhida direto no calendário.
-  const [prazoBase, setPrazoBase] = useState(HOJE_ISO);
-  const [prazoDias, setPrazoDias] = useState(5);
-  const [prazoTipo, setPrazoTipo] = useState<"uteis" | "corridos">("uteis");
-  const [dataFinal, setDataFinal] = useState(
-    tarefa?.data ?? somarDiasUteis(HOJE_ISO, 5),
+  // Prazo (CPC 224): a disponibilização (saída no DJe) costuma ser hoje; a
+  // publicação é o 1º dia útil seguinte e é a base da contagem. O prazo final
+  // é calculado a partir da publicação, mas pode ser ajustado no calendário.
+  // Em EDIÇÃO preservamos o que está gravado (não carimbamos "hoje").
+  const dispInicial = edicao ? (tarefa?.dataDisponibilizacao ?? "") : hojeISO();
+  const pubInicial = edicao
+    ? (tarefa?.dataPublicacao ?? "")
+    : somarDiasUteis(dispInicial, 1);
+  const [dataDisp, setDataDisp] = useState(dispInicial);
+  const [dataPub, setDataPub] = useState(pubInicial);
+  const [prazoDias, setPrazoDias] = useState<number>(tarefa?.prazoDias ?? 5);
+  const [prazoTipo, setPrazoTipo] = useState<"uteis" | "corridos">(
+    tarefa?.prazoTipo === "corridos" ? "corridos" : "uteis",
   );
+  const [dataFinal, setDataFinal] = useState(
+    tarefa?.data ?? somarDiasUteis(pubInicial, 4), // 5 − 1 dia de margem
+  );
+  // Marca quando publicação/data fatal foram ajustadas à mão, para não
+  // sobrescrevê-las silenciosamente ao mexer num campo "acima".
+  const [pubManual, setPubManual] = useState(edicao && !!tarefa?.dataPublicacao);
+  const [finalManual, setFinalManual] = useState(edicao);
 
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
@@ -90,12 +107,56 @@ export function NovaTarefaModal({
       : processos
   ).slice(0, 8);
 
-  const recalcular = (base: string, dias: number, tipo: "uteis" | "corridos") =>
-    setDataFinal(
-      tipo === "uteis"
-        ? somarDiasUteis(base, dias)
-        : somarDiasCorridos(base, dias),
-    );
+  // Vencimento LEGAL (o prazo que a lei/juiz concede), a partir da publicação.
+  const calcFinal = (pub: string, dias: number, tipo: "uteis" | "corridos") =>
+    tipo === "uteis" ? somarDiasUteis(pub, dias) : somarDiasCorridos(pub, dias);
+  // Nossa DATA FATAL = vencimento − 1 dia de margem, antecipando para o dia
+  // útil anterior quando cair em fim de semana/feriado.
+  const calcFatal = (pub: string, dias: number, tipo: "uteis" | "corridos") => {
+    if (!pub) return "";
+    const n = Math.max(1, dias - 1);
+    return tipo === "uteis"
+      ? somarDiasUteis(pub, n)
+      : diaUtilAnterior(addDiasISO(pub, n));
+  };
+
+  // Mudar a disponibilização reposiciona a publicação (1º dia útil seguinte)
+  // — salvo se ela foi ajustada à mão — e então a data fatal.
+  const onDisp = (v: string) => {
+    setDataDisp(v);
+    const np = pubManual ? dataPub : v ? somarDiasUteis(v, 1) : "";
+    if (!pubManual) setDataPub(np);
+    if (!finalManual) setDataFinal(calcFatal(np, prazoDias, prazoTipo));
+  };
+  const onPub = (v: string) => {
+    setDataPub(v);
+    setPubManual(true);
+    if (!finalManual) setDataFinal(calcFatal(v, prazoDias, prazoTipo));
+  };
+  const onDias = (n: number) => {
+    setPrazoDias(n);
+    setFinalManual(false);
+    setDataFinal(calcFatal(dataPub, n, prazoTipo));
+  };
+  const onTipo = (t: "uteis" | "corridos") => {
+    setPrazoTipo(t);
+    setFinalManual(false);
+    setDataFinal(calcFatal(dataPub, prazoDias, t));
+  };
+  const onFinal = (v: string) => {
+    setDataFinal(v);
+    setFinalManual(true);
+  };
+  const inicioContagem = dataPub ? somarDiasUteis(dataPub, 1) : "";
+  const vencimentoLegal = dataPub
+    ? calcFinal(dataPub, prazoDias, prazoTipo)
+    : "";
+  const dataFinalValida = /^\d{4}-\d{2}-\d{2}$/.test(dataFinal);
+  const brL = (iso: string) => {
+    if (!iso) return "—";
+    const [y, m, d] = iso.split("-");
+    return `${d}/${m}/${y}`;
+  };
 
   const toggleResp = (ini: string) =>
     setResps((rs) =>
@@ -104,6 +165,10 @@ export function NovaTarefaModal({
 
   const submit = async () => {
     if (!titulo.trim() || salvando) return;
+    if (!dataFinalValida) {
+      setErro("Informe a data final do prazo (data fatal).");
+      return;
+    }
     setSalvando(true);
     setErro("");
     try {
@@ -117,6 +182,10 @@ export function NovaTarefaModal({
             processoNumero: numero,
             status,
             data: dataFinal,
+            dataDisponibilizacao: dataDisp,
+            dataPublicacao: dataPub,
+            prazoDias,
+            prazoTipo,
             prazo,
             responsaveis: resps,
           })
@@ -126,6 +195,10 @@ export function NovaTarefaModal({
             processoNumero: numero,
             area,
             data: dataFinal,
+            dataDisponibilizacao: dataDisp,
+            dataPublicacao: dataPub,
+            prazoDias,
+            prazoTipo,
             prazo,
             responsaveis: resps,
           });
@@ -182,7 +255,7 @@ export function NovaTarefaModal({
             </button>
             <button
               onClick={submit}
-              disabled={!titulo.trim() || salvando}
+              disabled={!titulo.trim() || !dataFinalValida || salvando}
               className="rounded-md bg-navy px-3 py-1.5 text-sm text-cream hover:bg-navy-dark disabled:opacity-40"
             >
               {salvando ? "Salvando…" : edicao ? "Salvar" : "Criar tarefa"}
@@ -352,26 +425,36 @@ export function NovaTarefaModal({
           )}
         </div>
 
-        {/* Prazo */}
+        {/* Prazo — disponibilização + publicação (CPC 224) */}
         <div>
           <label className={labelCls}>Prazo</label>
           {coord ? (
-            <div className="flex flex-col gap-2">
-              <div className="flex flex-wrap items-end gap-2">
+            <div className="flex flex-col gap-2.5">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="mb-1 block text-[11px] text-faint">
-                    A partir de
+                    Data da disponibilização
                   </label>
                   <input
                     type="date"
                     className={inputCls}
-                    value={prazoBase}
-                    onChange={(e) => {
-                      setPrazoBase(e.target.value);
-                      recalcular(e.target.value, prazoDias, prazoTipo);
-                    }}
+                    value={dataDisp}
+                    onChange={(e) => onDisp(e.target.value)}
                   />
                 </div>
+                <div>
+                  <label className="mb-1 block text-[11px] text-faint">
+                    Data da publicação
+                  </label>
+                  <input
+                    type="date"
+                    className={inputCls}
+                    value={dataPub}
+                    onChange={(e) => onPub(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="flex flex-wrap items-end gap-2">
                 <div>
                   <label className="mb-1 block text-[11px] text-faint">
                     Prazo
@@ -381,11 +464,7 @@ export function NovaTarefaModal({
                     min={1}
                     className="w-20 rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-navy/60"
                     value={prazoDias}
-                    onChange={(e) => {
-                      const n = Number(e.target.value);
-                      setPrazoDias(n);
-                      recalcular(prazoBase, n, prazoTipo);
-                    }}
+                    onChange={(e) => onDias(Number(e.target.value))}
                   />
                 </div>
                 <div>
@@ -395,36 +474,74 @@ export function NovaTarefaModal({
                   <select
                     className={inputCls}
                     value={prazoTipo}
-                    onChange={(e) => {
-                      const t = e.target.value as "uteis" | "corridos";
-                      setPrazoTipo(t);
-                      recalcular(prazoBase, prazoDias, t);
-                    }}
+                    onChange={(e) =>
+                      onTipo(e.target.value as "uteis" | "corridos")
+                    }
                   >
                     <option value="uteis">dias úteis</option>
                     <option value="corridos">dias corridos</option>
                   </select>
                 </div>
               </div>
+              <p className="rounded-md bg-navy/5 px-2.5 py-1.5 text-[11px] leading-relaxed text-muted">
+                A <strong className="font-medium text-navy">publicação</strong> é
+                o 1º dia útil após a disponibilização e é de onde o prazo conta
+                (CPC, art. 224). Início:{" "}
+                <strong className="font-medium text-navy">
+                  {brL(inicioContagem)}
+                </strong>{" "}
+                · Vencimento legal:{" "}
+                <strong className="font-medium text-navy">
+                  {brL(vencimentoLegal)}
+                </strong>{" "}
+                · a data fatal abaixo já vem com a{" "}
+                <strong className="font-medium text-gold">margem de 1 dia</strong>{" "}
+                do escritório.
+              </p>
               <div>
                 <label className="mb-1 block text-[11px] text-faint">
-                  Data final do prazo
+                  Data fatal do escritório (vencimento legal − 1 dia)
                 </label>
                 <input
                   type="date"
-                  className={inputCls}
+                  className={
+                    inputCls +
+                    (dataFinalValida ? "" : " border-danger focus:border-danger")
+                  }
                   value={dataFinal}
-                  onChange={(e) => setDataFinal(e.target.value)}
+                  onChange={(e) => onFinal(e.target.value)}
                 />
+                {!dataFinalValida && (
+                  <p className="mt-1 text-[11px] text-danger">
+                    Informe a data final do prazo.
+                  </p>
+                )}
                 <p className="mt-1 text-[11px] text-faint">
                   É preenchida pelo cálculo acima, mas você pode ajustar a data
                   direto no calendário. Dias úteis descontam fins de semana e
-                  feriados nacionais (não os locais nem o recesso forense).
+                  feriados nacionais; em dias corridos, vencimento que cai em dia
+                  não útil é prorrogado para o próximo dia útil. Feriados locais e
+                  o recesso forense (20/12–20/01) não são considerados — confira
+                  nesses casos.
                 </p>
               </div>
             </div>
           ) : (
-            <>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted">
+                <span>
+                  Disponibilização:{" "}
+                  <strong className="font-medium text-ink">
+                    {brL(dataDisp)}
+                  </strong>
+                </span>
+                <span>
+                  Publicação:{" "}
+                  <strong className="font-medium text-ink">
+                    {brL(dataPub)}
+                  </strong>
+                </span>
+              </div>
               <input
                 type="date"
                 disabled
@@ -432,10 +549,10 @@ export function NovaTarefaModal({
                 className={inputCls + " cursor-not-allowed opacity-60"}
                 value={dataFinal}
               />
-              <p className="mt-1 text-[11px] text-faint">
+              <p className="text-[11px] text-faint">
                 Só o coordenador pode definir o prazo.
               </p>
-            </>
+            </div>
           )}
         </div>
 

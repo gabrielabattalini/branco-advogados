@@ -3,9 +3,10 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { HOJE_ISO, HOJE_BR, STATUS_LIST } from "@/lib/mock";
+import { STATUS_LIST } from "@/lib/mock";
 import { getSessao, ehGestor } from "@/lib/sessao";
 import { instanteBRT } from "@/lib/audiencia";
+import { hojeISO, hojeBR } from "@/lib/hoje";
 
 const TIPOS_AUDIENCIA = ["instrucao", "conciliacao", "inicial", "una", "outra"];
 const STATUS_AUDIENCIA = ["agendada", "realizada", "cancelada"];
@@ -22,6 +23,20 @@ function limparOffsets(lembretes: number[] | undefined): number[] {
 }
 
 export type ActionResult = { ok: true } | { ok: false; erro: string };
+
+// Aceita só "yyyy-mm-dd"; qualquer outra coisa vira "" (campo opcional).
+function isoOuVazio(v: string | undefined): string {
+  return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : "";
+}
+
+function prazoDiasOk(n: number | undefined): number {
+  return Number.isInteger(n) && (n as number) >= 1 && (n as number) <= 999
+    ? (n as number)
+    : 5;
+}
+function prazoTipoOk(t: string | undefined): string {
+  return t === "corridos" ? "corridos" : "uteis";
+}
 
 const AREAS = ["trabalhista", "civel"];
 const STATUSES = STATUS_LIST.map((s) => s.key as string);
@@ -41,6 +56,10 @@ export async function criarTarefa(input: {
   processoNumero: string;
   area: string;
   data: string;
+  dataDisponibilizacao: string;
+  dataPublicacao: string;
+  prazoDias: number;
+  prazoTipo: string;
   prazo: string;
   responsaveis: string[];
 }): Promise<ActionResult> {
@@ -64,7 +83,11 @@ export async function criarTarefa(input: {
         descricao: input.descricao?.trim() || null,
         processoId: processo?.id ?? null,
         area,
-        data: input.data || HOJE_ISO,
+        data: isoOuVazio(input.data) || hojeISO(),
+        dataDisponibilizacao: isoOuVazio(input.dataDisponibilizacao),
+        dataPublicacao: isoOuVazio(input.dataPublicacao),
+        prazoDias: prazoDiasOk(input.prazoDias),
+        prazoTipo: prazoTipoOk(input.prazoTipo),
         prazo: input.prazo,
         status: "a_fazer",
         responsaveis: resps,
@@ -111,6 +134,10 @@ export async function editarTarefa(input: {
   processoNumero: string;
   status: string;
   data: string;
+  dataDisponibilizacao: string;
+  dataPublicacao: string;
+  prazoDias: number;
+  prazoTipo: string;
   prazo: string;
   responsaveis: string[];
 }): Promise<ActionResult> {
@@ -138,7 +165,8 @@ export async function editarTarefa(input: {
           where: { numero: input.processoNumero },
         })
       : null;
-    const [, mm, dd] = (input.data || HOJE_ISO).split("-");
+    const dataFatal = isoOuVazio(input.data) || hojeISO();
+    const [, mm, dd] = dataFatal.split("-");
     await prisma.tarefa.update({
       where: { id: input.id },
       data: {
@@ -147,9 +175,16 @@ export async function editarTarefa(input: {
         processoId: processo?.id ?? null,
         status: input.status,
         responsaveis: resps,
-        // Prazo/data só um gestor pode alterar.
+        // Prazo/datas só um gestor pode alterar.
         ...(gestor
-          ? { data: input.data, prazo: input.prazo || `${dd}/${mm}` }
+          ? {
+              data: dataFatal,
+              dataDisponibilizacao: isoOuVazio(input.dataDisponibilizacao),
+              dataPublicacao: isoOuVazio(input.dataPublicacao),
+              prazoDias: prazoDiasOk(input.prazoDias),
+              prazoTipo: prazoTipoOk(input.prazoTipo),
+              prazo: input.prazo || `${dd}/${mm}`,
+            }
           : {}),
       },
     });
@@ -181,6 +216,7 @@ export async function excluirTarefa(id: string): Promise<ActionResult> {
 export async function criarEvento(input: {
   titulo: string;
   tipo: string;
+  data: string;
   hora: string;
   detalhe: string;
   participantes: string[];
@@ -191,6 +227,7 @@ export async function criarEvento(input: {
   if (!titulo) return { ok: false, erro: "Informe o título do evento." };
   const tiposOk = ["reuniao", "audiencia", "prazo", "atendimento"];
   const tipo = tiposOk.includes(input.tipo) ? input.tipo : "reuniao";
+  const data = /^\d{4}-\d{2}-\d{2}$/.test(input.data) ? input.data : hojeISO();
   try {
     const validas = await iniciaisValidas();
     const parts = (input.participantes ?? []).filter((r) => validas.has(r));
@@ -198,6 +235,7 @@ export async function criarEvento(input: {
       data: {
         titulo,
         tipo,
+        data,
         hora: input.hora || "09:00",
         detalhe: input.detalhe?.trim() || "",
         participantes: parts,
@@ -264,7 +302,7 @@ export async function criarProcesso(input: {
         responsavel: input.responsavel,
         responsavelIniciais: input.responsavelIniciais,
         valorCausa: input.valorCausa.trim() || "—",
-        distribuido: HOJE_BR,
+        distribuido: hojeBR(),
         fase: "Conhecimento",
       },
     });
@@ -317,7 +355,7 @@ export async function gerarTarefaDaIntimacao(
             responsavel: s.nome,
             responsavelIniciais: s.iniciais,
             valorCausa: "—",
-            distribuido: HOJE_BR,
+            distribuido: hojeBR(),
             fase: "Conhecimento",
           },
         });
@@ -333,7 +371,7 @@ export async function gerarTarefaDaIntimacao(
           titulo: pub.despacho.slice(0, 120),
           processoId,
           area: pub.area,
-          data: HOJE_ISO,
+          data: hojeISO(),
           prazo: pub.prazo,
           status: "a_fazer",
           responsaveis: [s.iniciais],
@@ -394,7 +432,7 @@ export async function criarDocumento(input: {
             processoId: processo.id,
             ordem: proximaOrdem,
             nome,
-            data: HOJE_BR,
+            data: hojeBR(),
           },
         });
         revalidatePath("/documentos");

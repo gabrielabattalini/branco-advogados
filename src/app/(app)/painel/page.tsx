@@ -3,6 +3,7 @@ import { Plus, Gavel, Scale, ChevronRight } from "lucide-react";
 import { getPainel } from "@/lib/data";
 import { getSessao } from "@/lib/sessao";
 import { AreaTag } from "@/components/AreaTag";
+import { dataPorExtenso, hojeISO, saudacao } from "@/lib/hoje";
 
 export const dynamic = "force-dynamic";
 
@@ -25,9 +26,9 @@ export default async function PainelPage() {
       <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-serif text-2xl text-navy">
-            Bom dia, {primeiroNome}
+            {saudacao()}, {primeiroNome}
           </h1>
-          <p className="text-sm text-muted">Sexta-feira, 19 de junho de 2026</p>
+          <p className="text-sm text-muted">{dataPorExtenso(hojeISO())}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link

@@ -14,6 +14,7 @@ import {
 } from "../src/lib/mock";
 import { hashSenha } from "../src/lib/seguranca";
 import { instanteBRT } from "../src/lib/audiencia";
+import { hojeISO } from "../src/lib/hoje";
 
 const prisma = new PrismaClient();
 
@@ -162,6 +163,7 @@ async function main() {
   for (const e of eventosAgenda) {
     await prisma.eventoAgenda.create({
       data: {
+        data: hojeISO(),
         hora: e.hora,
         tipo: e.tipo,
         titulo: e.titulo,

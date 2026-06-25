@@ -5,12 +5,11 @@ import type {
   TarefaFull,
   Contato,
   Processo,
-  EventoAgenda,
   Intimacao,
 } from "@/lib/mock";
-import { HOJE_ISO } from "@/lib/mock";
 import { getSessao, ehGestor } from "@/lib/sessao";
 import { brData } from "@/lib/audiencia";
+import { hojeISO } from "@/lib/hoje";
 
 // Filtros de visibilidade conforme o perfil (gestor vê tudo). Sem sessão,
 // nada é retornado (defesa em profundidade — as páginas já exigem login).
@@ -79,9 +78,13 @@ export async function getBuscaGlobal(): Promise<ItemBusca[]> {
       select: { id: true, numero: true, cliente: true },
       orderBy: { criadoEm: "desc" },
     }),
+    // Só clientes na busca global (a base tem milhares de contatos; o resto
+    // é pesquisável na aba Contatos, com busca paginada no servidor).
     prisma.contato.findMany({
+      where: { tipoContato: "cliente", ativo: true },
       select: { nome: true, documento: true },
       orderBy: { nome: "asc" },
+      take: 800,
     }),
     prisma.tarefa.findMany({
       where: escT,
@@ -156,6 +159,10 @@ export async function getTarefas(): Promise<TarefaFull[]> {
     processo: r.processo?.numero ?? "",
     area: r.area as Area,
     data: r.data,
+    dataDisponibilizacao: r.dataDisponibilizacao || undefined,
+    dataPublicacao: r.dataPublicacao || undefined,
+    prazoDias: r.prazoDias,
+    prazoTipo: r.prazoTipo,
     prazo: r.prazo,
     prazoUrgente: r.prazoUrgente,
     status: r.status as Status,
@@ -229,6 +236,10 @@ export async function getFichaProcesso(
       processo: p.numero,
       area: t.area as Area,
       data: t.data,
+      dataDisponibilizacao: t.dataDisponibilizacao || undefined,
+      dataPublicacao: t.dataPublicacao || undefined,
+      prazoDias: t.prazoDias,
+      prazoTipo: t.prazoTipo,
       prazo: t.prazo,
       prazoUrgente: t.prazoUrgente,
       status: t.status as Status,
@@ -248,42 +259,91 @@ export async function getFichaProcesso(
   };
 }
 
-export async function getContatos(): Promise<Contato[]> {
-  const [rows, procs] = await Promise.all([
-    prisma.contato.findMany({ orderBy: { nome: "asc" } }),
-    prisma.processo.findMany({ select: { cliente: true, parteContraria: true } }),
+export type ContatosPagina = {
+  contatos: Contato[];
+  total: number;
+  pagina: number;
+  porPagina: number;
+};
+
+// Busca paginada no servidor (a base tem milhares de contatos).
+export async function getContatos(opts?: {
+  q?: string;
+  tipo?: string;
+  pagina?: number;
+}): Promise<ContatosPagina> {
+  const porPagina = 50;
+  const pagina = Math.max(1, opts?.pagina ?? 1);
+  const q = (opts?.q ?? "").trim();
+  const tipo = opts?.tipo ?? "todos";
+  const where: Record<string, unknown> = {};
+  if (q) {
+    where.OR = [
+      { nome: { contains: q, mode: "insensitive" } },
+      { documento: { contains: q } },
+    ];
+  }
+  if (tipo === "pf" || tipo === "pj") where.tipo = tipo;
+  else if (tipo && tipo !== "todos") where.tipoContato = tipo;
+
+  const [rows, total] = await Promise.all([
+    prisma.contato.findMany({
+      where,
+      orderBy: { nome: "asc" },
+      take: porPagina,
+      skip: (pagina - 1) * porPagina,
+    }),
+    prisma.contato.count({ where }),
   ]);
-  const contar = (nome: string) =>
-    procs.filter((p) => p.cliente === nome || p.parteContraria === nome).length;
-  return rows.map((c) => ({
-    id: c.id,
-    tipo: c.tipo as "pf" | "pj",
-    nome: c.nome,
-    documento: c.documento,
-    tipoContato: c.tipoContato as Contato["tipoContato"],
-    processos: contar(c.nome),
-    iniciais: c.iniciais,
-  }));
+  return {
+    contatos: rows.map((c) => ({
+      id: c.id,
+      tipo: c.tipo as "pf" | "pj",
+      nome: c.nome,
+      documento: c.documento,
+      tipoContato: c.tipoContato as Contato["tipoContato"],
+      profissao: c.profissao || undefined,
+      telefone: c.telefone || undefined,
+      email: c.email || undefined,
+      ativo: c.ativo,
+      processos: c.processosCount,
+      iniciais: c.iniciais,
+    })),
+    total,
+    pagina,
+    porPagina,
+  };
 }
 
-export async function getEventosAgenda(): Promise<EventoAgenda[]> {
+// Itens da agenda (eventos + audiências, com data) — a tela filtra/navega por dia.
+export type ItemAgenda = {
+  data: string;
+  hora: string;
+  tipo: string;
+  titulo: string;
+  detalhe: string;
+  participantes: string[];
+};
+
+export async function getAgendaItens(): Promise<ItemAgenda[]> {
   const escopo = await escopoAgenda();
   const [rows, audi] = await Promise.all([
     prisma.eventoAgenda.findMany({ where: escopo, orderBy: { hora: "asc" } }),
-    // Audiências do dia entram na agenda como itens do tipo "audiencia".
     prisma.audiencia.findMany({
-      where: { data: HOJE_ISO, status: { not: "cancelada" }, ...escopo },
+      where: { status: { not: "cancelada" }, ...escopo },
       orderBy: { hora: "asc" },
     }),
   ]);
-  const eventos: EventoAgenda[] = rows.map((e) => ({
+  const eventos: ItemAgenda[] = rows.map((e) => ({
+    data: e.data,
     hora: e.hora,
-    tipo: e.tipo as EventoAgenda["tipo"],
+    tipo: e.tipo,
     titulo: e.titulo,
     detalhe: e.detalhe,
     participantes: e.participantes,
   }));
-  const audiencias: EventoAgenda[] = audi.map((a) => ({
+  const audiencias: ItemAgenda[] = audi.map((a) => ({
+    data: a.data,
     hora: a.hora,
     tipo: "audiencia",
     titulo: a.titulo,
@@ -292,9 +352,7 @@ export async function getEventosAgenda(): Promise<EventoAgenda[]> {
       .join(" · "),
     participantes: a.participantes,
   }));
-  return [...eventos, ...audiencias].sort((x, y) =>
-    x.hora.localeCompare(y.hora),
-  );
+  return [...eventos, ...audiencias];
 }
 
 export type LembreteDTO = { id: string; offsetMin: number; enviado: boolean };
@@ -456,7 +514,7 @@ export async function getPainel(): Promise<PainelData> {
       take: 5,
     }),
     prisma.eventoAgenda.findMany({
-      where: minhasAgendas,
+      where: { ...minhasAgendas, data: hojeISO() },
       orderBy: { hora: "asc" },
       take: 3,
     }),
@@ -468,11 +526,11 @@ export async function getPainel(): Promise<PainelData> {
       where: { ...minhasTarefas, status: { not: "concluida" } },
     }),
     prisma.tarefa.count({
-      where: { ...minhasTarefas, data: HOJE_ISO, status: { not: "concluida" } },
+      where: { ...minhasTarefas, data: hojeISO(), status: { not: "concluida" } },
     }),
     prisma.publicacao.count({ where: { statusTriagem: "pendente" } }),
-    prisma.eventoAgenda.count({
-      where: { ...minhasAgendas, tipo: "audiencia" },
+    prisma.audiencia.count({
+      where: { ...minhasAgendas, status: "agendada" },
     }),
   ]);
 

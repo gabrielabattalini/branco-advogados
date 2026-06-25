@@ -31,10 +31,19 @@ model Contato {
   tipo          String // pf | pj
   nome          String
   documento     String
-  tipoContato   String // cliente | parte_contraria | perito | correspondente
+  tipoContato   String // cliente | parte_contraria | advogado_contrario | parte_processo | fornecedor | interno | perito | correspondente | diverso
+  profissao     String   @default("") // Profissão / Nome fantasia
+  telefone      String   @default("")
+  email         String   @default("")
+  ativo         Boolean  @default(true)
+  classificacao String   @default("") // rótulo bruto do Legal One (Classificações)
+  grupos        String   @default("") // rótulo bruto do Legal One (Grupos)
   iniciais      String
   processosCount Int     @default(0)
   criadoEm      DateTime @default(now())
+
+  @@index([tipoContato])
+  @@index([nome])
 }
 
 model Processo {
@@ -65,7 +74,11 @@ model Tarefa {
   processo     Processo? @relation(fields: [processoId], references: [id])
   area         String // trabalhista | civel
   prazo        String
-  data         String // ISO yyyy-mm-dd (posição no calendário)
+  data         String // ISO yyyy-mm-dd (posição no calendário = prazo final/data fatal)
+  dataDisponibilizacao String @default("") // yyyy-mm-dd (saída no DJe)
+  dataPublicacao       String @default("") // yyyy-mm-dd (1º dia útil após a disponibilização; base da contagem)
+  prazoDias            Int    @default(5) // quantidade de dias do prazo
+  prazoTipo            String @default("uteis") // uteis | corridos
   prazoUrgente Boolean   @default(false)
   status       String    @default("a_fazer") // a_fazer | em_curso | concluida
   responsaveis String[] // iniciais (pode ter mais de um)
@@ -106,6 +119,7 @@ model Publicacao {
 
 model EventoAgenda {
   id       String   @id @default(cuid())
+  data     String   @default("") // yyyy-mm-dd
   hora     String
   tipo     String // reuniao | audiencia | prazo | atendimento
   titulo        String

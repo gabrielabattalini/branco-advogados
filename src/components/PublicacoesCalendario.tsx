@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DOWS, NOMES_MES, gridMes } from "@/lib/calendario";
-import { HOJE_ISO } from "@/lib/mock";
+import { hojeISO } from "@/lib/hoje";
 import { AreaTag } from "@/components/AreaTag";
 import type { PublicacaoCal } from "@/lib/data";
 
@@ -28,8 +28,12 @@ export function PublicacoesCalendario({
 }: {
   publicacoes: PublicacaoCal[];
 }) {
-  const [mesAtual, setMesAtual] = useState({ ano: 2026, mes: 6 });
-  const [diaSel, setDiaSel] = useState<string>(HOJE_ISO);
+  const HOJE = hojeISO();
+  const [mesAtual, setMesAtual] = useState({
+    ano: Number(HOJE.slice(0, 4)),
+    mes: Number(HOJE.slice(5, 7)),
+  });
+  const [diaSel, setDiaSel] = useState<string>(HOJE);
 
   const doDia = (iso: string) => publicacoes.filter((p) => p.data === iso);
   const selecionadas = doDia(diaSel);
@@ -77,7 +81,7 @@ export function PublicacoesCalendario({
           .flat()
           .map((cel) => {
             const items = doDia(cel.iso);
-            const hoje = cel.iso === HOJE_ISO;
+            const hoje = cel.iso === HOJE;
             const sel = cel.iso === diaSel;
             return (
               <button

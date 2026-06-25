@@ -116,7 +116,11 @@ export type TarefaFull = {
   descricao?: string;
   processo: string;
   area: Area;
-  data: string; // ISO yyyy-mm-dd
+  data: string; // ISO yyyy-mm-dd (prazo final / data fatal)
+  dataDisponibilizacao?: string; // ISO yyyy-mm-dd
+  dataPublicacao?: string; // ISO yyyy-mm-dd (base da contagem)
+  prazoDias?: number;
+  prazoTipo?: string; // uteis | corridos
   prazo: string;
   prazoUrgente?: boolean;
   status: Status;
@@ -154,8 +158,13 @@ export type TipoPessoa = "pf" | "pj";
 export type TipoContato =
   | "cliente"
   | "parte_contraria"
+  | "advogado_contrario"
+  | "parte_processo"
+  | "fornecedor"
+  | "interno"
   | "perito"
-  | "correspondente";
+  | "correspondente"
+  | "diverso";
 
 export type Contato = {
   id: string;
@@ -163,6 +172,10 @@ export type Contato = {
   nome: string;
   documento: string;
   tipoContato: TipoContato;
+  profissao?: string;
+  telefone?: string;
+  email?: string;
+  ativo?: boolean;
   processos: number;
   iniciais: string;
 };

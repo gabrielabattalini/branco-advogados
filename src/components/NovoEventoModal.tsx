@@ -20,14 +20,17 @@ const TIPOS = [
 
 export function NovoEventoModal({
   responsaveis,
+  dataInicial,
   onClose,
 }: {
   responsaveis: Responsavel[];
+  dataInicial: string;
   onClose: () => void;
 }) {
   const router = useRouter();
   const [titulo, setTitulo] = useState("");
   const [tipo, setTipo] = useState("reuniao");
+  const [data, setData] = useState(dataInicial);
   const [hora, setHora] = useState("09:00");
   const [detalhe, setDetalhe] = useState("");
   const [parts, setParts] = useState<string[]>([]);
@@ -45,6 +48,7 @@ export function NovoEventoModal({
       const res = await criarEvento({
         titulo: titulo.trim(),
         tipo,
+        data,
         hora,
         detalhe,
         participantes: parts,
@@ -94,20 +98,29 @@ export function NovoEventoModal({
             autoFocus
           />
         </div>
+        <div>
+          <label className={labelCls}>Tipo</label>
+          <select
+            className={inputCls}
+            value={tipo}
+            onChange={(e) => setTipo(e.target.value)}
+          >
+            {TIPOS.map((t) => (
+              <option key={t.key} value={t.key}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={labelCls}>Tipo</label>
-            <select
+            <label className={labelCls}>Data</label>
+            <input
+              type="date"
               className={inputCls}
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value)}
-            >
-              {TIPOS.map((t) => (
-                <option key={t.key} value={t.key}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
+              value={data}
+              onChange={(e) => setData(e.target.value)}
+            />
           </div>
           <div>
             <label className={labelCls}>Horário</label>
