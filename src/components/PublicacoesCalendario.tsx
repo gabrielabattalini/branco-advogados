@@ -29,11 +29,16 @@ export function PublicacoesCalendario({
   publicacoes: PublicacaoCal[];
 }) {
   const HOJE = hojeISO();
+  // Abre no dia da publicação mais recente (assim, ao importar datas antigas,
+  // o calendário já mostra onde há publicação em vez de abrir num mês vazio).
+  const datas = publicacoes.map((p) => p.data).filter(Boolean);
+  const ref =
+    datas.length > 0 ? datas.reduce((a, b) => (a > b ? a : b)) : HOJE;
   const [mesAtual, setMesAtual] = useState({
-    ano: Number(HOJE.slice(0, 4)),
-    mes: Number(HOJE.slice(5, 7)),
+    ano: Number(ref.slice(0, 4)),
+    mes: Number(ref.slice(5, 7)),
   });
-  const [diaSel, setDiaSel] = useState<string>(HOJE);
+  const [diaSel, setDiaSel] = useState<string>(ref);
 
   const doDia = (iso: string) => publicacoes.filter((p) => p.data === iso);
   const selecionadas = doDia(diaSel);
