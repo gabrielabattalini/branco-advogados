@@ -3,7 +3,7 @@
 // publicações estruturadas, separadas por área e com as duplicatas marcadas.
 // Ver formato em memory/aasp-publicacoes-formato.md.
 
-export type AreaPub = "trabalhista" | "civel" | "federal";
+export type AreaPub = "trabalhista" | "civel";
 export type AtoTipo =
   | "sentenca"
   | "acordao"
@@ -57,18 +57,15 @@ function dataParaISO(s: string): string {
 }
 
 // Área pelo segmento de Justiça do CNJ (NNNNNNN-DD.AAAA.J.TR.OOOO).
+// Só duas categorias: Justiça do Trabalho (segmento 5) = trabalhista; todo o
+// resto (federal/TRF, estadual, superiores) = cível.
 export function areaDoProcesso(processo: string): AreaPub {
   const m = processo.match(/\d{7}-\d{2}\.\d{4}\.(\d)\.\d{2}\.\d{4}/);
-  const j = m?.[1];
-  if (j === "5") return "trabalhista"; // Justiça do Trabalho
-  if (j === "4") return "federal"; // Justiça Federal
-  return "civel"; // 8 estadual; 1/2/3 superiores; demais → cível p/ triagem
+  return m?.[1] === "5" ? "trabalhista" : "civel";
 }
 
 function areaPorTribunal(trib: string): AreaPub {
-  if (/^TRT|^TST/i.test(trib)) return "trabalhista";
-  if (/^TRF/i.test(trib)) return "federal";
-  return "civel";
+  return /^TRT|^TST/i.test(trib) ? "trabalhista" : "civel";
 }
 
 function primeiro(re: RegExp, s: string): string {
@@ -305,6 +302,5 @@ export function resumoTriagem(pubs: PublicacaoParsed[]) {
     unicas: unicas.length,
     trabalhista: por("trabalhista"),
     civel: por("civel"),
-    federal: por("federal"),
   };
 }

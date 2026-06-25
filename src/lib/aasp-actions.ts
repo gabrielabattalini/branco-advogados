@@ -92,7 +92,7 @@ export async function importarAASP(
   };
 
   const r = resumoTriagem(pubs);
-  const unicas = [...r.trabalhista, ...r.civel, ...r.federal];
+  const unicas = [...r.trabalhista, ...r.civel];
   const chaveDe = (p: (typeof unicas)[number]) =>
     `${p.processo}|${p.atoId || p.teor.slice(0, 60)}|${p.publicacaoNum}`;
 

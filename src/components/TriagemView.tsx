@@ -13,6 +13,7 @@ import {
   Trash2,
   EyeOff,
   AlertTriangle,
+  FileDown,
 } from "lucide-react";
 import {
   importarAASP,
@@ -39,12 +40,6 @@ const resultadoLabel: Record<string, string> = {
   improcedente: "Improcedente",
   parcial: "Parcialmente procedente",
 };
-const areaInfo: Record<string, { label: string; icon: typeof Scale }> = {
-  trabalhista: { label: "Trabalhista", icon: Scale },
-  civel: { label: "Cível", icon: Landmark },
-  federal: { label: "Federal → Cível", icon: Landmark },
-};
-
 function brL(iso: string) {
   if (!iso) return "—";
   const [y, m, d] = iso.split("-");
@@ -280,9 +275,14 @@ export function TriagemView({
     setCarregando(false);
   };
 
-  const grupos = (["trabalhista", "civel", "federal"] as const)
-    .map((area) => ({ area, lista: pubs.filter((p) => p.area === area) }))
-    .filter((g) => g.lista.length > 0);
+  // Duas categorias só: Trabalhista e Cível (qualquer outra, inclusive federal
+  // antigo, conta como cível).
+  const trab = pubs.filter((p) => p.area === "trabalhista");
+  const civ = pubs.filter((p) => p.area !== "trabalhista");
+  const [aba, setAba] = useState<"trabalhista" | "civel">(
+    trab.length ? "trabalhista" : "civel",
+  );
+  const lista = aba === "trabalhista" ? trab : civ;
   const pendentes = pubs.filter((p) => p.status === "pendente").length;
 
   return (
@@ -344,29 +344,49 @@ export function TriagemView({
         </div>
       ) : (
         <>
-          <div className="mb-3 text-[12px] text-muted">
-            {pubs.length} publicação(ões) salva(s) · {pendentes} a triar
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setAba("trabalhista")}
+              className={
+                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm " +
+                (aba === "trabalhista"
+                  ? "bg-navy text-cream"
+                  : "border border-line text-muted hover:bg-surface")
+              }
+            >
+              <Scale size={15} /> Trabalhista · {trab.length}
+            </button>
+            <button
+              onClick={() => setAba("civel")}
+              className={
+                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm " +
+                (aba === "civel"
+                  ? "bg-navy text-cream"
+                  : "border border-line text-muted hover:bg-surface")
+              }
+            >
+              <Landmark size={15} /> Cível · {civ.length}
+            </button>
+            <a
+              href="/grifado"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-gold/60 bg-gold/10 px-3 py-1.5 text-sm text-gold hover:bg-gold/20"
+            >
+              <FileDown size={15} /> Gerar PDF (grifado)
+            </a>
           </div>
-          {grupos.map((g) => {
-            const info = areaInfo[g.area];
-            const Icon = info?.icon ?? Scale;
-            return (
-              <section key={g.area} className="mb-6">
-                <h2 className="mb-2 flex items-center gap-2 border-b border-line pb-1 font-serif text-lg text-navy">
-                  <Icon size={18} className="text-gold" />
-                  {info?.label ?? g.area}
-                  <span className="font-sans text-[13px] font-normal text-muted">
-                    · {g.lista.length}
-                  </span>
-                </h2>
-                <div className="flex flex-col gap-2.5">
-                  {g.lista.map((p) => (
-                    <Cartao key={p.id} p={p} ctx={ctx} />
-                  ))}
-                </div>
-              </section>
-            );
-          })}
+          <div className="mb-3 text-[12px] text-muted">{pendentes} a triar</div>
+          <div className="flex flex-col gap-2.5">
+            {lista.map((p) => (
+              <Cartao key={p.id} p={p} ctx={ctx} />
+            ))}
+          </div>
+          {lista.length === 0 && (
+            <div className="rounded-lg border border-line bg-surface px-4 py-10 text-center text-[13px] text-faint">
+              Nenhuma publicação nesta aba.
+            </div>
+          )}
         </>
       )}
     </div>
