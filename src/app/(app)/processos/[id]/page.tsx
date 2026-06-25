@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Plus, Upload, FileText, Check } from "lucide-react";
-import { getFichaProcesso } from "@/lib/data";
+import { getFichaProcesso, getResponsaveis } from "@/lib/data";
 import { AreaTag } from "@/components/AreaTag";
 import { AvatarGroup } from "@/components/Avatar";
 import { statusLabel, corDoStatus } from "@/lib/mock";
@@ -20,9 +20,14 @@ export default async function ProcessoPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const ficha = await getFichaProcesso(id);
+  const [ficha, responsaveis] = await Promise.all([
+    getFichaProcesso(id),
+    getResponsaveis(),
+  ]);
   if (!ficha) notFound();
   const { processo: p, tarefas, documentos, publicacoes } = ficha;
+  const primeiroNome = (ini: string) =>
+    responsaveis.find((r) => r.iniciais === ini)?.nome.split(/\s+/)[0] ?? ini;
 
   const meta: [string, string][] = [
     ["Cliente", p.cliente],
@@ -88,7 +93,16 @@ export default async function ProcessoPage({
               (i > 0 ? "border-t border-line" : "")
             }
           >
-            <div className="min-w-0 flex-1 text-[13px] text-ink">{t.titulo}</div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] text-ink">{t.titulo}</div>
+              {(t.solicitante || t.revisor) && (
+                <div className="text-[10px] text-faint">
+                  {t.solicitante && `Sol: ${primeiroNome(t.solicitante)}`}
+                  {t.solicitante && t.revisor && " · "}
+                  {t.revisor && `Rev: ${primeiroNome(t.revisor)}`}
+                </div>
+              )}
+            </div>
             <AvatarGroup inis={t.responsaveis} />
             <span className="w-12 text-right text-[11px] text-muted">
               {t.prazo}

@@ -361,9 +361,18 @@ export function TarefasView({
             </div>
           </button>
           {coord && <AreaTag area={t.area} />}
-          <span className="text-[13px] font-medium text-navy">
-            {nomesResp(t.responsaveis)}
-          </span>
+          <div className="text-right">
+            <div className="text-[13px] font-medium text-navy">
+              {nomesResp(t.responsaveis)}
+            </div>
+            {(t.solicitante || t.revisor) && (
+              <div className="text-[10px] text-faint">
+                {t.solicitante && `Sol: ${primeiroNome(t.solicitante)}`}
+                {t.solicitante && t.revisor && " · "}
+                {t.revisor && `Rev: ${primeiroNome(t.revisor)}`}
+              </div>
+            )}
+          </div>
           <span
             className={"w-12 text-right text-[11px] " + prazoCls(t.prazoUrgente)}
           >
