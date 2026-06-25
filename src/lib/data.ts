@@ -167,6 +167,8 @@ export async function getTarefas(): Promise<TarefaFull[]> {
     prazoUrgente: r.prazoUrgente,
     status: r.status as Status,
     responsaveis: r.responsaveis,
+    solicitante: r.solicitante || undefined,
+    revisor: r.revisor || undefined,
   }));
 }
 
@@ -244,6 +246,8 @@ export async function getFichaProcesso(
       prazoUrgente: t.prazoUrgente,
       status: t.status as Status,
       responsaveis: t.responsaveis,
+      solicitante: t.solicitante || undefined,
+      revisor: t.revisor || undefined,
     })),
     documentos: p.documentos.map((d) => ({
       ordem: String(d.ordem).padStart(2, "0"),

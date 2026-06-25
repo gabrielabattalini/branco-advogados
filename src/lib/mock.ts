@@ -125,6 +125,8 @@ export type TarefaFull = {
   prazoUrgente?: boolean;
   status: Status;
   responsaveis: string[];
+  solicitante?: string;
+  revisor?: string;
 };
 
 export const semana = [

@@ -16,13 +16,13 @@ import {
 } from "lucide-react";
 import {
   importarAASP,
-  criarTarefaPublicacao,
   excluirPublicacao,
   ignorarPublicacao,
   type ResultadoImport,
 } from "@/lib/aasp-actions";
-import { ACOES_TAREFA } from "@/lib/aasp";
+import { NovaTarefaModal } from "@/components/NovaTarefaModal";
 import type { Responsavel, TriagemPub } from "@/lib/data";
+import type { Processo } from "@/lib/mock";
 
 const atoLabel: Record<string, string> = {
   sentenca: "Sentença",
@@ -51,32 +51,24 @@ function brL(iso: string) {
   return `${d}/${m}/${y}`;
 }
 
-function Cartao({
-  p,
-  pessoas,
-}: {
-  p: TriagemPub;
-  pessoas: Responsavel[];
+type ModalCtx = {
+  processos: Processo[];
+  responsaveis: Responsavel[];
+  ultimosResp: Record<string, string[]>;
+  papel: string;
   me?: string;
-}) {
+};
+
+function Cartao({ p, ctx }: { p: TriagemPub; ctx: ModalCtx }) {
   const router = useRouter();
   const processada = p.status === "processada";
-  // Sem pré-seleção quando não há histórico (antes caía no usuário logado).
-  const [resp, setResp] = useState<string[]>(p.responsaveis ?? []);
-  const [acao, setAcao] = useState(p.acao || "Verificar");
-  const [quando, setQuando] = useState(p.dataFatal || p.dataPublicacao || p.disponibilizacao);
+  const [abrir, setAbrir] = useState(false);
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState("");
   const enviando = useRef(false);
-
-  const toggle = (ini: string) =>
-    setResp((r) => (r.includes(ini) ? r.filter((x) => x !== ini) : [...r, ini]));
-  const quandoOk = /^\d{4}-\d{2}-\d{2}$/.test(quando);
   const bom = p.resultado === "improcedente";
-  // chips: pessoas da área + selecionados de fora da lista (não some o que está marcado)
-  const extras = resp.filter((i) => !pessoas.some((pp) => pp.iniciais === i));
 
-  const acao_servidor = async (fn: () => Promise<{ ok: boolean; erro?: string }>) => {
+  const acaoServidor = async (fn: () => Promise<{ ok: boolean; erro?: string }>) => {
     if (enviando.current) return;
     enviando.current = true;
     setBusy(true);
@@ -95,26 +87,8 @@ function Cartao({
     setBusy(false);
   };
 
-  const criar = () => {
-    if (!quandoOk) return;
-    const [, mm, dd] = quando.split("-");
-    acao_servidor(() =>
-      criarTarefaPublicacao({
-        publicacaoId: p.id,
-        titulo: acao.trim() || "Verificar",
-        descricao: p.teor,
-        processoNumero: p.numero,
-        area: p.area === "trabalhista" ? "trabalhista" : "civel",
-        data: quando,
-        dataDisponibilizacao: p.disponibilizacao,
-        dataPublicacao: p.dataPublicacao,
-        prazoDias: p.prazoDias || 5,
-        prazoTipo: p.prazoTipo || "uteis",
-        prazo: `${dd}/${mm}`,
-        responsaveis: resp,
-      }),
-    );
-  };
+  const nomeDe = (ini: string) =>
+    ctx.responsaveis.find((r) => r.iniciais === ini)?.nome.split(/\s+/)[0] ?? ini;
 
   return (
     <div
@@ -195,119 +169,97 @@ function Cartao({
       </div>
 
       {!processada && (
-        <div className="mt-2.5 rounded-md border border-dashed border-gold/60 bg-gold/5 p-2.5">
-          <div className="mb-2 text-[10px] font-bold uppercase tracking-wide text-gold">
-            Sugestão — confira e crie a tarefa
-          </div>
-          <div className="mb-2 flex flex-wrap items-center gap-1.5">
-            <span className="w-14 shrink-0 text-[11px] text-muted">Quem</span>
-            {pessoas.map((r) => {
-              const sel = resp.includes(r.iniciais);
-              return (
-                <button
-                  key={r.iniciais}
-                  type="button"
-                  onClick={() => toggle(r.iniciais)}
-                  className={
-                    "rounded-full px-2 py-0.5 text-[11px] " +
-                    (sel
-                      ? "bg-navy text-cream"
-                      : "border border-line text-muted hover:bg-cream")
-                  }
-                >
-                  {r.nome.split(/\s+/)[0]}
-                </button>
-              );
-            })}
-            {extras.map((i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => toggle(i)}
-                title="Sugerido pelo histórico (fora da área)"
-                className="rounded-full bg-navy px-2 py-0.5 text-[11px] text-cream"
-              >
-                {i}
-              </button>
-            ))}
-          </div>
-          <div className="mb-2 flex items-center gap-1.5">
-            <span className="w-14 shrink-0 text-[11px] text-muted">O quê</span>
-            <input
-              list="acoes-tarefa"
-              value={acao}
-              onChange={(e) => setAcao(e.target.value)}
-              className="flex-1 rounded-md border border-line bg-surface px-2 py-1 text-[12.5px] text-ink outline-none focus:border-navy/60"
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="w-14 shrink-0 text-[11px] text-muted">Quando</span>
-            <input
-              type="date"
-              value={quando}
-              onChange={(e) => setQuando(e.target.value)}
-              className={
-                "rounded-md border bg-surface px-2 py-1 text-[12.5px] text-ink outline-none " +
-                (quandoOk ? "border-line focus:border-navy/60" : "border-danger")
-              }
-            />
-            {p.vencimentoLegal && (
-              <span className="text-[10.5px] text-faint">
-                vencimento legal {brL(p.vencimentoLegal)} · margem −1 dia
-              </span>
-            )}
-            <button
-              onClick={criar}
-              disabled={busy || !quandoOk}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-ok px-3 py-1.5 text-[12px] font-medium text-white hover:opacity-90 disabled:opacity-40"
-            >
-              {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
-              Criar tarefa
-            </button>
-          </div>
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-gold/5 px-2.5 py-1.5 text-[11.5px] text-muted">
+          <span className="font-semibold uppercase tracking-wide text-[9.5px] text-gold">
+            Sugestão
+          </span>
+          <span className="font-medium text-navy">{p.acao || "Verificar"}</span>
+          <span>
+            ·{" "}
+            {p.responsaveis.length
+              ? p.responsaveis.map(nomeDe).join(" / ")
+              : "responsável a definir"}
+          </span>
+          {p.dataFatal && <span>· até {brL(p.dataFatal)}</span>}
         </div>
       )}
 
-      <div className="mt-2 flex items-center gap-3">
+      <div className="mt-2.5 flex items-center gap-2">
         {!processada && (
           <button
-            onClick={() => acao_servidor(() => ignorarPublicacao(p.id))}
+            onClick={() => setAbrir(true)}
+            className="inline-flex items-center gap-1.5 rounded-md bg-ok px-3 py-1.5 text-[12px] font-medium text-white hover:opacity-90"
+          >
+            <Plus size={13} /> Criar tarefa
+          </button>
+        )}
+        {!processada && (
+          <button
+            onClick={() => acaoServidor(() => ignorarPublicacao(p.id))}
             disabled={busy}
             className="inline-flex items-center gap-1 text-[11.5px] text-muted hover:text-navy disabled:opacity-40"
           >
-            <EyeOff size={13} /> Ignorar
+            {busy ? <Loader2 size={12} className="animate-spin" /> : <EyeOff size={13} />} Ignorar
           </button>
         )}
         <button
           onClick={() => {
             if (confirm("Excluir esta publicação? Não pode ser desfeito.")) {
-              acao_servidor(() => excluirPublicacao(p.id));
+              acaoServidor(() => excluirPublicacao(p.id));
             }
           }}
           disabled={busy}
-          className="inline-flex items-center gap-1 text-[11.5px] text-danger hover:underline disabled:opacity-40"
+          className="ml-auto inline-flex items-center gap-1 text-[11.5px] text-danger hover:underline disabled:opacity-40"
         >
           <Trash2 size={13} /> Excluir
         </button>
         {erro && <span className="text-[11px] text-danger">{erro}</span>}
       </div>
+
+      {abrir && (
+        <NovaTarefaModal
+          processos={ctx.processos}
+          responsaveis={ctx.responsaveis}
+          ultimosResp={ctx.ultimosResp}
+          papel={ctx.papel}
+          me={ctx.me}
+          triagemPublicacaoId={p.id}
+          inicial={{
+            titulo: p.acao || "Verificar",
+            processoNumero: p.numero,
+            responsaveis: p.responsaveis,
+            dataDisponibilizacao: p.disponibilizacao,
+            dataPublicacao: p.dataPublicacao,
+            prazoDias: p.prazoDias || undefined,
+            prazoTipo: p.prazoTipo || undefined,
+          }}
+          onClose={() => setAbrir(false)}
+        />
+      )}
     </div>
   );
 }
 
 export function TriagemView({
   pubs,
+  processos,
   responsaveis,
+  ultimosResp,
+  papel,
   me,
 }: {
   pubs: TriagemPub[];
+  processos: Processo[];
   responsaveis: Responsavel[];
+  ultimosResp: Record<string, string[]>;
+  papel: string;
   me?: string;
 }) {
   const router = useRouter();
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [msg, setMsg] = useState<ResultadoImport | null>(null);
+  const ctx: ModalCtx = { processos, responsaveis, ultimosResp, papel, me };
 
   const enviar = async () => {
     if (!arquivo || carregando) return;
@@ -335,12 +287,6 @@ export function TriagemView({
 
   return (
     <div>
-      <datalist id="acoes-tarefa">
-        {ACOES_TAREFA.map((a) => (
-          <option key={a} value={a} />
-        ))}
-      </datalist>
-
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed border-line bg-surface px-4 py-3">
         <div className="text-[13px] text-muted">
           <span className="font-medium text-navy">{arquivo?.name ?? "Importar PDF da AASP"}</span>
@@ -404,11 +350,6 @@ export function TriagemView({
           {grupos.map((g) => {
             const info = areaInfo[g.area];
             const Icon = info?.icon ?? Scale;
-            const pessoas = responsaveis.filter((r) =>
-              g.area === "trabalhista"
-                ? r.area === "trabalhista"
-                : r.area !== "trabalhista",
-            );
             return (
               <section key={g.area} className="mb-6">
                 <h2 className="mb-2 flex items-center gap-2 border-b border-line pb-1 font-serif text-lg text-navy">
@@ -420,7 +361,7 @@ export function TriagemView({
                 </h2>
                 <div className="flex flex-col gap-2.5">
                   {g.lista.map((p) => (
-                    <Cartao key={p.id} p={p} pessoas={pessoas} me={me} />
+                    <Cartao key={p.id} p={p} ctx={ctx} />
                   ))}
                 </div>
               </section>

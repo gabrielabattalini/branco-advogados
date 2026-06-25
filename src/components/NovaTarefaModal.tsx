@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Search, History } from "lucide-react";
 import { Modal } from "@/components/Modal";
@@ -20,6 +20,18 @@ import {
 } from "@/lib/diasUteis";
 import type { Responsavel } from "@/lib/data";
 import { criarTarefa, editarTarefa, excluirTarefa } from "@/lib/actions";
+import { criarTarefaPublicacao } from "@/lib/aasp-actions";
+
+// Pré-carregamento ao abrir o modal a partir da Triagem.
+export type InicialTarefa = {
+  titulo?: string;
+  processoNumero?: string;
+  responsaveis?: string[];
+  dataDisponibilizacao?: string;
+  dataPublicacao?: string;
+  prazoDias?: number;
+  prazoTipo?: string;
+};
 
 const inputCls =
   "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-navy/60";
@@ -30,6 +42,8 @@ export function NovaTarefaModal({
   responsaveis,
   ultimosResp,
   tarefa,
+  inicial,
+  triagemPublicacaoId,
   papel,
   me,
   onClose,
@@ -38,6 +52,8 @@ export function NovaTarefaModal({
   responsaveis: Responsavel[];
   ultimosResp: Record<string, string[]>;
   tarefa?: TarefaFull;
+  inicial?: InicialTarefa;
+  triagemPublicacaoId?: string;
   papel: string;
   me?: string;
   onClose: () => void;
@@ -45,32 +61,55 @@ export function NovaTarefaModal({
   const router = useRouter();
   const edicao = !!tarefa;
   const coord = ehGestor(papel);
-  const [titulo, setTitulo] = useState(tarefa?.titulo ?? "");
+  const [titulo, setTitulo] = useState(tarefa?.titulo ?? inicial?.titulo ?? "");
   const [descricao, setDescricao] = useState(tarefa?.descricao ?? "");
-  const [numero, setNumero] = useState(tarefa?.processo ?? "");
+  const [numero, setNumero] = useState(
+    tarefa?.processo ?? inicial?.processoNumero ?? "",
+  );
   const [procBusca, setProcBusca] = useState("");
   const [procAberto, setProcAberto] = useState(false);
   const [resps, setResps] = useState<string[]>(
-    tarefa?.responsaveis ?? (me ? [me] : []),
+    tarefa?.responsaveis ?? inicial?.responsaveis ?? (me ? [me] : []),
   );
   const [status, setStatus] = useState<string>(tarefa?.status ?? "a_fazer");
 
+  // Solicitante (cível: Débora · trab.: Karen) e Revisor (cível: Mauro · trab.:
+  // Karen) — padrão por área, achados pelo nome na equipe; editáveis.
+  const norm = (s: string) =>
+    s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const acharPor = (alvo: string) =>
+    responsaveis.find((r) => norm(r.nome).startsWith(alvo))?.iniciais ?? "";
+  const solicitanteDe = (a: string) =>
+    acharPor(a === "trabalhista" ? "karen" : "debora");
+  const revisorDe = (a: string) =>
+    acharPor(a === "trabalhista" ? "karen" : "mauro");
+
   // Prazo (CPC 224): a disponibilização (saída no DJe) costuma ser hoje; a
-  // publicação é o 1º dia útil seguinte e é a base da contagem. O prazo final
-  // é calculado a partir da publicação, mas pode ser ajustado no calendário.
-  // Em EDIÇÃO preservamos o que está gravado (não carimbamos "hoje").
-  const dispInicial = edicao ? (tarefa?.dataDisponibilizacao ?? "") : hojeISO();
+  // publicação é o 1º dia útil seguinte e é a base da contagem. Em EDIÇÃO ou
+  // pré-carregamento (Triagem) preservamos o que veio.
+  const dispInicial = edicao
+    ? (tarefa?.dataDisponibilizacao ?? "")
+    : inicial?.dataDisponibilizacao || hojeISO();
   const pubInicial = edicao
     ? (tarefa?.dataPublicacao ?? "")
-    : somarDiasUteis(dispInicial, 1);
+    : inicial?.dataPublicacao || somarDiasUteis(dispInicial, 1);
+  const prazoDiasInic = tarefa?.prazoDias ?? inicial?.prazoDias ?? 5;
+  const prazoTipoInic: "uteis" | "corridos" =
+    (tarefa?.prazoTipo ?? inicial?.prazoTipo) === "corridos"
+      ? "corridos"
+      : "uteis";
   const [dataDisp, setDataDisp] = useState(dispInicial);
   const [dataPub, setDataPub] = useState(pubInicial);
-  const [prazoDias, setPrazoDias] = useState<number>(tarefa?.prazoDias ?? 5);
-  const [prazoTipo, setPrazoTipo] = useState<"uteis" | "corridos">(
-    tarefa?.prazoTipo === "corridos" ? "corridos" : "uteis",
-  );
+  const [prazoDias, setPrazoDias] = useState<number>(prazoDiasInic);
+  const [prazoTipo, setPrazoTipo] = useState<"uteis" | "corridos">(prazoTipoInic);
   const [dataFinal, setDataFinal] = useState(
-    tarefa?.data ?? somarDiasUteis(pubInicial, 4), // 5 − 1 dia de margem
+    tarefa?.data ??
+      (() => {
+        const n = Math.max(1, prazoDiasInic - 1); // margem de 1 dia
+        return prazoTipoInic === "corridos"
+          ? diaUtilAnterior(addDiasISO(pubInicial, n))
+          : somarDiasUteis(pubInicial, n);
+      })(),
   );
   // Marca quando publicação/data fatal foram ajustadas à mão, para não
   // sobrescrevê-las silenciosamente ao mexer num campo "acima".
@@ -81,6 +120,18 @@ export function NovaTarefaModal({
   const [erro, setErro] = useState("");
 
   const area = numero ? classificarArea(numero) : "civel";
+  const [solicitante, setSolicitante] = useState(
+    tarefa?.solicitante || solicitanteDe(area),
+  );
+  const [revisor, setRevisor] = useState(tarefa?.revisor || revisorDe(area));
+  const [solManual, setSolManual] = useState(false);
+  const [revManual, setRevManual] = useState(false);
+  // Trocar o processo muda a área → atualiza os padrões (se não escolhidos à mão).
+  useEffect(() => {
+    if (!edicao && !solManual) setSolicitante(solicitanteDe(area));
+    if (!edicao && !revManual) setRevisor(revisorDe(area));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [area]);
   // Sugestão: responsáveis da última tarefa deste processo (só os atribuíveis).
   const sugestao = numero
     ? (ultimosResp[numero] ?? []).filter((i) =>
@@ -174,34 +225,29 @@ export function NovaTarefaModal({
     try {
       const [, mm, dd] = dataFinal.split("-");
       const prazo = `${dd}/${mm}`;
+      const comuns = {
+        titulo: titulo.trim(),
+        descricao,
+        processoNumero: numero,
+        data: dataFinal,
+        dataDisponibilizacao: dataDisp,
+        dataPublicacao: dataPub,
+        prazoDias,
+        prazoTipo,
+        prazo,
+        responsaveis: resps,
+        solicitante,
+        revisor,
+      };
       const res = edicao
-        ? await editarTarefa({
-            id: tarefa!.id,
-            titulo: titulo.trim(),
-            descricao,
-            processoNumero: numero,
-            status,
-            data: dataFinal,
-            dataDisponibilizacao: dataDisp,
-            dataPublicacao: dataPub,
-            prazoDias,
-            prazoTipo,
-            prazo,
-            responsaveis: resps,
-          })
-        : await criarTarefa({
-            titulo: titulo.trim(),
-            descricao,
-            processoNumero: numero,
-            area,
-            data: dataFinal,
-            dataDisponibilizacao: dataDisp,
-            dataPublicacao: dataPub,
-            prazoDias,
-            prazoTipo,
-            prazo,
-            responsaveis: resps,
-          });
+        ? await editarTarefa({ id: tarefa!.id, status, ...comuns })
+        : triagemPublicacaoId
+          ? await criarTarefaPublicacao({
+              publicacaoId: triagemPublicacaoId,
+              area,
+              ...comuns,
+            })
+          : await criarTarefa({ area, ...comuns });
       if (res.ok) {
         router.refresh();
         onClose();
@@ -330,6 +376,45 @@ export function NovaTarefaModal({
           </div>
         </div>
 
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>Solicitante</label>
+            <select
+              className={inputCls}
+              value={solicitante}
+              onChange={(e) => {
+                setSolicitante(e.target.value);
+                setSolManual(true);
+              }}
+            >
+              <option value="">—</option>
+              {responsaveis.map((r) => (
+                <option key={r.iniciais} value={r.iniciais}>
+                  {r.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Revisor</label>
+            <select
+              className={inputCls}
+              value={revisor}
+              onChange={(e) => {
+                setRevisor(e.target.value);
+                setRevManual(true);
+              }}
+            >
+              <option value="">—</option>
+              {responsaveis.map((r) => (
+                <option key={r.iniciais} value={r.iniciais}>
+                  {r.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         {/* Processo vinculado — busca por nome ou número */}
         <div>
           <label className={labelCls}>Processo vinculado</label>
@@ -343,7 +428,7 @@ export function NovaTarefaModal({
                     ? procBusca
                     : procSel
                       ? `${procSel.numero} — ${procSel.cliente}`
-                      : ""
+                      : numero
                 }
                 onChange={(e) => {
                   setProcBusca(e.target.value);

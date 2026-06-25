@@ -166,6 +166,8 @@ export async function criarTarefaPublicacao(input: {
   prazoTipo: string;
   prazo: string;
   responsaveis: string[];
+  solicitante?: string;
+  revisor?: string;
 }): Promise<ActionResult> {
   const s = await getSessao();
   if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };

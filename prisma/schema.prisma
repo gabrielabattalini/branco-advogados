@@ -82,6 +82,8 @@ model Tarefa {
   prazoUrgente Boolean   @default(false)
   status       String    @default("a_fazer") // a_fazer | em_curso | concluida
   responsaveis String[] // iniciais (pode ter mais de um)
+  solicitante  String   @default("") // iniciais — cível: Débora · trabalhista: Karen
+  revisor      String   @default("") // iniciais — cível: Mauro · trabalhista: Karen
   origem       String    @default("manual") // manual | aasp
   criadoEm     DateTime  @default(now())
 }

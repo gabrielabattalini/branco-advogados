@@ -62,6 +62,8 @@ export async function criarTarefa(input: {
   prazoTipo: string;
   prazo: string;
   responsaveis: string[];
+  solicitante?: string;
+  revisor?: string;
   origem?: string;
 }): Promise<ActionResult> {
   const s = await getSessao();
@@ -92,6 +94,8 @@ export async function criarTarefa(input: {
         prazo: (input.prazo || "").slice(0, 12),
         status: "a_fazer",
         responsaveis: resps,
+        solicitante: validas.has(input.solicitante ?? "") ? input.solicitante! : "",
+        revisor: validas.has(input.revisor ?? "") ? input.revisor! : "",
         origem: input.origem === "aasp" ? "aasp" : "manual",
       },
     });
@@ -141,6 +145,8 @@ export async function editarTarefa(input: {
   prazoTipo: string;
   prazo: string;
   responsaveis: string[];
+  solicitante?: string;
+  revisor?: string;
 }): Promise<ActionResult> {
   const titulo = input.titulo.trim();
   if (!titulo) return { ok: false, erro: "Informe o título da tarefa." };
@@ -185,6 +191,10 @@ export async function editarTarefa(input: {
               prazoDias: prazoDiasOk(input.prazoDias),
               prazoTipo: prazoTipoOk(input.prazoTipo),
               prazo: input.prazo || `${dd}/${mm}`,
+              solicitante: validas.has(input.solicitante ?? "")
+                ? input.solicitante!
+                : "",
+              revisor: validas.has(input.revisor ?? "") ? input.revisor! : "",
             }
           : {}),
       },
