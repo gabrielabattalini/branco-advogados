@@ -1,12 +1,28 @@
 "use client";
 
-import { useState } from "react";
-import { Upload, FileText, Loader2, Scale, Landmark } from "lucide-react";
+import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Upload,
+  FileText,
+  Loader2,
+  Scale,
+  Landmark,
+  Check,
+  Plus,
+  Trash2,
+  EyeOff,
+  AlertTriangle,
+} from "lucide-react";
 import {
   importarAASP,
-  type ResultadoTriagem,
-  type PubComCliente,
+  criarTarefaPublicacao,
+  excluirPublicacao,
+  ignorarPublicacao,
+  type ResultadoImport,
 } from "@/lib/aasp-actions";
+import { ACOES_TAREFA } from "@/lib/aasp";
+import type { Responsavel, TriagemPub } from "@/lib/data";
 
 const atoLabel: Record<string, string> = {
   sentenca: "Sentença",
@@ -35,11 +51,81 @@ function brL(iso: string) {
   return `${d}/${m}/${y}`;
 }
 
-function Cartao({ p }: { p: PubComCliente }) {
+function Cartao({
+  p,
+  pessoas,
+  me,
+}: {
+  p: TriagemPub;
+  pessoas: Responsavel[];
+  me?: string;
+}) {
+  const router = useRouter();
+  const processada = p.status === "processada";
+  const [resp, setResp] = useState<string[]>(
+    p.responsaveis.length ? p.responsaveis : me ? [me] : [],
+  );
+  const [acao, setAcao] = useState(p.acao || "Verificar");
+  const [quando, setQuando] = useState(p.dataFatal || p.dataPublicacao || p.disponibilizacao);
+  const [busy, setBusy] = useState(false);
+  const [erro, setErro] = useState("");
+  const enviando = useRef(false);
+
+  const toggle = (ini: string) =>
+    setResp((r) => (r.includes(ini) ? r.filter((x) => x !== ini) : [...r, ini]));
+  const quandoOk = /^\d{4}-\d{2}-\d{2}$/.test(quando);
   const bom = p.resultado === "improcedente";
+  // chips: pessoas da área + selecionados de fora da lista (não some o que está marcado)
+  const extras = resp.filter((i) => !pessoas.some((pp) => pp.iniciais === i));
+
+  const acao_servidor = async (fn: () => Promise<{ ok: boolean; erro?: string }>) => {
+    if (enviando.current) return;
+    enviando.current = true;
+    setBusy(true);
+    setErro("");
+    try {
+      const res = await fn();
+      if (res.ok) {
+        router.refresh();
+        return;
+      }
+      setErro(res.erro ?? "Erro.");
+    } catch {
+      setErro("Erro inesperado.");
+    }
+    enviando.current = false;
+    setBusy(false);
+  };
+
+  const criar = () => {
+    if (!quandoOk) return;
+    const [, mm, dd] = quando.split("-");
+    acao_servidor(() =>
+      criarTarefaPublicacao({
+        publicacaoId: p.id,
+        titulo: acao.trim() || "Verificar",
+        descricao: p.teor,
+        processoNumero: p.numero,
+        area: p.area === "trabalhista" ? "trabalhista" : "civel",
+        data: quando,
+        dataDisponibilizacao: p.disponibilizacao,
+        dataPublicacao: p.dataPublicacao,
+        prazoDias: p.prazoDias || 5,
+        prazoTipo: p.prazoTipo || "uteis",
+        prazo: `${dd}/${mm}`,
+        responsaveis: resp,
+      }),
+    );
+  };
+
   return (
-    <div className="relative overflow-hidden rounded-lg border border-line bg-surface p-3.5">
-      <div className="absolute inset-y-0 left-0 w-1 bg-gold" />
+    <div
+      className={
+        "relative overflow-hidden rounded-lg border bg-surface p-3.5 " +
+        (processada ? "border-ok/40" : "border-line")
+      }
+    >
+      <div className={"absolute inset-y-0 left-0 w-1 " + (processada ? "bg-ok" : "bg-gold")} />
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         <span className="rounded bg-navy/10 px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-navy">
           {atoLabel[p.atoTipo] ?? p.atoTipo}
@@ -50,21 +136,28 @@ function Cartao({ p }: { p: PubComCliente }) {
         {p.resultado && (
           <span
             className={
-              "ml-auto rounded px-2 py-0.5 text-[10.5px] font-semibold " +
+              "rounded px-2 py-0.5 text-[10.5px] font-semibold " +
               (bom ? "bg-ok/15 text-ok" : "bg-trab-bg text-trab-text")
             }
           >
             {resultadoLabel[p.resultado]}
           </span>
         )}
-      </div>
-      <div className="font-mono text-[12.5px] font-semibold text-navy">
-        {p.processo || "(processo não identificado)"}
-        {p.orgao && (
-          <span className="font-sans text-[12px] font-normal text-muted">
-            {" · "}
-            {p.orgao}
+        {processada && (
+          <span className="ml-auto inline-flex items-center gap-1 rounded bg-ok/12 px-2 py-0.5 text-[10.5px] font-semibold text-ok">
+            <Check size={12} /> Tarefa criada
           </span>
+        )}
+      </div>
+
+      <div className="font-mono text-[12.5px] font-semibold text-navy">
+        {p.numero || (
+          <span className="inline-flex items-center gap-1 font-sans text-danger">
+            <AlertTriangle size={13} /> processo não identificado
+          </span>
+        )}
+        {p.orgao && (
+          <span className="font-sans text-[12px] font-normal text-muted"> · {p.orgao}</span>
         )}
       </div>
       <div className="mt-1 text-[12.5px]">
@@ -86,6 +179,7 @@ function Cartao({ p }: { p: PubComCliente }) {
           </span>
         )}
       </div>
+
       {p.teor && (
         <div
           className="mt-2 rounded border-l-2 px-2.5 py-1.5 text-[11.5px] leading-relaxed"
@@ -94,136 +188,247 @@ function Cartao({ p }: { p: PubComCliente }) {
           {p.teor.length > 230 ? p.teor.slice(0, 230) + "…" : p.teor}
         </div>
       )}
+
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted">
-        <span>Disponibilização {brL(p.disponibilizacao)}</span>
-        {p.prazoDias ? (
-          <span className="font-medium text-navy">
-            Prazo: {p.prazoDias} dias{" "}
-            {p.prazoTipo === "corridos" ? "corridos" : "úteis"}
-          </span>
-        ) : null}
-        <span className="ml-auto text-faint">
-          item {p.item} · publ. {p.publicacaoNum}
+        <span>
+          Disponibilização {brL(p.disponibilizacao)} → Publicação {brL(p.dataPublicacao)}
         </span>
+        <span className="ml-auto text-faint">publ. {p.publicacaoNum}</span>
+      </div>
+
+      {!processada && (
+        <div className="mt-2.5 rounded-md border border-dashed border-gold/60 bg-gold/5 p-2.5">
+          <div className="mb-2 text-[10px] font-bold uppercase tracking-wide text-gold">
+            Sugestão — confira e crie a tarefa
+          </div>
+          <div className="mb-2 flex flex-wrap items-center gap-1.5">
+            <span className="w-14 shrink-0 text-[11px] text-muted">Quem</span>
+            {pessoas.map((r) => {
+              const sel = resp.includes(r.iniciais);
+              return (
+                <button
+                  key={r.iniciais}
+                  type="button"
+                  onClick={() => toggle(r.iniciais)}
+                  className={
+                    "rounded-full px-2 py-0.5 text-[11px] " +
+                    (sel
+                      ? "bg-navy text-cream"
+                      : "border border-line text-muted hover:bg-cream")
+                  }
+                >
+                  {r.nome.split(/\s+/)[0]}
+                </button>
+              );
+            })}
+            {extras.map((i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => toggle(i)}
+                title="Sugerido pelo histórico (fora da área)"
+                className="rounded-full bg-navy px-2 py-0.5 text-[11px] text-cream"
+              >
+                {i}
+              </button>
+            ))}
+          </div>
+          <div className="mb-2 flex items-center gap-1.5">
+            <span className="w-14 shrink-0 text-[11px] text-muted">O quê</span>
+            <input
+              list="acoes-tarefa"
+              value={acao}
+              onChange={(e) => setAcao(e.target.value)}
+              className="flex-1 rounded-md border border-line bg-surface px-2 py-1 text-[12.5px] text-ink outline-none focus:border-navy/60"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="w-14 shrink-0 text-[11px] text-muted">Quando</span>
+            <input
+              type="date"
+              value={quando}
+              onChange={(e) => setQuando(e.target.value)}
+              className={
+                "rounded-md border bg-surface px-2 py-1 text-[12.5px] text-ink outline-none " +
+                (quandoOk ? "border-line focus:border-navy/60" : "border-danger")
+              }
+            />
+            {p.vencimentoLegal && (
+              <span className="text-[10.5px] text-faint">
+                vencimento legal {brL(p.vencimentoLegal)} · margem −1 dia
+              </span>
+            )}
+            <button
+              onClick={criar}
+              disabled={busy || !quandoOk}
+              className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-ok px-3 py-1.5 text-[12px] font-medium text-white hover:opacity-90 disabled:opacity-40"
+            >
+              {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+              Criar tarefa
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-2 flex items-center gap-3">
+        {!processada && (
+          <button
+            onClick={() => acao_servidor(() => ignorarPublicacao(p.id))}
+            disabled={busy}
+            className="inline-flex items-center gap-1 text-[11.5px] text-muted hover:text-navy disabled:opacity-40"
+          >
+            <EyeOff size={13} /> Ignorar
+          </button>
+        )}
+        <button
+          onClick={() => {
+            if (confirm("Excluir esta publicação? Não pode ser desfeito.")) {
+              acao_servidor(() => excluirPublicacao(p.id));
+            }
+          }}
+          disabled={busy}
+          className="inline-flex items-center gap-1 text-[11.5px] text-danger hover:underline disabled:opacity-40"
+        >
+          <Trash2 size={13} /> Excluir
+        </button>
+        {erro && <span className="text-[11px] text-danger">{erro}</span>}
       </div>
     </div>
   );
 }
 
-export function TriagemView() {
+export function TriagemView({
+  pubs,
+  responsaveis,
+  me,
+}: {
+  pubs: TriagemPub[];
+  responsaveis: Responsavel[];
+  me?: string;
+}) {
+  const router = useRouter();
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [carregando, setCarregando] = useState(false);
-  const [res, setRes] = useState<ResultadoTriagem | null>(null);
+  const [msg, setMsg] = useState<ResultadoImport | null>(null);
 
   const enviar = async () => {
     if (!arquivo || carregando) return;
     setCarregando(true);
-    setRes(null);
+    setMsg(null);
     const fd = new FormData();
     fd.append("arquivo", arquivo);
     try {
-      setRes(await importarAASP(fd));
+      const r = await importarAASP(fd);
+      setMsg(r);
+      if (r.ok) {
+        setArquivo(null);
+        router.refresh();
+      }
     } catch {
-      setRes({ ok: false, erro: "Erro inesperado ao processar o arquivo." });
+      setMsg({ ok: false, erro: "Erro inesperado ao processar o arquivo." });
     }
     setCarregando(false);
   };
 
+  const grupos = (["trabalhista", "civel", "federal"] as const)
+    .map((area) => ({ area, lista: pubs.filter((p) => p.area === area) }))
+    .filter((g) => g.lista.length > 0);
+  const pendentes = pubs.filter((p) => p.status === "pendente").length;
+
   return (
     <div>
-      <p className="mb-3 text-[13px] text-muted">
-        Suba o PDF de publicações da AASP (DJEN). O sistema separa cível, trabalhista e
-        federal, agrupa as duplicatas e identifica o cliente.
-      </p>
+      <datalist id="acoes-tarefa">
+        {ACOES_TAREFA.map((a) => (
+          <option key={a} value={a} />
+        ))}
+      </datalist>
 
-      <div className="rounded-lg border border-dashed border-line bg-surface p-5">
-        <label className="flex cursor-pointer flex-col items-center gap-2 text-center">
-          <Upload size={26} className="text-gold" />
-          <span className="text-[13px] text-muted">
-            {arquivo ? (
-              <span className="inline-flex items-center gap-1.5 font-medium text-navy">
-                <FileText size={15} /> {arquivo.name}
-              </span>
-            ) : (
-              "Clique para escolher o PDF da AASP"
-            )}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed border-line bg-surface px-4 py-3">
+        <div className="text-[13px] text-muted">
+          <span className="font-medium text-navy">{arquivo?.name ?? "Importar PDF da AASP"}</span>
+          <span className="ml-1 text-faint">
+            — separa, agrupa duplicatas, identifica o cliente e sugere a tarefa.
           </span>
-          <input
-            type="file"
-            accept="application/pdf,.pdf"
-            className="hidden"
-            onChange={(e) => {
-              setArquivo(e.target.files?.[0] ?? null);
-              setRes(null);
-            }}
-          />
-        </label>
-        <div className="mt-4 flex justify-center">
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="cursor-pointer rounded-md border border-line px-3 py-1.5 text-[13px] text-muted hover:bg-cream">
+            <FileText size={14} className="mr-1 inline" />
+            Escolher
+            <input
+              type="file"
+              accept="application/pdf,.pdf"
+              className="hidden"
+              onChange={(e) => {
+                setArquivo(e.target.files?.[0] ?? null);
+                setMsg(null);
+              }}
+            />
+          </label>
           <button
             onClick={enviar}
             disabled={!arquivo || carregando}
-            className="inline-flex items-center gap-2 rounded-md bg-navy px-4 py-2 text-sm text-cream hover:bg-navy-dark disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 rounded-md bg-navy px-3 py-1.5 text-[13px] text-cream hover:bg-navy-dark disabled:opacity-40"
           >
             {carregando ? (
               <>
-                <Loader2 size={16} className="animate-spin" /> Lendo o PDF…
+                <Loader2 size={14} className="animate-spin" /> Lendo…
               </>
             ) : (
               <>
-                <Upload size={16} /> Importar e separar
+                <Upload size={14} /> Importar
               </>
             )}
           </button>
         </div>
       </div>
 
-      {res && !res.ok && (
-        <p className="mt-4 rounded-md bg-danger/10 px-3 py-2 text-[13px] text-danger">
-          {res.erro}
+      {msg && !msg.ok && (
+        <p className="mb-4 rounded-md bg-danger/10 px-3 py-2 text-[13px] text-danger">
+          {msg.erro}
+        </p>
+      )}
+      {msg && msg.ok && (
+        <p className="mb-4 rounded-md bg-ok/10 px-3 py-2 text-[13px] text-ok">
+          {msg.novas} nova(s) publicação(ões) importada(s)
+          {msg.jaExistiam > 0 && ` · ${msg.jaExistiam} já estavam salvas`}.
         </p>
       )}
 
-      {res && res.ok && (
-        <div className="mt-5">
-          <div className="mb-4 flex flex-wrap gap-2 text-[12px]">
-            <span className="rounded-full border border-line bg-cream px-3 py-1 text-navy">
-              <b className="text-gold">{res.total}</b> publicações
-            </span>
-            <span className="rounded-full border border-line bg-cream px-3 py-1 text-navy">
-              <b className="text-gold">{res.unicas}</b> únicas
-            </span>
-            <span className="rounded-full border border-line bg-cream px-3 py-1 text-navy">
-              <b className="text-gold">{res.duplicatas}</b> duplicatas agrupadas
-            </span>
+      {pubs.length === 0 ? (
+        <div className="rounded-lg border border-line bg-surface px-4 py-12 text-center text-[13px] text-faint">
+          Nenhuma publicação ainda. Importe um PDF da AASP para começar.
+        </div>
+      ) : (
+        <>
+          <div className="mb-3 text-[12px] text-muted">
+            {pubs.length} publicação(ões) salva(s) · {pendentes} a triar
           </div>
-
-          {res.grupos.map((g) => {
+          {grupos.map((g) => {
             const info = areaInfo[g.area];
             const Icon = info?.icon ?? Scale;
+            const pessoas = responsaveis.filter((r) =>
+              g.area === "trabalhista"
+                ? r.area === "trabalhista"
+                : r.area !== "trabalhista",
+            );
             return (
               <section key={g.area} className="mb-6">
                 <h2 className="mb-2 flex items-center gap-2 border-b border-line pb-1 font-serif text-lg text-navy">
                   <Icon size={18} className="text-gold" />
                   {info?.label ?? g.area}
                   <span className="font-sans text-[13px] font-normal text-muted">
-                    · {g.pubs.length}
+                    · {g.lista.length}
                   </span>
                 </h2>
                 <div className="flex flex-col gap-2.5">
-                  {g.pubs.map((p) => (
-                    <Cartao key={p.item} p={p} />
+                  {g.lista.map((p) => (
+                    <Cartao key={p.id} p={p} pessoas={pessoas} me={me} />
                   ))}
                 </div>
               </section>
             );
           })}
-
-          <p className="text-[12px] text-faint">
-            Próximo passo (em construção): sugerir o responsável pelo histórico do
-            processo, a tarefa e o prazo com a margem de 1 dia — e aprovar para virar
-            tarefa.
-          </p>
-        </div>
+        </>
       )}
     </div>
   );

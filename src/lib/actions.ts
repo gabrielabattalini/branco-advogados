@@ -62,10 +62,11 @@ export async function criarTarefa(input: {
   prazoTipo: string;
   prazo: string;
   responsaveis: string[];
+  origem?: string;
 }): Promise<ActionResult> {
   const s = await getSessao();
   if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
-  const titulo = input.titulo.trim();
+  const titulo = input.titulo.trim().slice(0, 200);
   if (!titulo) return { ok: false, erro: "Informe o título da tarefa." };
   const area = AREAS.includes(input.area) ? input.area : "civel";
   try {
@@ -80,7 +81,7 @@ export async function criarTarefa(input: {
     await prisma.tarefa.create({
       data: {
         titulo,
-        descricao: input.descricao?.trim() || null,
+        descricao: input.descricao?.trim().slice(0, 5000) || null,
         processoId: processo?.id ?? null,
         area,
         data: isoOuVazio(input.data) || hojeISO(),
@@ -88,10 +89,10 @@ export async function criarTarefa(input: {
         dataPublicacao: isoOuVazio(input.dataPublicacao),
         prazoDias: prazoDiasOk(input.prazoDias),
         prazoTipo: prazoTipoOk(input.prazoTipo),
-        prazo: input.prazo,
+        prazo: (input.prazo || "").slice(0, 12),
         status: "a_fazer",
         responsaveis: resps,
-        origem: "manual",
+        origem: input.origem === "aasp" ? "aasp" : "manual",
       },
     });
     revalidatePath("/tarefas");

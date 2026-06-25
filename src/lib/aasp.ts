@@ -248,6 +248,53 @@ export function parseAASP(textoBruto: string): PublicacaoParsed[] {
   return pubs;
 }
 
+// Opções do menu "O QUÊ" (ações + recursos cível/trabalhista).
+export const ACOES_TAREFA = [
+  "Verificar",
+  "Verificar e avisar a empresa",
+  "Verificar e avaliar recurso",
+  "Avisar a empresa (resultado)",
+  "Manifestar",
+  "Manifestar / cumprir",
+  "Cumprir / providenciar",
+  "Lançar no sistema",
+  "Memoriais / sustentação",
+  "Ciência",
+  "Contestação",
+  "Apelação",
+  "Agravo de instrumento",
+  "Agravo interno",
+  "Recurso ordinário (RO)",
+  "Recurso de revista (RR)",
+  "Agravo de petição",
+  "Embargos de declaração",
+  "Recurso especial (REsp)",
+  "Recurso extraordinário (RE)",
+  "Contrarrazões",
+  "Contraminuta",
+];
+
+// Sugere a ação (o "O QUÊ" da anotação) a partir do tipo de ato e do teor.
+export function sugerirAcao(p: {
+  atoTipo: AtoTipo;
+  resultado: Resultado;
+  prazoDias: number | null;
+  teor: string;
+}): string {
+  const t = p.teor.toLowerCase();
+  if (p.atoTipo === "pauta") return "Memoriais / sustentação";
+  if (/contraminuta/.test(t)) return "Contraminuta";
+  if (/contrarraz/.test(t)) return "Contrarrazões";
+  if (p.atoTipo === "sentenca" || p.atoTipo === "acordao")
+    return p.resultado === "improcedente"
+      ? "Verificar e avisar a empresa"
+      : "Verificar e avaliar recurso";
+  if (p.atoTipo === "ato_ordinatorio") return "Manifestar";
+  if (p.prazoDias) return "Manifestar / cumprir";
+  if (p.atoTipo === "edital") return "Ciência";
+  return "Verificar";
+}
+
 // Agrupa o resultado para a tela de triagem.
 export function resumoTriagem(pubs: PublicacaoParsed[]) {
   const unicas = pubs.filter((p) => p.duplicataDe == null);

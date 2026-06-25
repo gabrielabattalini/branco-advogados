@@ -480,6 +480,66 @@ export async function getPublicacoes(): Promise<PublicacaoCal[]> {
   }));
 }
 
+// Publicações salvas para a tela de Triagem (esconde as ignoradas).
+export type TriagemPub = {
+  id: string;
+  numero: string;
+  area: string;
+  tribunal: string;
+  orgao: string;
+  partes: string;
+  poloAtivo: string;
+  poloPassivo: string;
+  atoTipo: string;
+  resultado: string;
+  teor: string;
+  disponibilizacao: string;
+  dataPublicacao: string;
+  vencimentoLegal: string;
+  dataFatal: string;
+  prazoDias: number;
+  prazoTipo: string;
+  intimado: string;
+  cliente: string;
+  acao: string;
+  responsaveis: string[];
+  publicacaoNum: string;
+  status: string;
+};
+
+export async function getTriagemPublicacoes(): Promise<TriagemPub[]> {
+  const rows = await prisma.publicacao.findMany({
+    where: { statusTriagem: { not: "ignorada" } },
+    orderBy: [{ data: "desc" }, { criadoEm: "desc" }],
+    take: 500,
+  });
+  return rows.map((p) => ({
+    id: p.id,
+    numero: p.numero,
+    area: p.area,
+    tribunal: p.tribunal,
+    orgao: p.orgao,
+    partes: p.partes,
+    poloAtivo: p.poloAtivo,
+    poloPassivo: p.poloPassivo,
+    atoTipo: p.tipo,
+    resultado: p.resultado,
+    teor: p.despacho,
+    disponibilizacao: p.data,
+    dataPublicacao: p.dataPublicacao,
+    vencimentoLegal: p.vencimentoLegal,
+    dataFatal: p.dataFatal,
+    prazoDias: p.prazoDias,
+    prazoTipo: p.prazoTipo,
+    intimado: p.intimado,
+    cliente: p.cliente,
+    acao: p.acaoSugerida,
+    responsaveis: p.responsaveisSugeridos,
+    publicacaoNum: p.publicacaoNum,
+    status: p.statusTriagem,
+  }));
+}
+
 export type PainelData = {
   kpis: { label: string; valor: number; danger?: boolean }[];
   tarefas: {

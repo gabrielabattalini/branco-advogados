@@ -104,17 +104,38 @@ model Publicacao {
   id                 String    @id @default(cuid())
   processoId         String?
   processo           Processo? @relation(fields: [processoId], references: [id])
-  numero             String
+  numero             String // CNJ do processo
   area               String
   tribunal           String
-  tipo               String
+  tipo               String // tipo de ato: sentenca | despacho | decisao | acordao | pauta | ...
   partes             String
-  despacho           String
+  despacho           String // teor/dispositivo extraído
   prazo              String
-  data               String    @default("2026-06-19")
+  data               String    @default("") // = disponibilização (posição no calendário)
   processoCadastrado Boolean   @default(false)
   statusTriagem      String    @default("pendente") // pendente | processada | ignorada
+  // Campos da importação AASP/DJEN
+  orgao                 String   @default("")
+  poloAtivo             String   @default("")
+  poloPassivo           String   @default("")
+  resultado             String   @default("") // procedente | improcedente | parcial | ""
+  dataPublicacao        String   @default("") // 1º dia útil após a disponibilização
+  vencimentoLegal       String   @default("")
+  dataFatal             String   @default("") // vencimento − 1 dia (margem)
+  prazoDias             Int      @default(0)
+  prazoTipo             String   @default("uteis")
+  intimado              String   @default("")
+  cliente               String   @default("") // cliente casado na base
+  acaoSugerida          String   @default("")
+  responsaveisSugeridos String[] @default([])
+  atoId                 String   @default("")
+  publicacaoNum         String   @default("")
+  chave                 String   @default("") // dedup de reimportação
+  tarefaId              String   @default("") // tarefa criada a partir desta publicação
   criadoEm           DateTime  @default(now())
+
+  @@index([statusTriagem])
+  @@index([chave])
 }
 
 model EventoAgenda {
