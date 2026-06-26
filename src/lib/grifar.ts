@@ -153,7 +153,7 @@ export async function grifarAASP(
       const a = anotar(pub);
       const texto = [a.nomes, a.tarefa, a.data].filter(Boolean).join(" - ");
       if (texto) {
-        const size = 11;
+        const size = 14;
         const maxW = 215;
         const x = W - maxW - 6;
         let yy = y;
