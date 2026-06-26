@@ -140,6 +140,18 @@ model Publicacao {
   @@index([chave])
 }
 
+// PDF original da AASP guardado no import da triagem, para gerar o grifado
+// depois sem precisar subir o arquivo de novo. Mantemos só os mais recentes.
+model ArquivoAASP {
+  id       String   @id @default(cuid())
+  nome     String   @default("")
+  data     String   @default("") // disponibilização (ISO) — para o nome do grifado
+  bytes    Bytes
+  criadoEm DateTime @default(now())
+
+  @@index([criadoEm])
+}
+
 model EventoAgenda {
   id       String   @id @default(cuid())
   data     String   @default("") // yyyy-mm-dd

@@ -19,6 +19,7 @@ import {
   importarAASP,
   excluirPublicacao,
   ignorarPublicacao,
+  gerarGrifadoSalvo,
   type ResultadoImport,
 } from "@/lib/aasp-actions";
 import { NovaTarefaModal } from "@/components/NovaTarefaModal";
@@ -44,6 +45,20 @@ function brL(iso: string) {
   if (!iso) return "—";
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y}`;
+}
+
+function baixarPDF(nome: string, base64: string) {
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nome;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
 type ModalCtx = {
@@ -254,7 +269,30 @@ export function TriagemView({
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [msg, setMsg] = useState<ResultadoImport | null>(null);
+  const [grifando, setGrifando] = useState(false);
+  const [grifErro, setGrifErro] = useState("");
   const ctx: ModalCtx = { processos, responsaveis, ultimosResp, papel, me };
+
+  // Gera os dois grifados (cível + trabalhista) a partir do PDF guardado no
+  // último import — sem precisar subir o arquivo de novo.
+  const gerarGrifados = async () => {
+    if (grifando) return;
+    setGrifando(true);
+    setGrifErro("");
+    try {
+      const r = await gerarGrifadoSalvo();
+      if (r.ok) {
+        r.arquivos.forEach((a, i) =>
+          setTimeout(() => baixarPDF(a.nome, a.base64), i * 400),
+        );
+      } else {
+        setGrifErro(r.erro);
+      }
+    } catch {
+      setGrifErro("Erro ao gerar os PDFs grifados.");
+    }
+    setGrifando(false);
+  };
 
   const enviar = async () => {
     if (!arquivo || carregando) return;
@@ -367,15 +405,31 @@ export function TriagemView({
             >
               <Landmark size={15} /> Cível · {civ.length}
             </button>
-            <a
-              href="/grifado"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-gold/60 bg-gold/10 px-3 py-1.5 text-sm text-gold hover:bg-gold/20"
+            <button
+              onClick={gerarGrifados}
+              disabled={grifando}
+              title="Gera os dois PDFs grifados (Cível e Trabalhista) do último PDF importado"
+              className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-gold/60 bg-gold/10 px-3 py-1.5 text-sm text-gold hover:bg-gold/20 disabled:opacity-50"
             >
-              <FileDown size={15} /> Gerar PDF (grifado)
-            </a>
+              {grifando ? (
+                <>
+                  <Loader2 size={15} className="animate-spin" /> Gerando…
+                </>
+              ) : (
+                <>
+                  <FileDown size={15} /> Gerar PDF (grifado)
+                </>
+              )}
+            </button>
           </div>
+          {grifErro && (
+            <div className="mb-3 rounded-md bg-danger/10 px-3 py-2 text-[12.5px] text-danger">
+              {grifErro}{" "}
+              <a href="/grifado" target="_blank" rel="noopener noreferrer" className="underline">
+                Subir um PDF manualmente
+              </a>
+            </div>
+          )}
           <div className="mb-3 text-[12px] text-muted">{pendentes} a triar</div>
           <div className="flex flex-col gap-2.5">
             {lista.map((p) => (

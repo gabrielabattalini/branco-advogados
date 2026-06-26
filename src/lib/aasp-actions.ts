@@ -157,6 +157,32 @@ export async function importarAASP(
     });
 
   if (linhas.length) await prisma.publicacao.createMany({ data: linhas });
+
+  // Guarda o PDF original para gerar o grifado depois sem subir de novo.
+  // (lê o arquivo de novo: o buffer do parse foi "detachado" pelo pdfjs.)
+  try {
+    const dataDisp = unicas.find((p) => p.disponibilizacao)?.disponibilizacao ?? "";
+    await prisma.arquivoAASP.create({
+      data: {
+        nome: file.name.slice(0, 200),
+        data: dataDisp,
+        bytes: Buffer.from(await file.arrayBuffer()),
+      },
+    });
+    // mantém apenas os 8 PDFs mais recentes guardados
+    const antigos = await prisma.arquivoAASP.findMany({
+      orderBy: { criadoEm: "desc" },
+      skip: 8,
+      select: { id: true },
+    });
+    if (antigos.length)
+      await prisma.arquivoAASP.deleteMany({
+        where: { id: { in: antigos.map((a) => a.id) } },
+      });
+  } catch {
+    // se falhar ao guardar, a importação continua válida; só não terá o atalho.
+  }
+
   revalidatePath("/publicacoes");
   return {
     ok: true,
@@ -215,17 +241,8 @@ export type ResultadoGrifado =
   | { ok: false; erro: string }
   | { ok: true; arquivos: { nome: string; base64: string }[] };
 
-export async function gerarGrifado(
-  formData: FormData,
-): Promise<ResultadoGrifado> {
-  const s = await getSessao();
-  if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
-  const file = formData.get("arquivo");
-  if (!(file instanceof File) || file.size === 0)
-    return { ok: false, erro: "Selecione o PDF de publicações da AASP." };
-  if (file.size > 25 * 1024 * 1024)
-    return { ok: false, erro: "Arquivo muito grande (máximo 25 MB)." };
-
+// Núcleo: recebe os bytes do PDF original e devolve os dois grifados (base64).
+async function montarGrifados(bytes: Uint8Array): Promise<ResultadoGrifado> {
   const [resp, ultimos] = await Promise.all([
     getResponsaveis(),
     getUltimosResponsaveis(),
@@ -244,7 +261,6 @@ export async function gerarGrifado(
   const revisorTrab = primeiroPorNome("karen", "Karen");
 
   try {
-    const bytes = new Uint8Array(await file.arrayBuffer());
     const out = await grifarAASP(bytes, (p) => {
       // Quem FAZ (responsável do histórico do processo) + quem REVISA (revisor
       // da área). NÃO entra a solicitante (Karen/Débora), que é quem lança.
@@ -284,6 +300,36 @@ export async function gerarGrifado(
       erro: "Não consegui grifar este PDF. Confirme que é o arquivo de publicações da AASP.",
     };
   }
+}
+
+// Grifa a partir de um PDF enviado agora (tela /grifado).
+export async function gerarGrifado(
+  formData: FormData,
+): Promise<ResultadoGrifado> {
+  const s = await getSessao();
+  if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
+  const file = formData.get("arquivo");
+  if (!(file instanceof File) || file.size === 0)
+    return { ok: false, erro: "Selecione o PDF de publicações da AASP." };
+  if (file.size > 25 * 1024 * 1024)
+    return { ok: false, erro: "Arquivo muito grande (máximo 25 MB)." };
+  return montarGrifados(new Uint8Array(await file.arrayBuffer()));
+}
+
+// Grifa a partir do último PDF guardado no import da triagem (sem subir de novo).
+export async function gerarGrifadoSalvo(): Promise<ResultadoGrifado> {
+  const s = await getSessao();
+  if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
+  const arq = await prisma.arquivoAASP.findFirst({
+    orderBy: { criadoEm: "desc" },
+    select: { bytes: true },
+  });
+  if (!arq)
+    return {
+      ok: false,
+      erro: "Nenhum PDF guardado. Importe um PDF da AASP na Triagem primeiro.",
+    };
+  return montarGrifados(new Uint8Array(arq.bytes));
 }
 
 export async function excluirPublicacao(id: string): Promise<ActionResult> {
