@@ -59,7 +59,7 @@ export function GrifadoView() {
         <ArrowLeft size={15} /> Voltar para Publicações
       </a>
 
-      <h1 className="text-2xl font-semibold text-[#21314F]">
+      <h1 className="text-2xl font-semibold text-[#056235]">
         Gerar publicações grifadas
       </h1>
       <p className="mt-1.5 text-sm text-stone-500">
@@ -127,7 +127,7 @@ export function GrifadoView() {
                 onClick={() => baixar(a.nome, a.base64)}
                 className="flex w-full items-center justify-between rounded-lg border border-stone-200 bg-white px-4 py-3 text-left transition hover:border-[#B0894F] hover:bg-[#faf7f1]"
               >
-                <span className="text-sm font-medium text-[#21314F]">
+                <span className="text-sm font-medium text-[#056235]">
                   {a.nome}
                 </span>
                 <Download size={16} className="text-[#B0894F]" />

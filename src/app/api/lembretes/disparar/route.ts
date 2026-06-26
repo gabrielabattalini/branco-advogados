@@ -68,7 +68,7 @@ async function processar() {
     const linha = (rotulo: string, valor: string) =>
       valor ? `<li><strong>${rotulo}:</strong> ${esc(valor)}</li>` : "";
     const html = `<div style="font-family:Arial,Helvetica,sans-serif;color:#2a2a28;max-width:520px">
-  <h2 style="color:#21314f;margin:0 0 8px">Lembrete de audiência</h2>
+  <h2 style="color:#056235;margin:0 0 8px">Lembrete de audiência</h2>
   <p style="margin:0 0 4px"><strong>${esc(a.titulo)}</strong> — ${esc(labelTipoAudiencia(a.tipo))}</p>
   <p style="margin:0 0 12px;color:#6e6a60">Faltam ${esc(antecedencia)} para a audiência.</p>
   <ul style="padding-left:18px;line-height:1.6">
