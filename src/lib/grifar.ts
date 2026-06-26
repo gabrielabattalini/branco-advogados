@@ -153,12 +153,13 @@ export async function grifarAASP(
       const a = anotar(pub);
       const texto = [a.nomes, a.tarefa, a.data].filter(Boolean).join(" - ");
       if (texto) {
-        const maxW = 200;
-        const x = W - maxW - 8;
+        const size = 11;
+        const maxW = 215;
+        const x = W - maxW - 6;
         let yy = y;
-        for (const ln of quebrar(fontB, texto, 8.5, maxW)) {
-          pdfp.drawText(ln, { x, y: yy, size: 8.5, font: fontB, color: VERMELHO });
-          yy -= 10.5;
+        for (const ln of quebrar(fontB, texto, size, maxW)) {
+          pdfp.drawText(ln, { x, y: yy, size, font: fontB, color: VERMELHO });
+          yy -= size + 2.5;
         }
       }
     }
