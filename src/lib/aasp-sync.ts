@@ -6,6 +6,7 @@ import {
   parseIntimacoesAASP,
   resumoTriagem,
   sugerirAcao,
+  chavePublicacao,
   type PublicacaoParsed,
 } from "@/lib/aasp";
 import { buscarIntimacoesRecentes } from "@/lib/aasp-api";
@@ -67,7 +68,12 @@ export async function salvarPublicacoes(
   const r = resumoTriagem(pubs);
   const unicas = [...r.trabalhista, ...r.civel];
   const chaveDe = (p: PublicacaoParsed) =>
-    `${p.processo}|${p.atoId || p.teor.slice(0, 60)}|${p.publicacaoNum}`;
+    chavePublicacao({
+      processo: p.processo,
+      atoId: p.atoId,
+      disponibilizacao: p.disponibilizacao,
+      teor: p.teor,
+    });
 
   const chaves = unicas.map(chaveDe).filter(Boolean);
   const existentes = new Set(
@@ -132,6 +138,57 @@ export async function sincronizarAASPCore(
   );
   if (!intims.length) return { total: 0, novas: 0, jaExistiam: 0 };
   const res = await salvarPublicacoes(parseIntimacoesAASP(intims));
+  await deduplicarPublicacoes(); // limpa duplicatas (mesmo ato em vários diários)
   revalidatePath("/publicacoes");
   return res;
+}
+
+// Remove publicações PENDENTES que são duplicata de outra do mesmo ato (a AASP
+// devolve a mesma publicação em mais de um diário — DJEN + diário antigo — e em
+// pares autor/réu). Mantém uma por ato (preferindo a já processada e o teor
+// limpo); NUNCA apaga uma publicação com tarefa criada. Idempotente.
+export async function deduplicarPublicacoes(): Promise<number> {
+  const rows = await prisma.publicacao.findMany({
+    where: { statusTriagem: { not: "ignorada" } },
+    select: {
+      id: true,
+      numero: true,
+      atoId: true,
+      data: true,
+      despacho: true,
+      statusTriagem: true,
+      criadoEm: true,
+    },
+  });
+  const grupos = new Map<string, typeof rows>();
+  for (const r of rows) {
+    if (!r.numero) continue;
+    const k = chavePublicacao({
+      processo: r.numero,
+      atoId: r.atoId,
+      disponibilizacao: r.data,
+      teor: r.despacho,
+    });
+    const g = grupos.get(k) ?? [];
+    g.push(r);
+    grupos.set(k, g);
+  }
+  const sujo = (t: string) => (/^\s*\d{1,3}\s*-\s*D J E N/.test(t) ? 1 : 0);
+  const apagar: string[] = [];
+  for (const g of grupos.values()) {
+    if (g.length < 2) continue;
+    g.sort(
+      (a, b) =>
+        (a.statusTriagem === "processada" ? 0 : 1) -
+          (b.statusTriagem === "processada" ? 0 : 1) ||
+        sujo(a.despacho) - sujo(b.despacho) ||
+        a.criadoEm.getTime() - b.criadoEm.getTime(),
+    );
+    const manter = g[0].id;
+    for (const x of g)
+      if (x.id !== manter && x.statusTriagem !== "processada") apagar.push(x.id);
+  }
+  if (apagar.length)
+    await prisma.publicacao.deleteMany({ where: { id: { in: apagar } } });
+  return apagar.length;
 }

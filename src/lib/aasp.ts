@@ -210,14 +210,30 @@ export function parseBloco(item: number, tribunal: string, bloco: string): Publi
   };
 }
 
+// Chave canônica de uma publicação (mesmo ato = mesma chave), usada na
+// deduplicação dentro do lote E contra o que já está salvo. Mesmo processo +
+// mesmo ATO: o ID do ato quando existe (autor/réu compartilham o ID); senão a
+// DATA de disponibilização (a AASP devolve a mesma publicação em mais de um
+// diário — DJEN + diário antigo — no mesmo dia); só recorre ao teor sem nada.
+export function chavePublicacao(p: {
+  processo: string;
+  atoId: string;
+  disponibilizacao: string;
+  teor: string;
+}): string {
+  const ato = p.atoId
+    ? `ID:${p.atoId}`
+    : p.disponibilizacao
+      ? `D:${p.disponibilizacao}`
+      : `T:${p.teor.slice(0, 80)}`;
+  return `${p.processo}|${ato}`;
+}
+
 function marcarDuplicatas(pubs: PublicacaoParsed[]): void {
   const visto = new Map<string, number>(); // chave -> item canônico
   for (const p of pubs) {
     if (!p.processo) continue;
-    // Duplicata "IDEM" = mesmo processo + mesmo ato. Usamos o ID do ato quando
-    // existe (mais confiável); senão, o teor (mesma decisão, outra parte
-    // intimada) — evita mesclar atos diferentes do mesmo processo.
-    const chave = `${p.processo}|${p.atoId || p.teor.slice(0, 100)}`;
+    const chave = chavePublicacao(p);
     const canon = visto.get(chave);
     if (canon != null) p.duplicataDe = canon;
     else visto.set(chave, p.item);
@@ -328,11 +344,32 @@ function isoData(s: string | null | undefined): string {
   return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
 }
 
+// Alguns diários trazem o cabeçalho cru do PDF colado no início do texto
+// ("N - D J E N - TRIB Disponibilização:... Publicação: NNN TRIB Diário ...
+// Nacional"). Removemos para o teor sair limpo e bater com a versão limpa do
+// mesmo ato (que vem de outro diário).
+function limparCabecalho(texto: string): string {
+  return texto.replace(
+    /^\s*\d{1,3}\s*-\s*D J E N\b[\s\S]*?Di[áa]rio de Justi[çc]a Eletr[ôo]nico Nacional\s*/,
+    "",
+  );
+}
+
 // Converte as intimações da API da AASP em PublicacaoParsed[] (com dedup IDEM).
 export function parseIntimacoesAASP(intims: IntimacaoAASP[]): PublicacaoParsed[] {
-  const pubs = intims.map((it, i) => {
+  // Diários DJEN (texto limpo) primeiro: viram o "canônico" na dedup, deixando
+  // a versão suja (diário antigo) como duplicata.
+  const ordenadas = [...intims]
+    .map((it, i) => ({ it, i }))
+    .sort((a, b) => {
+      const da = (a.it.jornal?.nomeJornal ?? "").toUpperCase().startsWith("DJEN") ? 0 : 1;
+      const db = (b.it.jornal?.nomeJornal ?? "").toUpperCase().startsWith("DJEN") ? 0 : 1;
+      return da - db || a.i - b.i;
+    })
+    .map((x) => x.it);
+  const pubs = ordenadas.map((it, i) => {
     const trib = tribunalDaIntimacao(it);
-    const bloco = `${it.cabecalho ?? ""} ${it.textoPublicacao ?? ""}`;
+    const bloco = limparCabecalho(`${it.cabecalho ?? ""} ${it.textoPublicacao ?? ""}`);
     const p = parseBloco(i + 1, trib, bloco);
     const proc = (it.numeroUnicoProcesso ?? p.processo ?? "").trim();
     p.processo = proc;
