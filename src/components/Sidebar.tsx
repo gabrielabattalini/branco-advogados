@@ -15,6 +15,7 @@ import {
   UserCog,
 } from "lucide-react";
 import { ehGestor, labelPapel } from "@/lib/papeis";
+import { Logo } from "@/components/Logo";
 
 const navBase = [
   { href: "/painel", label: "Painel", Icon: LayoutDashboard },
@@ -47,12 +48,7 @@ export function Sidebar({
   return (
     <aside className="flex w-60 shrink-0 flex-col bg-navy px-3 py-5">
       <div className="px-3 pb-6">
-        <div className="font-serif text-xl leading-none text-gold-light">
-          Branco
-        </div>
-        <div className="mt-1 text-[10px] tracking-[0.25em] text-cream/40">
-          ADVOGADOS
-        </div>
+        <Logo size={22} tone="claro" />
       </div>
       <nav className="flex flex-col gap-1">
         {nav.map(({ href, label, Icon }) => {
