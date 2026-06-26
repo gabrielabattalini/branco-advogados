@@ -125,27 +125,44 @@ export async function grifarAASP(
   const pages = await extrair(bytes);
   const pubs = parseAASP(pages.map((p) => p.text).join("\n"));
 
-  const heads: { page: number; off: number }[] = [];
-  for (let pi = 0; pi < pages.length; pi++) {
-    const re = /(\d{1,3}) - (?:D J E N|TRT)/g;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(pages[pi].text))) heads.push({ page: pi, off: m.index });
-  }
-
   const doc = await PDFDocument.load(paraEditar);
   const dp = doc.getPages();
   const fontB = await doc.embedFont(StandardFonts.HelveticaBold);
 
+  // Liga cada publicação à página onde aparece o NÚMERO DO PROCESSO. É robusto:
+  // usa o mesmo número que o parser já classificou por área, sem depender de um
+  // segundo regex de cabeçalho (que poderia desalinhar e jogar, p.ex., uma
+  // publicação trabalhista no PDF cível).
+  type Marca = { pub: PublicacaoParsed; page: number; off: number };
+  const marcas: Marca[] = [];
+  for (const pub of pubs) {
+    if (!pub.processo) continue;
+    for (let pi = 0; pi < pages.length; pi++) {
+      const k = pages[pi].text.indexOf(pub.processo);
+      if (k >= 0) {
+        marcas.push({ pub, page: pi, off: k });
+        break;
+      }
+    }
+  }
+  marcas.sort((a, b) => a.page - b.page || a.off - b.off);
+
   const areasPorPag: Set<string>[] = pages.map(() => new Set<string>());
-  const n = Math.min(heads.length, pubs.length);
-  for (let i = 0; i < n; i++) {
-    const h = heads[i];
-    const pub = pubs[i];
-    const pg = pages[h.page];
-    const pdfp = dp[h.page];
+  for (let i = 0; i < marcas.length; i++) {
+    const { pub, page, off } = marcas[i];
+    const pg = pages[page];
+    const pdfp = dp[page];
     const W = pdfp.getWidth();
-    const itHead = itemNoOffset(pg, h.off);
-    const y = itHead ? itHead.y : pdfp.getHeight() - 60;
+    // limita os grifos ao trecho desta publicação na página (quando há mais de
+    // uma publicação na mesma página, não grifa o dispositivo da outra).
+    const fimOff =
+      i + 1 < marcas.length && marcas[i + 1].page === page
+        ? marcas[i + 1].off
+        : pg.text.length;
+    const itProc = itemNoOffset(pg, off);
+    // sobe ~2 linhas a partir do número do processo p/ ficar no topo da
+    // publicação, perto do cabeçalho (onde o escritório anota).
+    const y = itProc ? itProc.y + 24 : pdfp.getHeight() - 50;
 
     // Anotação no canto superior direito, em vermelho (pula duplicatas IDEM):
     // "Responsável / Revisor - Tarefa - Data", como o escritório faz à mão.
@@ -164,26 +181,37 @@ export async function grifarAASP(
       }
     }
 
-    // Grifo: partes + dispositivo.
+    // Grifo (amarelo): partes + dispositivo, dentro do trecho da publicação.
     const gtxt = (frag: string) => {
       if (!frag || frag.length < 5) return;
-      const idx = pg.text.indexOf(frag.slice(0, 38));
-      if (idx >= 0) grifa(pdfp, itensNoIntervalo(pg, idx, idx + frag.length));
+      const idx = pg.text.indexOf(frag.slice(0, 38), off);
+      if (idx >= 0 && idx < fimOff)
+        grifa(pdfp, itensNoIntervalo(pg, idx, Math.min(idx + frag.length, fimOff)));
     };
     gtxt(pub.poloAtivo);
     gtxt(pub.poloPassivo);
     for (const mk of MARCADORES_DISPOSITIVO) {
-      const di = pg.text.indexOf(mk);
-      if (di >= 0) {
-        grifa(pdfp, itensNoIntervalo(pg, di, di + 165));
+      const di = pg.text.indexOf(mk, off);
+      if (di >= 0 && di < fimOff) {
+        grifa(pdfp, itensNoIntervalo(pg, di, Math.min(di + 165, fimOff)));
         break;
       }
     }
 
-    // Marca a área das páginas que esta publicação ocupa.
-    const fim = i + 1 < heads.length ? heads[i + 1].page : pages.length - 1;
-    for (let pp = h.page; pp <= fim; pp++) areasPorPag[pp]?.add(pub.area);
+    // Marca a área das páginas que esta publicação ocupa (até a próxima marca).
+    const fim = i + 1 < marcas.length ? marcas[i + 1].page : pages.length - 1;
+    for (let pp = page; pp <= fim; pp++) areasPorPag[pp]?.add(pub.area);
   }
+
+  // Nenhuma página fica de fora dos dois PDFs. Página sem área herda a anterior
+  // (continuação de uma publicação que virou a página); páginas iniciais sem
+  // área (capa/abertura) herdam a próxima.
+  for (let pi = 1; pi < areasPorPag.length; pi++)
+    if (areasPorPag[pi].size === 0)
+      for (const a of areasPorPag[pi - 1]) areasPorPag[pi].add(a);
+  for (let pi = areasPorPag.length - 2; pi >= 0; pi--)
+    if (areasPorPag[pi].size === 0)
+      for (const a of areasPorPag[pi + 1]) areasPorPag[pi].add(a);
 
   const data = pubs.find((p) => p.disponibilizacao)?.disponibilizacao ?? "";
 
