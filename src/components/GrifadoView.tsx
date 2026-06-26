@@ -1,140 +1,140 @@
 "use client";
 
-import { useEffect } from "react";
-import { Printer, ArrowLeft } from "lucide-react";
-import type { TriagemPub } from "@/lib/data";
+import { useRef, useState } from "react";
+import { FileUp, ArrowLeft, Download, Loader2, CheckCircle2 } from "lucide-react";
+import { gerarGrifado, type ResultadoGrifado } from "@/lib/aasp-actions";
 
-const atoLabel: Record<string, string> = {
-  sentenca: "Sentença",
-  acordao: "Acórdão",
-  decisao: "Decisão",
-  despacho: "Despacho",
-  ato_ordinatorio: "Ato ordinatório",
-  pauta: "Pauta de julgamento",
-  edital: "Edital",
-  intimacao: "Intimação",
-};
-const resultadoLabel: Record<string, string> = {
-  procedente: "Procedente",
-  improcedente: "Improcedente",
-  parcial: "Parcialmente procedente",
-};
-
-function brL(iso: string) {
-  if (!iso) return "—";
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
+function baixar(nome: string, base64: string) {
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nome;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
-export function GrifadoView({
-  pubs,
-  nomes,
-  associado,
-}: {
-  pubs: TriagemPub[];
-  nomes: Record<string, string>;
-  associado: string;
-}) {
-  // Abre o diálogo de impressão (Salvar como PDF) ao carregar.
-  useEffect(() => {
-    const t = setTimeout(() => window.print(), 700);
-    return () => clearTimeout(t);
-  }, []);
+export function GrifadoView() {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [nomeArquivo, setNomeArquivo] = useState("");
+  const [processando, setProcessando] = useState(false);
+  const [erro, setErro] = useState("");
+  const [arquivos, setArquivos] = useState<
+    { nome: string; base64: string }[] | null
+  >(null);
 
-  const nomeDe = (ini: string) => nomes[ini] ?? ini;
-  const trab = pubs.filter((p) => p.area === "trabalhista");
-  const civ = pubs.filter((p) => p.area !== "trabalhista");
-
-  const Bloco = ({ p }: { p: TriagemPub }) => (
-    <div className="gbloco">
-      <div className="ganota">
-        <b>{p.responsaveis.map(nomeDe).join(" / ") || "responsável a definir"}</b>
-        {" · "}
-        {p.acao || "Verificar"}
-        {p.dataFatal ? ` · até ${brL(p.dataFatal)}` : ""}
-        {p.status === "processada" && <span className="gok"> · ✓ tarefa criada</span>}
-      </div>
-      <div className="gproc">
-        {p.numero || "(processo não identificado)"}
-        {p.orgao ? ` · ${p.orgao}` : ""} · {p.tribunal}
-      </div>
-      <div className="gpartes">
-        {p.cliente && <span className="gcli">{p.cliente}</span>}{" "}
-        {p.poloAtivo}
-        {p.poloPassivo ? ` × ${p.poloPassivo}` : ""}
-      </div>
-      <div className="gato">
-        {atoLabel[p.atoTipo] ?? p.atoTipo}
-        {p.resultado ? ` · ${resultadoLabel[p.resultado]}` : ""} · disponibilização{" "}
-        {brL(p.disponibilizacao)}
-        {p.vencimentoLegal
-          ? ` · vencimento legal ${brL(p.vencimentoLegal)} (margem −1)`
-          : ""}
-      </div>
-      {p.teor && <div className="ggrifo">{p.teor}</div>}
-    </div>
-  );
+  async function processar(file: File) {
+    setErro("");
+    setArquivos(null);
+    setNomeArquivo(file.name);
+    setProcessando(true);
+    const fd = new FormData();
+    fd.append("arquivo", file);
+    let res: ResultadoGrifado;
+    try {
+      res = await gerarGrifado(fd);
+    } catch {
+      res = { ok: false, erro: "Falha ao processar o PDF. Tente novamente." };
+    }
+    setProcessando(false);
+    if (!res.ok) {
+      setErro(res.erro);
+      return;
+    }
+    setArquivos(res.arquivos);
+    // baixa automaticamente os PDFs gerados
+    res.arquivos.forEach((a, i) => setTimeout(() => baixar(a.nome, a.base64), i * 400));
+  }
 
   return (
-    <div className="gwrap">
-      <style>{`
-        .gwrap { max-width: 820px; margin: 0 auto; padding: 18px 22px 40px; font-family: Georgia, 'Times New Roman', serif; color: #1b1b1b; background: #fff; }
-        .gtools { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
-        .gbtn { display: inline-flex; align-items: center; gap: 6px; background: #21314F; color: #faf7f1; border: none; border-radius: 6px; padding: 8px 14px; font-size: 14px; font-family: sans-serif; cursor: pointer; }
-        .gback { display: inline-flex; align-items: center; gap: 4px; color: #6b6b6b; font-size: 13px; font-family: sans-serif; text-decoration: none; }
-        .gtitle { font-size: 20px; color: #21314F; margin: 0 0 2px; }
-        .gsub { font-size: 12px; color: #777; font-family: sans-serif; margin-bottom: 16px; }
-        .gsec { font-size: 16px; color: #21314F; border-bottom: 2px solid #B0894F; padding-bottom: 3px; margin: 22px 0 10px; }
-        .gbloco { border: 1px solid #e2dcc9; border-left: 4px solid #B0894F; border-radius: 5px; padding: 9px 12px; margin-bottom: 9px; page-break-inside: avoid; }
-        .ganota { font-size: 13px; color: #21314F; font-family: sans-serif; margin-bottom: 3px; }
-        .gok { color: #2E7D52; }
-        .gproc { font-family: ui-monospace, monospace; font-size: 12px; color: #21314F; font-weight: 600; }
-        .gpartes { font-size: 12.5px; margin: 2px 0; }
-        .gcli { background: #f0e2c4; padding: 0 4px; border-radius: 3px; font-weight: 600; color: #21314F; }
-        .gato { font-size: 11.5px; color: #666; font-family: sans-serif; }
-        .ggrifo { background: #d8f0d2; border-left: 3px solid #7bbd6b; color: #234a1c; padding: 6px 9px; border-radius: 0 4px 4px 0; margin-top: 6px; font-size: 12px; line-height: 1.5; }
-        .gempty { color: #999; font-size: 13px; font-family: sans-serif; padding: 20px; text-align: center; }
-        @media print {
-          .no-print { display: none !important; }
-          .gwrap { padding: 0; max-width: 100%; }
-          @page { margin: 1.4cm; }
-        }
-      `}</style>
+    <div className="mx-auto max-w-2xl px-5 py-10">
+      <a
+        href="/publicacoes"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-700"
+      >
+        <ArrowLeft size={15} /> Voltar para Publicações
+      </a>
 
-      <div className="gtools no-print">
-        <button className="gbtn" onClick={() => window.print()}>
-          <Printer size={15} /> Salvar como PDF / Imprimir
-        </button>
-        <a className="gback" href="/publicacoes">
-          <ArrowLeft size={14} /> Voltar
-        </a>
-      </div>
+      <h1 className="text-2xl font-semibold text-[#21314F]">
+        Gerar publicações grifadas
+      </h1>
+      <p className="mt-1.5 text-sm text-stone-500">
+        Envie o PDF de publicações da AASP. O sistema grifa as partes e o
+        dispositivo, escreve responsável · ação · prazo no canto de cada
+        publicação e devolve dois arquivos separados — um Cível e um
+        Trabalhista.
+      </p>
 
-      <h1 className="gtitle">Publicações grifadas</h1>
-      <div className="gsub">
-        {associado} · {pubs.length} publicação(ões)
-      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="application/pdf"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) processar(f);
+          e.target.value = "";
+        }}
+      />
 
-      {pubs.length === 0 && (
-        <div className="gempty">
-          Nenhuma publicação salva. Importe um PDF na aba Publicações → Triagem.
+      <button
+        type="button"
+        disabled={processando}
+        onClick={() => inputRef.current?.click()}
+        className="mt-6 flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-stone-300 bg-stone-50 px-6 py-12 text-center transition hover:border-[#B0894F] hover:bg-[#faf7f1] disabled:opacity-60"
+      >
+        {processando ? (
+          <>
+            <Loader2 size={32} className="animate-spin text-[#B0894F]" />
+            <span className="text-sm font-medium text-stone-600">
+              Grifando {nomeArquivo}…
+            </span>
+            <span className="text-xs text-stone-400">
+              Isso leva alguns segundos.
+            </span>
+          </>
+        ) : (
+          <>
+            <FileUp size={32} className="text-[#B0894F]" />
+            <span className="text-sm font-medium text-stone-700">
+              Clique para escolher o PDF da AASP
+            </span>
+            <span className="text-xs text-stone-400">PDF até 25 MB</span>
+          </>
+        )}
+      </button>
+
+      {erro && (
+        <div className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {erro}
         </div>
       )}
-      {trab.length > 0 && (
-        <>
-          <div className="gsec">Trabalhista · {trab.length}</div>
-          {trab.map((p) => (
-            <Bloco key={p.id} p={p} />
-          ))}
-        </>
-      )}
-      {civ.length > 0 && (
-        <>
-          <div className="gsec">Cível · {civ.length}</div>
-          {civ.map((p) => (
-            <Bloco key={p.id} p={p} />
-          ))}
-        </>
+
+      {arquivos && arquivos.length > 0 && (
+        <div className="mt-6">
+          <div className="mb-2 flex items-center gap-2 text-sm font-medium text-emerald-700">
+            <CheckCircle2 size={16} /> Pronto! O download começou
+            automaticamente.
+          </div>
+          <div className="space-y-2">
+            {arquivos.map((a) => (
+              <button
+                key={a.nome}
+                onClick={() => baixar(a.nome, a.base64)}
+                className="flex w-full items-center justify-between rounded-lg border border-stone-200 bg-white px-4 py-3 text-left transition hover:border-[#B0894F] hover:bg-[#faf7f1]"
+              >
+                <span className="text-sm font-medium text-[#21314F]">
+                  {a.nome}
+                </span>
+                <Download size={16} className="text-[#B0894F]" />
+              </button>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
