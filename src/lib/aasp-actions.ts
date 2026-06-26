@@ -233,16 +233,30 @@ export async function gerarGrifado(
   const primeiroNome: Record<string, string> = Object.fromEntries(
     resp.map((r) => [r.iniciais, r.nome.split(/\s+/)[0]]),
   );
+  // Revisor por área (cível = Mauro, trabalhista = Karen) — pega o primeiro
+  // nome real cadastrado; se não achar, usa o rótulo padrão. ("Mauro"/"Karen"
+  // não têm acento, então basta minúsculas.)
+  const primeiroPorNome = (alvo: string, padrao: string) => {
+    const u = resp.find((r) => r.nome.toLowerCase().includes(alvo));
+    return u ? u.nome.split(/\s+/)[0] : padrao;
+  };
+  const revisorCivel = primeiroPorNome("mauro", "Mauro");
+  const revisorTrab = primeiroPorNome("karen", "Karen");
 
   try {
     const bytes = new Uint8Array(await file.arrayBuffer());
     const out = await grifarAASP(bytes, (p) => {
-      const responsavel = (ultimos[p.processo] ?? [])
-        .map((i) => primeiroNome[i] ?? i)
-        .join(" / ");
+      // Quem FAZ (responsável do histórico do processo) + quem REVISA (revisor
+      // da área). NÃO entra a solicitante (Karen/Débora), que é quem lança.
+      const quemFaz = (ultimos[p.processo] ?? []).map((i) => primeiroNome[i] ?? i);
+      const revisor = p.area === "trabalhista" ? revisorTrab : revisorCivel;
+      const nomes = [...new Set([...quemFaz, revisor].filter(Boolean))].join(" / ");
       const d = calcPrazo(p.disponibilizacao, p.prazoDias, p.prazoTipo);
-      const prazo = d.dataFatal ? brL(d.dataFatal) : "";
-      return { responsavel, acao: sugerirAcao(p), prazo };
+      return {
+        nomes,
+        tarefa: sugerirAcao(p),
+        data: d.dataFatal ? brL(d.dataFatal) : "",
+      };
     });
 
     const dataArq = out.data ? brPontos(out.data) : "";

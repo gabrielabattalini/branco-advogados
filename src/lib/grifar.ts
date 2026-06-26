@@ -1,15 +1,36 @@
-// Pega o PDF original da AASP e GRIFA nele (sem redesenhar): destaca em verde o
-// dispositivo + as partes e escreve a anotação (responsável · ação · prazo) no
-// canto superior direito de cada publicação. Depois separa em dois PDFs
-// (Trabalhista e Cível). Usa pdfjs (posições) + pdf-lib (edição).
+// Pega o PDF original da AASP e GRIFA nele (sem redesenhar): destaca em amarelo
+// o dispositivo + as partes e escreve a anotação em vermelho (nomes - tarefa -
+// data) no canto superior direito de cada publicação, como o escritório faz à
+// mão. Depois separa em dois PDFs (Trabalhista e Cível). Usa pdfjs (posições) +
+// pdf-lib (edição).
 
 import { getDocumentProxy } from "unpdf";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { parseAASP, type PublicacaoParsed } from "@/lib/aasp";
 
-export type Anotacao = { responsavel: string; acao: string; prazo: string };
+export type Anotacao = { nomes: string; tarefa: string; data: string };
 type It = { str: string; x: number; y: number; w: number; h: number };
 type Pag = { items: It[]; text: string; offs: number[] };
+
+// Vermelho da caneta do escritório.
+const VERMELHO = rgb(0.82, 0.1, 0.12);
+
+// Quebra o texto em linhas que cabem na largura disponível (margem direita).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function quebrar(font: any, texto: string, size: number, maxW: number): string[] {
+  const palavras = texto.split(/\s+/);
+  const linhas: string[] = [];
+  let cur = "";
+  for (const w of palavras) {
+    const t = cur ? cur + " " + w : w;
+    if (cur && font.widthOfTextAtSize(t, size) > maxW) {
+      linhas.push(cur);
+      cur = w;
+    } else cur = t;
+  }
+  if (cur) linhas.push(cur);
+  return linhas.slice(0, 4);
+}
 
 async function extrair(bytes: Uint8Array): Promise<Pag[]> {
   const pj = await getDocumentProxy(bytes);
@@ -66,7 +87,7 @@ function grifa(page: any, its: It[]) {
       y: it.y - 1.5,
       width: it.w + 1,
       height: it.h + 2,
-      color: rgb(0.82, 0.93, 0.78),
+      color: rgb(1, 0.92, 0.3),
       opacity: 0.5,
     });
   }
@@ -113,7 +134,6 @@ export async function grifarAASP(
 
   const doc = await PDFDocument.load(paraEditar);
   const dp = doc.getPages();
-  const font = await doc.embedFont(StandardFonts.Helvetica);
   const fontB = await doc.embedFont(StandardFonts.HelveticaBold);
 
   const areasPorPag: Set<string>[] = pages.map(() => new Set<string>());
@@ -127,26 +147,20 @@ export async function grifarAASP(
     const itHead = itemNoOffset(pg, h.off);
     const y = itHead ? itHead.y : pdfp.getHeight() - 60;
 
-    // Anotação no canto superior direito (pula duplicatas IDEM).
+    // Anotação no canto superior direito, em vermelho (pula duplicatas IDEM):
+    // "Responsável / Revisor - Tarefa - Data", como o escritório faz à mão.
     if (pub.duplicataDe == null) {
       const a = anotar(pub);
-      if (a.responsavel)
-        pdfp.drawText(a.responsavel.slice(0, 38), {
-          x: W - 210,
-          y,
-          size: 9,
-          font: fontB,
-          color: rgb(0.13, 0.19, 0.31),
-        });
-      const l2 = [a.acao, a.prazo].filter(Boolean).join(": ");
-      if (l2)
-        pdfp.drawText(l2.slice(0, 48), {
-          x: W - 210,
-          y: y - 11,
-          size: 8,
-          font,
-          color: rgb(0.13, 0.19, 0.31),
-        });
+      const texto = [a.nomes, a.tarefa, a.data].filter(Boolean).join(" - ");
+      if (texto) {
+        const maxW = 200;
+        const x = W - maxW - 8;
+        let yy = y;
+        for (const ln of quebrar(fontB, texto, 8.5, maxW)) {
+          pdfp.drawText(ln, { x, y: yy, size: 8.5, font: fontB, color: VERMELHO });
+          yy -= 10.5;
+        }
+      }
     }
 
     // Grifo: partes + dispositivo.
