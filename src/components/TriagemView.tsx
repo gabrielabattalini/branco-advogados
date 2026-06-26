@@ -15,6 +15,8 @@ import {
   AlertTriangle,
   FileDown,
   RefreshCw,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import {
   importarAASP,
@@ -76,6 +78,7 @@ function Cartao({ p, ctx }: { p: TriagemPub; ctx: ModalCtx }) {
   const router = useRouter();
   const processada = p.status === "processada";
   const [abrir, setAbrir] = useState(false);
+  const [aberto, setAberto] = useState(false);
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState("");
   const enviando = useRef(false);
@@ -170,7 +173,25 @@ function Cartao({ p, ctx }: { p: TriagemPub; ctx: ModalCtx }) {
           className="mt-2 rounded border-l-2 px-2.5 py-1.5 text-[11.5px] leading-relaxed"
           style={{ borderColor: "#7bbd6b", background: "#eef8ea", color: "#234a1c" }}
         >
-          {p.teor.length > 230 ? p.teor.slice(0, 230) + "…" : p.teor}
+          <div className={aberto ? "whitespace-pre-wrap" : ""}>
+            {aberto || p.teor.length <= 280 ? p.teor : p.teor.slice(0, 280) + "…"}
+          </div>
+          {p.teor.length > 280 && (
+            <button
+              onClick={() => setAberto((v) => !v)}
+              className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:underline"
+            >
+              {aberto ? (
+                <>
+                  <ChevronUp size={13} /> Ver menos
+                </>
+              ) : (
+                <>
+                  <ChevronDown size={13} /> Ver publicação completa
+                </>
+              )}
+            </button>
+          )}
         </div>
       )}
 

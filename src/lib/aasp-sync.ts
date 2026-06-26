@@ -76,55 +76,71 @@ export async function salvarPublicacoes(
     });
 
   const chaves = unicas.map(chaveDe).filter(Boolean);
-  const existentes = new Set(
-    (
-      await prisma.publicacao.findMany({
-        where: { chave: { in: chaves } },
-        select: { chave: true },
-      })
-    ).map((x) => x.chave),
-  );
+  const existRows = await prisma.publicacao.findMany({
+    where: { chave: { in: chaves } },
+    select: { id: true, chave: true, despacho: true },
+  });
+  const existMap = new Map(existRows.map((x) => [x.chave, x]));
 
-  const linhas = unicas
-    .filter((p) => !existentes.has(chaveDe(p)))
-    .map((p) => {
-      const d = calcPrazo(p.disponibilizacao, p.prazoDias, p.prazoTipo);
-      return {
-        numero: p.processo.slice(0, 60),
-        area: p.area,
-        tribunal: p.tribunal.slice(0, 20),
-        tipo: p.atoTipo,
-        partes: p.partes.slice(0, 2000),
-        despacho: p.teor.slice(0, 4000),
-        prazo: p.prazoDias
-          ? `${p.prazoDias} dias ${p.prazoTipo === "corridos" ? "corridos" : "úteis"}`
-          : "",
-        data: p.disponibilizacao,
-        orgao: p.orgao.slice(0, 300),
-        poloAtivo: p.poloAtivo.slice(0, 300),
-        poloPassivo: p.poloPassivo.slice(0, 300),
-        resultado: p.resultado,
-        dataPublicacao: d.publicacao,
-        vencimentoLegal: d.vencimentoLegal,
-        dataFatal: d.dataFatal,
-        prazoDias: p.prazoDias ?? 0,
-        prazoTipo: p.prazoTipo ?? "uteis",
-        intimado: p.intimado.slice(0, 200),
-        cliente: acharCliente(p.partes),
-        acaoSugerida: sugerirAcao(p),
-        responsaveisSugeridos: ultimos[p.processo] ?? [],
-        atoId: p.atoId,
-        publicacaoNum: p.publicacaoNum,
-        chave: chaveDe(p),
-        statusTriagem: "pendente",
-      };
+  const linhaDe = (p: PublicacaoParsed) => {
+    const d = calcPrazo(p.disponibilizacao, p.prazoDias, p.prazoTipo);
+    return {
+      numero: p.processo.slice(0, 60),
+      area: p.area,
+      tribunal: p.tribunal.slice(0, 20),
+      tipo: p.atoTipo,
+      partes: p.partes.slice(0, 2000),
+      despacho: p.teor.slice(0, 6000),
+      prazo: p.prazoDias
+        ? `${p.prazoDias} dias ${p.prazoTipo === "corridos" ? "corridos" : "úteis"}`
+        : "",
+      data: p.disponibilizacao,
+      orgao: p.orgao.slice(0, 300),
+      poloAtivo: p.poloAtivo.slice(0, 300),
+      poloPassivo: p.poloPassivo.slice(0, 300),
+      resultado: p.resultado,
+      dataPublicacao: d.publicacao,
+      vencimentoLegal: d.vencimentoLegal,
+      dataFatal: d.dataFatal,
+      prazoDias: p.prazoDias ?? 0,
+      prazoTipo: p.prazoTipo ?? "uteis",
+      intimado: p.intimado.slice(0, 200),
+      cliente: acharCliente(p.partes),
+      acaoSugerida: sugerirAcao(p),
+      responsaveisSugeridos: ultimos[p.processo] ?? [],
+      atoId: p.atoId,
+      publicacaoNum: p.publicacaoNum,
+      chave: chaveDe(p),
+      statusTriagem: "pendente",
+    };
+  };
+
+  const novas: ReturnType<typeof linhaDe>[] = [];
+  const atualizar: { id: string; despacho: string }[] = [];
+  for (const p of unicas) {
+    const ex = existMap.get(chaveDe(p));
+    if (!ex) {
+      novas.push(linhaDe(p));
+      continue;
+    }
+    // Já existe: se o novo texto é mais completo, atualiza só o despacho
+    // (refresca os cartões antigos que estavam truncados).
+    const novoTeor = p.teor.slice(0, 6000);
+    if (novoTeor.length > (ex.despacho?.length ?? 0))
+      atualizar.push({ id: ex.id, despacho: novoTeor });
+  }
+
+  if (novas.length) await prisma.publicacao.createMany({ data: novas });
+  for (const u of atualizar)
+    await prisma.publicacao.update({
+      where: { id: u.id },
+      data: { despacho: u.despacho },
     });
 
-  if (linhas.length) await prisma.publicacao.createMany({ data: linhas });
   return {
     total: r.unicas,
-    novas: linhas.length,
-    jaExistiam: r.unicas - linhas.length,
+    novas: novas.length,
+    jaExistiam: r.unicas - novas.length,
   };
 }
 

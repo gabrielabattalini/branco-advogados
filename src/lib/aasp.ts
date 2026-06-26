@@ -148,6 +148,16 @@ function limpar(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
+// Remove do teor o cabeçalho de partes + a lista de advogados/OAB (o usuário não
+// quer ver "Advogado(s) ... OAB ..."). O lookahead casa até o ÚLTIMO OAB, então
+// tira o bloco inteiro e preserva o corpo da publicação que vem depois.
+function tirarMetadados(s: string): string {
+  const ate = /[\s\S]*?OAB\s+[A-Z]{2}-?\d+(?:\/[A-Z]{2})?(?![\s\S]*OAB\s+[A-Z]{2}-?\d)/;
+  return s
+    .replace(new RegExp(`Parte\\(s\\):${ate.source}`, "i"), " ")
+    .replace(new RegExp(`Advogado\\(s\\)${ate.source}`, "i"), " ");
+}
+
 export function parseBloco(item: number, tribunal: string, bloco: string): PublicacaoParsed {
   const processo =
     primeiro(/Processo:?\s*([\d.\-]+\.\d{4}\.\d\.\d{2}\.\d{4})/, bloco) ||
@@ -182,11 +192,21 @@ export function parseBloco(item: number, tribunal: string, bloco: string): Publi
     )[0],
   ).slice(0, 160);
   const { dias, tipo } = prazoDe(bloco);
-  // teor: do "INTIMAÇÃO"/dispositivo até ~360 chars
+  // teor = corpo da publicação, COMPLETO e limpo: começa no ato (pula o
+  // cabeçalho de processo/partes/advogados) e remove o rodapé de intimados.
   let teor = bloco;
-  const corte = bloco.search(/INTIMA[ÇC][ÃA]O Fica|DISPOSITIVO|DESPACHO|DECIS[ÃA]O|SENTEN[ÇC]A|Vistos|ATO ORDINAT/i);
-  if (corte >= 0) teor = bloco.slice(corte);
-  teor = limpar(teor).slice(0, 360);
+  const corte = bloco.search(
+    /INTIMA[ÇC][ÃA]O Fica|DISPOSITIVO|DESPACHO|DECIS[ÃA]O|SENTEN[ÇC]A|Vistos|ATO ORDINAT|HOMOLOGO|EMENTA|Lista de distribui/i,
+  );
+  if (corte >= 0)
+    teor = bloco.slice(corte);
+  // sem marcador de ato: tira o cabeçalho DJEN do começo (já está no cartão).
+  else teor = bloco.replace(/^[\s\S]*?Eletr[ôo]nico Nacional\s*/i, "");
+  // tira o rodapé "Intimado(s)/Citado(s) - ...", a lista de advogados/OAB e a
+  // paginação "X de Y".
+  teor = teor.split(/Intimado\(s\)\s*\/\s*Citado\(s\)/i)[0];
+  teor = tirarMetadados(teor).replace(/\b\d{1,3}\s+de\s+\d{1,3}\b\s*$/, "");
+  teor = limpar(teor).slice(0, 6000);
 
   return {
     item,
