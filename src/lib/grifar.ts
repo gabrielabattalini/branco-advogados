@@ -174,20 +174,26 @@ export async function grifarAASP(
         ? itProc.y + 24
         : pdfp.getHeight() - 50;
 
-    // Anotação no canto superior direito, em vermelho (pula duplicatas IDEM):
+    // Anotação no canto superior direito, em vermelho. Publicação repetida
+    // (mesmo processo + mesmo ato, só muda a parte intimada) sai como
+    // "IDEM publ. N" apontando para a original; as demais saem como
     // "Responsável / Revisor - Tarefa - Data", como o escritório faz à mão.
-    if (pub.duplicataDe == null) {
-      const a = anotar(pub);
-      const texto = [a.nomes, a.tarefa, a.data].filter(Boolean).join(" - ");
-      if (texto) {
-        const size = 14;
-        const maxW = 215;
-        const x = W - maxW - 6;
-        let yy = y;
-        for (const ln of quebrar(fontB, texto, size, maxW)) {
-          pdfp.drawText(ln, { x, y: yy, size, font: fontB, color: VERMELHO });
-          yy -= size + 2.5;
-        }
+    {
+      const size = 14;
+      const maxW = 215;
+      const x = W - maxW - 6;
+      let linhas: string[];
+      if (pub.duplicataDe != null) {
+        linhas = [`IDEM publ. ${pub.duplicataDe}`];
+      } else {
+        const a = anotar(pub);
+        const texto = [a.nomes, a.tarefa, a.data].filter(Boolean).join(" - ");
+        linhas = texto ? quebrar(fontB, texto, size, maxW) : [];
+      }
+      let yy = y;
+      for (const ln of linhas) {
+        pdfp.drawText(ln, { x, y: yy, size, font: fontB, color: VERMELHO });
+        yy -= size + 2.5;
       }
     }
 
