@@ -75,12 +75,33 @@ export async function salvarPublicacoes(
       teor: p.teor,
     });
 
-  const chaves = unicas.map(chaveDe).filter(Boolean);
-  const existRows = await prisma.publicacao.findMany({
-    where: { chave: { in: chaves } },
-    select: { id: true, chave: true, despacho: true },
-  });
-  const existMap = new Map(existRows.map((x) => [x.chave, x]));
+  // Casa contra o que já está salvo recomputando a chave robusta de cada
+  // registro (a chave guardada pode estar no formato antigo — daí buscar por
+  // número do processo e recomputar, em vez de filtrar pela coluna `chave`).
+  const numeros = [...new Set(unicas.map((p) => p.processo).filter(Boolean))];
+  const existRows = numeros.length
+    ? await prisma.publicacao.findMany({
+        where: { numero: { in: numeros }, statusTriagem: { not: "ignorada" } },
+        select: {
+          id: true,
+          numero: true,
+          atoId: true,
+          data: true,
+          despacho: true,
+          chave: true,
+        },
+      })
+    : [];
+  const existMap = new Map<string, (typeof existRows)[number]>();
+  for (const x of existRows) {
+    const k = chavePublicacao({
+      processo: x.numero,
+      atoId: x.atoId,
+      disponibilizacao: x.data,
+      teor: x.despacho,
+    });
+    if (!existMap.has(k)) existMap.set(k, x);
+  }
 
   const linhaDe = (p: PublicacaoParsed) => {
     const d = calcPrazo(p.disponibilizacao, p.prazoDias, p.prazoTipo);
@@ -116,25 +137,32 @@ export async function salvarPublicacoes(
   };
 
   const novas: ReturnType<typeof linhaDe>[] = [];
-  const atualizar: { id: string; despacho: string }[] = [];
+  const atualizar: { id: string; despacho?: string; chave?: string }[] = [];
   for (const p of unicas) {
-    const ex = existMap.get(chaveDe(p));
+    const k = chaveDe(p);
+    const ex = existMap.get(k);
     if (!ex) {
       novas.push(linhaDe(p));
       continue;
     }
-    // Já existe: se o novo texto é mais completo, atualiza só o despacho
-    // (refresca os cartões antigos que estavam truncados).
+    // Já existe: atualiza no lugar — texto mais completo (refresca os cartões
+    // antigos truncados) e migra a chave para o formato novo.
+    const dados: { id: string; despacho?: string; chave?: string } = { id: ex.id };
     const novoTeor = p.teor.slice(0, 6000);
-    if (novoTeor.length > (ex.despacho?.length ?? 0))
-      atualizar.push({ id: ex.id, despacho: novoTeor });
+    if (novoTeor.length > (ex.despacho?.length ?? 0)) dados.despacho = novoTeor;
+    if (ex.chave !== k) dados.chave = k;
+    if (dados.despacho !== undefined || dados.chave !== undefined)
+      atualizar.push(dados);
   }
 
   if (novas.length) await prisma.publicacao.createMany({ data: novas });
   for (const u of atualizar)
     await prisma.publicacao.update({
       where: { id: u.id },
-      data: { despacho: u.despacho },
+      data: {
+        ...(u.despacho !== undefined ? { despacho: u.despacho } : {}),
+        ...(u.chave !== undefined ? { chave: u.chave } : {}),
+      },
     });
 
   return {
@@ -174,6 +202,7 @@ export async function deduplicarPublicacoes(): Promise<number> {
       despacho: true,
       statusTriagem: true,
       criadoEm: true,
+      chave: true,
     },
   });
   const grupos = new Map<string, typeof rows>();
@@ -191,18 +220,34 @@ export async function deduplicarPublicacoes(): Promise<number> {
   }
   const sujo = (t: string) => (/^\s*\d{1,3}\s*-\s*D J E N/.test(t) ? 1 : 0);
   const apagar: string[] = [];
-  for (const g of grupos.values()) {
+  for (const [k, g] of grupos) {
     if (g.length < 2) continue;
+    // Mantida = processada (nunca apagar tarefa) > texto mais completo >
+    // texto limpo > mais antiga.
     g.sort(
       (a, b) =>
         (a.statusTriagem === "processada" ? 0 : 1) -
           (b.statusTriagem === "processada" ? 0 : 1) ||
+        (b.despacho?.length ?? 0) - (a.despacho?.length ?? 0) ||
         sujo(a.despacho) - sujo(b.despacho) ||
         a.criadoEm.getTime() - b.criadoEm.getTime(),
     );
-    const manter = g[0].id;
+    const manter = g[0];
+    // Texto mais completo do grupo (mesmo que esteja num registro que será
+    // apagado, copia para o mantido) + corrige a chave para o formato novo.
+    const melhorTeor = g.reduce(
+      (m, x) => ((x.despacho?.length ?? 0) > m.length ? x.despacho : m),
+      manter.despacho ?? "",
+    );
+    const dados: { despacho?: string; chave?: string } = {};
+    if ((manter.despacho?.length ?? 0) < melhorTeor.length)
+      dados.despacho = melhorTeor;
+    if (manter.chave !== k) dados.chave = k;
+    if (Object.keys(dados).length)
+      await prisma.publicacao.update({ where: { id: manter.id }, data: dados });
     for (const x of g)
-      if (x.id !== manter && x.statusTriagem !== "processada") apagar.push(x.id);
+      if (x.id !== manter.id && x.statusTriagem !== "processada")
+        apagar.push(x.id);
   }
   if (apagar.length)
     await prisma.publicacao.deleteMany({ where: { id: { in: apagar } } });
