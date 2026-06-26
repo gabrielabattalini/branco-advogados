@@ -1,7 +1,12 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
-import { assinarToken, lerToken } from "@/lib/seguranca";
+import {
+  assinarToken,
+  lerToken,
+  assinarDispositivo,
+  lerDispositivo,
+} from "@/lib/seguranca";
 import { PAPEIS, type Papel } from "@/lib/papeis";
 
 export type { Papel };
@@ -19,7 +24,9 @@ export type Sessao = {
 };
 
 const COOKIE = "sessao";
-const MAX_AGE = 60 * 60 * 24 * 30; // 30 dias
+const COOKIE_DISP = "aparelho"; // marca o aparelho como confiável (pula o 2FA)
+const MAX_AGE = 60 * 60 * 24 * 14; // 14 dias (igual à expiração do token)
+const MAX_AGE_DISP = 60 * 60 * 24 * 60; // 60 dias
 
 // Lê e valida a sessão a partir do cookie assinado. cache() deduplica as
 // chamadas dentro de um mesmo render (layout + página + data layer).
@@ -59,4 +66,22 @@ export async function definirSessao(userId: string) {
 export async function limparSessao() {
   const c = await cookies();
   c.delete(COOKIE);
+}
+
+// ---- Aparelho confiável (lembra o dispositivo após o 2FA por e-mail) ----
+
+export async function dispositivoConfiavel(userId: string): Promise<boolean> {
+  const c = await cookies();
+  return lerDispositivo(c.get(COOKIE_DISP)?.value) === userId;
+}
+
+export async function marcarDispositivoConfiavel(userId: string) {
+  const c = await cookies();
+  c.set(COOKIE_DISP, assinarDispositivo(userId), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: MAX_AGE_DISP,
+  });
 }

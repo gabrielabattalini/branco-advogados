@@ -146,6 +146,44 @@ export async function getUsuarios(): Promise<UsuarioAdmin[]> {
   }));
 }
 
+export type AcessoLog = {
+  id: string;
+  nome: string;
+  email: string;
+  evento: string;
+  navegador: string;
+  ip: string;
+  quando: string; // ISO
+};
+
+// Últimos acessos (log de auditoria) — para a aba Administração.
+export async function getAcessosRecentes(): Promise<AcessoLog[]> {
+  const rows = await prisma.loginLog.findMany({
+    orderBy: { criadoEm: "desc" },
+    take: 60,
+  });
+  const ids = [
+    ...new Set(rows.map((r) => r.usuarioId).filter(Boolean)),
+  ] as string[];
+  const nomes = new Map(
+    (
+      await prisma.usuario.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, nome: true },
+      })
+    ).map((u) => [u.id, u.nome]),
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    nome: r.usuarioId ? (nomes.get(r.usuarioId) ?? "—") : "—",
+    email: r.email,
+    evento: r.evento,
+    navegador: r.navegador,
+    ip: r.ip,
+    quando: r.criadoEm.toISOString(),
+  }));
+}
+
 export async function getTarefas(): Promise<TarefaFull[]> {
   const rows = await prisma.tarefa.findMany({
     where: await escopoTarefas(),

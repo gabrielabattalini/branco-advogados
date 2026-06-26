@@ -23,7 +23,36 @@ model Usuario {
   area      String   @default("civel") // civel | trabalhista
   papel     String // coordenador | advogado
   ativo     Boolean  @default(true)
+  // Anti-bruteforce: tentativas de senha erradas + bloqueio temporário.
+  tentativasLogin Int       @default(0)
+  bloqueadoAte    DateTime?
+  criadoEm        DateTime  @default(now())
+}
+
+// Código de verificação enviado por e-mail no login de um aparelho novo (2FA).
+model CodigoLogin {
+  id         String   @id @default(cuid())
+  usuarioId  String
+  codigoHash String // hash do código de 6 dígitos
+  expiraEm   DateTime
+  tentativas Int      @default(0)
+  criadoEm   DateTime @default(now())
+
+  @@index([usuarioId])
+}
+
+// Log de acessos (auditoria/LGPD): quem tentou entrar, quando, de onde.
+model LoginLog {
+  id        String   @id @default(cuid())
+  usuarioId String? // nulo se o e-mail não existe
+  email     String
+  evento    String // sucesso | senha_errada | bloqueado | codigo_enviado | codigo_errado | novo_aparelho
+  ip        String   @default("")
+  navegador String   @default("") // user-agent resumido
   criadoEm  DateTime @default(now())
+
+  @@index([criadoEm])
+  @@index([usuarioId])
 }
 
 model Contato {

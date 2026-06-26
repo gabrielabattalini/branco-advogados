@@ -9,6 +9,58 @@ export function emailConfigurado(): boolean {
   return !!process.env.RESEND_API_KEY;
 }
 
+const esc = (s: string) =>
+  s.replace(
+    /[&<>"]/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!,
+  );
+
+// Código de verificação (2FA) no login de aparelho novo.
+export async function enviarCodigoLogin(
+  para: string,
+  codigo: string,
+  nome: string,
+): Promise<EnvioResultado> {
+  const html = `<div style="font-family:Arial,Helvetica,sans-serif;color:#2a2a28;max-width:480px">
+  <h2 style="color:#056235;margin:0 0 8px">Seu código de acesso</h2>
+  <p>Olá, ${esc(nome.split(/\s+/)[0] || "")}. Use o código abaixo para entrar no sistema:</p>
+  <p style="font-size:30px;font-weight:700;letter-spacing:6px;color:#056235;margin:16px 0">${esc(codigo)}</p>
+  <p style="color:#6e6a60;font-size:13px">Vale por 10 minutos. Se não foi você, ignore este e-mail e troque sua senha.</p>
+  <p style="color:#9a9488;font-size:12px;margin-top:16px">Branco Advogados · sistema interno</p>
+</div>`;
+  return enviarEmail({
+    para: [para],
+    assunto: `Código de acesso: ${codigo}`,
+    html,
+    texto: `Seu código de acesso é ${codigo} (válido por 10 minutos).`,
+  });
+}
+
+// Aviso de login em aparelho novo.
+export async function enviarAvisoAparelho(
+  para: string,
+  nome: string,
+  quando: string,
+  navegador: string,
+): Promise<EnvioResultado> {
+  const html = `<div style="font-family:Arial,Helvetica,sans-serif;color:#2a2a28;max-width:480px">
+  <h2 style="color:#056235;margin:0 0 8px">Novo acesso à sua conta</h2>
+  <p>Olá, ${esc(nome.split(/\s+/)[0] || "")}. Houve um login em um aparelho novo:</p>
+  <ul style="line-height:1.6">
+    <li><strong>Quando:</strong> ${esc(quando)}</li>
+    <li><strong>Navegador:</strong> ${esc(navegador || "desconhecido")}</li>
+  </ul>
+  <p style="color:#6e6a60;font-size:13px">Se foi você, tudo certo. Se não reconhece, troque sua senha imediatamente.</p>
+  <p style="color:#9a9488;font-size:12px;margin-top:16px">Branco Advogados · sistema interno</p>
+</div>`;
+  return enviarEmail({
+    para: [para],
+    assunto: "Novo acesso à sua conta",
+    html,
+    texto: `Novo login em ${quando} (${navegador || "navegador desconhecido"}).`,
+  });
+}
+
 export async function enviarEmail(msg: {
   para: string[];
   assunto: string;

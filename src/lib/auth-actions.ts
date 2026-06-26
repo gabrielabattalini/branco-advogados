@@ -3,9 +3,28 @@
 import { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
-import { hashSenha, verificarSenha } from "@/lib/seguranca";
-import { definirSessao, limparSessao, getSessao, ehGestor } from "@/lib/sessao";
+import {
+  hashSenha,
+  verificarSenha,
+  gerarCodigoLogin,
+  hashCodigo,
+  conferirCodigo,
+} from "@/lib/seguranca";
+import {
+  definirSessao,
+  limparSessao,
+  getSessao,
+  ehGestor,
+  dispositivoConfiavel,
+  marcarDispositivoConfiavel,
+} from "@/lib/sessao";
+import {
+  emailConfigurado,
+  enviarCodigoLogin,
+  enviarAvisoAparelho,
+} from "@/lib/email";
 
 export type ActionResult = { ok: true } | { ok: false; erro: string };
 
@@ -43,6 +62,71 @@ function limparTentativasLogin(email: string) {
   tentativasLogin.delete(email);
 }
 
+// Bloqueio por conta (persistente, vale entre instâncias) + validade do código.
+const MAX_FALHAS = 5;
+const BLOQUEIO_MS = 15 * 60 * 1000;
+const CODIGO_VALIDADE_MS = 10 * 60 * 1000;
+const MAX_TENT_CODIGO = 5;
+
+function resumoNavegador(ua: string): string {
+  if (!ua) return "";
+  const nav = /Edg\//.test(ua)
+    ? "Edge"
+    : /OPR\//.test(ua)
+      ? "Opera"
+      : /Chrome\//.test(ua)
+        ? "Chrome"
+        : /Firefox\//.test(ua)
+          ? "Firefox"
+          : /Safari\//.test(ua)
+            ? "Safari"
+            : "Navegador";
+  const so = /Windows/.test(ua)
+    ? "Windows"
+    : /iPhone|iPad/.test(ua)
+      ? "iPhone/iPad"
+      : /Android/.test(ua)
+        ? "Android"
+        : /Mac OS X/.test(ua)
+          ? "Mac"
+          : /Linux/.test(ua)
+            ? "Linux"
+            : "";
+  return [nav, so].filter(Boolean).join(" · ");
+}
+
+async function infoReq(): Promise<{ ip: string; navegador: string }> {
+  const h = await headers();
+  const ip = (h.get("x-forwarded-for") || "").split(",")[0].trim();
+  return { ip: ip.slice(0, 60), navegador: resumoNavegador(h.get("user-agent") || "") };
+}
+
+async function registrarLog(
+  evento: string,
+  email: string,
+  usuarioId: string | null,
+  info: { ip: string; navegador: string },
+) {
+  try {
+    await prisma.loginLog.create({
+      data: {
+        evento,
+        email: email.slice(0, 160),
+        usuarioId: usuarioId ?? undefined,
+        ip: info.ip,
+        navegador: info.navegador,
+      },
+    });
+  } catch {
+    // log é melhor-esforço; nunca derruba o login
+  }
+}
+
+export type LoginResult =
+  | { ok: true }
+  | { ok: false; erro: string }
+  | { precisaCodigo: true; email: string };
+
 // Iniciais a partir do nome (sem acentos; 1ª letra do primeiro e do último nome).
 function baseIniciais(nome: string): string {
   const partes = nome
@@ -77,28 +161,135 @@ async function iniciaisUnicas(nome: string): Promise<string> {
 export async function entrar(input: {
   email: string;
   senha: string;
-}): Promise<ActionResult> {
+}): Promise<LoginResult> {
   const email = input.email.trim().toLowerCase();
   if (!email || !input.senha)
     return { ok: false, erro: "Informe e-mail e senha." };
-  if (loginBloqueado(email))
+  const info = await infoReq();
+  if (loginBloqueado(email)) {
+    await registrarLog("bloqueado", email, null, info);
     return {
       ok: false,
       erro: "Muitas tentativas. Tente novamente em alguns minutos.",
     };
+  }
   try {
     const u = await prisma.usuario.findUnique({ where: { email } });
+    // Bloqueio de conta por tentativas (anti-bruteforce persistente).
+    if (u && u.bloqueadoAte && u.bloqueadoAte.getTime() > Date.now()) {
+      await registrarLog("bloqueado", email, u.id, info);
+      return {
+        ok: false,
+        erro: "Conta bloqueada por tentativas. Tente novamente em alguns minutos.",
+      };
+    }
     // Mensagem genérica de propósito (não revela se o e-mail existe).
     if (!u || !u.ativo || !verificarSenha(input.senha, u.senhaHash)) {
       registrarFalhaLogin(email);
+      if (u && u.ativo) {
+        const t = (u.tentativasLogin ?? 0) + 1;
+        await prisma.usuario.update({
+          where: { id: u.id },
+          data:
+            t >= MAX_FALHAS
+              ? { tentativasLogin: 0, bloqueadoAte: new Date(Date.now() + BLOQUEIO_MS) }
+              : { tentativasLogin: t },
+        });
+      }
+      await registrarLog("senha_errada", email, u?.id ?? null, info);
       return { ok: false, erro: "E-mail ou senha incorretos." };
     }
+    // Senha correta — zera contadores de tentativa.
     limparTentativasLogin(email);
+    if (u.tentativasLogin || u.bloqueadoAte)
+      await prisma.usuario.update({
+        where: { id: u.id },
+        data: { tentativasLogin: 0, bloqueadoAte: null },
+      });
+    // Aparelho já confiável → entra direto.
+    if (await dispositivoConfiavel(u.id)) {
+      await definirSessao(u.id);
+      await registrarLog("sucesso", email, u.id, info);
+      revalidatePath("/", "layout");
+      return { ok: true };
+    }
+    // Aparelho novo → exige código por e-mail. Se o envio de e-mail não estiver
+    // configurado, não dá pra mandar o código: entra e confia no aparelho (não
+    // trava ninguém de fora). Ligue RESEND_API_KEY para ativar o 2FA de fato.
+    if (!emailConfigurado()) {
+      await definirSessao(u.id);
+      await marcarDispositivoConfiavel(u.id);
+      await registrarLog("sucesso", email, u.id, info);
+      revalidatePath("/", "layout");
+      return { ok: true };
+    }
+    const codigo = gerarCodigoLogin();
+    await prisma.codigoLogin.deleteMany({ where: { usuarioId: u.id } });
+    await prisma.codigoLogin.create({
+      data: {
+        usuarioId: u.id,
+        codigoHash: hashCodigo(codigo),
+        expiraEm: new Date(Date.now() + CODIGO_VALIDADE_MS),
+      },
+    });
+    await enviarCodigoLogin(u.email, codigo, u.nome);
+    await registrarLog("codigo_enviado", email, u.id, info);
+    return { precisaCodigo: true, email };
+  } catch {
+    return { ok: false, erro: "Não foi possível entrar. Tente novamente." };
+  }
+}
+
+// Confere o código de 6 dígitos do aparelho novo. Em sucesso, cria a sessão,
+// marca o aparelho como confiável (~60 dias) e avisa por e-mail.
+export async function verificarCodigoLogin(input: {
+  email: string;
+  codigo: string;
+}): Promise<LoginResult> {
+  const email = input.email.trim().toLowerCase();
+  const codigo = (input.codigo || "").replace(/\D/g, "").slice(0, 6);
+  const info = await infoReq();
+  if (codigo.length !== 6)
+    return { ok: false, erro: "Digite o código de 6 dígitos." };
+  try {
+    const u = await prisma.usuario.findUnique({ where: { email } });
+    if (!u || !u.ativo)
+      return { ok: false, erro: "Sessão inválida. Faça login novamente." };
+    const cod = await prisma.codigoLogin.findFirst({
+      where: { usuarioId: u.id },
+      orderBy: { criadoEm: "desc" },
+    });
+    if (!cod || cod.expiraEm.getTime() < Date.now())
+      return {
+        ok: false,
+        erro: "Código expirado. Faça login de novo para receber outro.",
+      };
+    if (cod.tentativas >= MAX_TENT_CODIGO) {
+      await prisma.codigoLogin.deleteMany({ where: { usuarioId: u.id } });
+      return { ok: false, erro: "Muitas tentativas. Faça login de novo." };
+    }
+    if (!conferirCodigo(codigo, cod.codigoHash)) {
+      await prisma.codigoLogin.update({
+        where: { id: cod.id },
+        data: { tentativas: cod.tentativas + 1 },
+      });
+      await registrarLog("codigo_errado", email, u.id, info);
+      return { ok: false, erro: "Código incorreto." };
+    }
+    await prisma.codigoLogin.deleteMany({ where: { usuarioId: u.id } });
     await definirSessao(u.id);
+    await marcarDispositivoConfiavel(u.id);
+    await registrarLog("novo_aparelho", email, u.id, info);
+    enviarAvisoAparelho(
+      u.email,
+      u.nome,
+      new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+      info.navegador,
+    ).catch(() => {});
     revalidatePath("/", "layout");
     return { ok: true };
   } catch {
-    return { ok: false, erro: "Não foi possível entrar. Tente novamente." };
+    return { ok: false, erro: "Não foi possível validar o código." };
   }
 }
 
