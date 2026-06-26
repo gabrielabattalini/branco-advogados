@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Upload,
@@ -25,6 +25,7 @@ import {
   type ResultadoImport,
 } from "@/lib/aasp-actions";
 import { NovaTarefaModal } from "@/components/NovaTarefaModal";
+import { dataPorExtenso } from "@/lib/hoje";
 import type { Responsavel, TriagemPub } from "@/lib/data";
 import type { Processo } from "@/lib/mock";
 
@@ -259,6 +260,7 @@ export function TriagemView({
   ultimosResp,
   papel,
   me,
+  dataFiltro,
 }: {
   pubs: TriagemPub[];
   processos: Processo[];
@@ -266,6 +268,7 @@ export function TriagemView({
   ultimosResp: Record<string, string[]>;
   papel: string;
   me?: string;
+  dataFiltro?: string;
 }) {
   const router = useRouter();
   const [arquivo, setArquivo] = useState<File | null>(null);
@@ -331,15 +334,26 @@ export function TriagemView({
     setBuscando(false);
   };
 
+  // Filtra pelo dia selecionado no calendário (quando houver).
+  const doDia = dataFiltro
+    ? pubs.filter((p) => p.disponibilizacao === dataFiltro)
+    : pubs;
   // Duas categorias só: Trabalhista e Cível (qualquer outra, inclusive federal
   // antigo, conta como cível).
-  const trab = pubs.filter((p) => p.area === "trabalhista");
-  const civ = pubs.filter((p) => p.area !== "trabalhista");
+  const trab = doDia.filter((p) => p.area === "trabalhista");
+  const civ = doDia.filter((p) => p.area !== "trabalhista");
   const [aba, setAba] = useState<"trabalhista" | "civel">(
     trab.length ? "trabalhista" : "civel",
   );
   const lista = aba === "trabalhista" ? trab : civ;
-  const pendentes = pubs.filter((p) => p.status === "pendente").length;
+  const pendentes = doDia.filter((p) => p.status === "pendente").length;
+
+  // Ao trocar de dia, abre a aba que tem conteúdo (se só uma tiver).
+  useEffect(() => {
+    if (trab.length && !civ.length) setAba("trabalhista");
+    else if (!trab.length && civ.length) setAba("civel");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataFiltro]);
 
   return (
     <div>
@@ -418,9 +432,27 @@ export function TriagemView({
         </p>
       )}
 
+      {dataFiltro && pubs.length > 0 && (
+        <div className="mb-3 flex items-baseline justify-between gap-3 border-b border-line pb-1.5">
+          <h2 className="text-[15px] font-medium capitalize text-navy">
+            {dataPorExtenso(dataFiltro)}
+          </h2>
+          <span className="shrink-0 text-[12px] text-muted">
+            {doDia.length} publicação(ões)
+            {pendentes > 0 ? ` · ${pendentes} a triar` : ""}
+          </span>
+        </div>
+      )}
+
       {pubs.length === 0 ? (
         <div className="rounded-lg border border-line bg-surface px-4 py-12 text-center text-[13px] text-faint">
-          Nenhuma publicação ainda. Importe um PDF da AASP para começar.
+          Nenhuma publicação ainda. Clique em “Buscar publicações” ou importe um PDF
+          da AASP.
+        </div>
+      ) : doDia.length === 0 ? (
+        <div className="rounded-lg border border-line bg-surface px-4 py-10 text-center text-[13px] text-faint">
+          Nenhuma publicação neste dia. Escolha um dia destacado em amarelo no
+          calendário.
         </div>
       ) : (
         <>
@@ -472,7 +504,6 @@ export function TriagemView({
               </a>
             </div>
           )}
-          <div className="mb-3 text-[12px] text-muted">{pendentes} a triar</div>
           <div className="flex flex-col gap-2.5">
             {lista.map((p) => (
               <Cartao key={p.id} p={p} ctx={ctx} />
