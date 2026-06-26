@@ -1,14 +1,14 @@
 "use server";
 
 import { extractText, getDocumentProxy } from "unpdf";
-import { parseAASP, resumoTriagem, sugerirAcao } from "@/lib/aasp";
-import { grifarAASP } from "@/lib/grifar";
+import { parseAASP, sugerirAcao } from "@/lib/aasp";
+import { aaspConfigurada } from "@/lib/aasp-api";
 import {
-  somarDiasUteis,
-  somarDiasCorridos,
-  diaUtilAnterior,
-} from "@/lib/diasUteis";
-import { addDiasISO } from "@/lib/hoje";
+  calcPrazo,
+  salvarPublicacoes,
+  sincronizarAASPCore,
+} from "@/lib/aasp-sync";
+import { grifarAASP } from "@/lib/grifar";
 import { getUltimosResponsaveis, getResponsaveis } from "@/lib/data";
 import { prisma } from "@/lib/db";
 import { getSessao } from "@/lib/sessao";
@@ -30,28 +30,6 @@ function brPontos(iso: string) {
   if (!iso) return "";
   const [y, m, d] = iso.split("-");
   return `${d}.${m}.${y}`;
-}
-
-// Publicação → datas (CPC 224 + margem de 1 dia do escritório).
-function calcPrazo(
-  disp: string,
-  prazoDias: number | null,
-  prazoTipo: "uteis" | "corridos" | null,
-) {
-  const publicacao = disp ? somarDiasUteis(disp, 1) : "";
-  if (!publicacao) return { publicacao: "", vencimentoLegal: "", dataFatal: "" };
-  if (!prazoDias) return { publicacao, vencimentoLegal: "", dataFatal: publicacao };
-  const tipo = prazoTipo ?? "uteis";
-  const vencimentoLegal =
-    tipo === "corridos"
-      ? somarDiasCorridos(publicacao, prazoDias)
-      : somarDiasUteis(publicacao, prazoDias);
-  const n = Math.max(1, prazoDias - 1);
-  const dataFatal =
-    tipo === "corridos"
-      ? diaUtilAnterior(addDiasISO(publicacao, n))
-      : somarDiasUteis(publicacao, n);
-  return { publicacao, vencimentoLegal, dataFatal };
 }
 
 export async function importarAASP(
@@ -88,80 +66,12 @@ export async function importarAASP(
       erro: "Nenhuma publicação encontrada. O PDF precisa ser o recorte do DJEN exportado pela AASP.",
     };
 
-  const [clientes, ultimos] = await Promise.all([
-    prisma.contato.findMany({
-      where: { tipoContato: "cliente" },
-      select: { nome: true },
-    }),
-    getUltimosResponsaveis(),
-  ]);
-  const nomesCli = clientes
-    .map((c) => ({ nome: c.nome, up: c.nome.toUpperCase() }))
-    .filter((c) => c.up.length >= 6)
-    .sort((a, b) => b.up.length - a.up.length);
-  const acharCliente = (txt: string): string => {
-    const up = txt.toUpperCase();
-    for (const c of nomesCli) if (up.includes(c.up)) return c.nome;
-    return "";
-  };
-
-  const r = resumoTriagem(pubs);
-  const unicas = [...r.trabalhista, ...r.civel];
-  const chaveDe = (p: (typeof unicas)[number]) =>
-    `${p.processo}|${p.atoId || p.teor.slice(0, 60)}|${p.publicacaoNum}`;
-
-  // Dedup contra o que já está salvo (reimportar o mesmo PDF não duplica).
-  const chaves = unicas.map(chaveDe).filter(Boolean);
-  const existentes = new Set(
-    (
-      await prisma.publicacao.findMany({
-        where: { chave: { in: chaves } },
-        select: { chave: true },
-      })
-    ).map((x) => x.chave),
-  );
-
-  const linhas = unicas
-    .filter((p) => !existentes.has(chaveDe(p)))
-    .map((p) => {
-      const d = calcPrazo(p.disponibilizacao, p.prazoDias, p.prazoTipo);
-      return {
-        numero: p.processo.slice(0, 60),
-        area: p.area,
-        tribunal: p.tribunal.slice(0, 20),
-        tipo: p.atoTipo,
-        partes: p.partes.slice(0, 2000),
-        despacho: p.teor.slice(0, 4000),
-        prazo: p.prazoDias
-          ? `${p.prazoDias} dias ${p.prazoTipo === "corridos" ? "corridos" : "úteis"}`
-          : "",
-        data: p.disponibilizacao,
-        orgao: p.orgao.slice(0, 300),
-        poloAtivo: p.poloAtivo.slice(0, 300),
-        poloPassivo: p.poloPassivo.slice(0, 300),
-        resultado: p.resultado,
-        dataPublicacao: d.publicacao,
-        vencimentoLegal: d.vencimentoLegal,
-        dataFatal: d.dataFatal,
-        prazoDias: p.prazoDias ?? 0,
-        prazoTipo: p.prazoTipo ?? "uteis",
-        intimado: p.intimado.slice(0, 200),
-        cliente: acharCliente(p.partes),
-        acaoSugerida: sugerirAcao(p),
-        responsaveisSugeridos: ultimos[p.processo] ?? [],
-        atoId: p.atoId,
-        publicacaoNum: p.publicacaoNum,
-        chave: chaveDe(p),
-        statusTriagem: "pendente",
-      };
-    });
-
-  if (linhas.length) await prisma.publicacao.createMany({ data: linhas });
+  const res = await salvarPublicacoes(pubs);
 
   // Guarda o PDF original para gerar o grifado depois sem subir de novo.
   // (lê o arquivo de novo: o buffer do parse foi "detachado" pelo pdfjs.)
   try {
-    const dataDisp = unicas.find((p) => p.disponibilizacao)?.disponibilizacao ?? "";
+    const dataDisp = pubs.find((p) => p.disponibilizacao)?.disponibilizacao ?? "";
     await prisma.arquivoAASP.create({
       data: {
         nome: file.name.slice(0, 200),
@@ -184,12 +94,29 @@ export async function importarAASP(
   }
 
   revalidatePath("/publicacoes");
-  return {
-    ok: true,
-    total: r.unicas,
-    novas: linhas.length,
-    jaExistiam: r.unicas - linhas.length,
-  };
+  return { ok: true, total: res.total, novas: res.novas, jaExistiam: res.jaExistiam };
+}
+
+// Busca as publicações direto na API da AASP (sem subir PDF) e joga na triagem.
+// Usado pelo botão "Buscar publicações". (A rotina diária usa sincronizarAASPCore
+// direto, sem sessão, via a rota /api/aasp/sincronizar.)
+export async function sincronizarAASP(dias = 3): Promise<ResultadoImport> {
+  const s = await getSessao();
+  if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
+  if (!aaspConfigurada())
+    return {
+      ok: false,
+      erro: "Integração com a AASP ainda não configurada (falta a chave de API).",
+    };
+  try {
+    const res = await sincronizarAASPCore(dias);
+    return { ok: true, ...res };
+  } catch {
+    return {
+      ok: false,
+      erro: "Não consegui conectar à AASP agora. Tente novamente em instantes.",
+    };
+  }
 }
 
 // Cria a tarefa a partir de uma publicação e marca a publicação como processada.

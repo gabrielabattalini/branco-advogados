@@ -148,7 +148,7 @@ function limpar(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
-function parseBloco(item: number, tribunal: string, bloco: string): PublicacaoParsed {
+export function parseBloco(item: number, tribunal: string, bloco: string): PublicacaoParsed {
   const processo =
     primeiro(/Processo:?\s*([\d.\-]+\.\d{4}\.\d\.\d{2}\.\d{4})/, bloco) ||
     primeiro(/(\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})/, bloco) ||
@@ -290,6 +290,61 @@ export function sugerirAcao(p: {
   if (p.prazoDias) return "Manifestar / cumprir";
   if (p.atoTipo === "edital") return "Ciência";
   return "Verificar";
+}
+
+// ===== Integração com a API de Intimações da AASP (associado) =====
+// Cada intimação da API já vem com o textoPublicacao (mesmo formato do PDF) +
+// campos estruturados confiáveis (numeroUnicoProcesso, data, numeroPublicacao).
+// Reusamos o parseBloco e só sobrescrevemos os campos confiáveis.
+export type IntimacaoAASP = {
+  jornal?: {
+    nomeJornal?: string | null;
+    dataDisponibilizacao_Publicacao?: string | null;
+  } | null;
+  textoPublicacao?: string | null;
+  titulo?: string | null;
+  cabecalho?: string | null;
+  rodape?: string | null;
+  numeroPublicacao?: number | string | null;
+  numeroArquivo?: number | null;
+  codigoRelacionamento?: number | string | null;
+  numeroUnicoProcesso?: string | null;
+};
+
+const RE_TRIB = /^(TRT\d+|TST|TJSP|TRF\d+|STJ|STF|TJ[A-Z]{2})$/;
+
+// "DJENTJSP" -> "TJSP"; "DJENTRT15" -> "TRT15"; usa o título como reserva.
+function tribunalDaIntimacao(it: IntimacaoAASP): string {
+  const j = (it.jornal?.nomeJornal ?? "").toUpperCase().replace(/^DJEN/, "");
+  if (RE_TRIB.test(j)) return j;
+  const t = (it.titulo ?? "")
+    .toUpperCase()
+    .match(/\b(TRT\d+|TST|TJSP|TRF\d+|STJ|STF|TJ[A-Z]{2})\b/);
+  return t ? t[1] : j || "DJEN";
+}
+
+function isoData(s: string | null | undefined): string {
+  const m = (s ?? "").match(/(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
+}
+
+// Converte as intimações da API da AASP em PublicacaoParsed[] (com dedup IDEM).
+export function parseIntimacoesAASP(intims: IntimacaoAASP[]): PublicacaoParsed[] {
+  const pubs = intims.map((it, i) => {
+    const trib = tribunalDaIntimacao(it);
+    const bloco = `${it.cabecalho ?? ""} ${it.textoPublicacao ?? ""}`;
+    const p = parseBloco(i + 1, trib, bloco);
+    const proc = (it.numeroUnicoProcesso ?? p.processo ?? "").trim();
+    p.processo = proc;
+    p.area = proc ? areaDoProcesso(proc) : areaPorTribunal(trib);
+    const disp = isoData(it.jornal?.dataDisponibilizacao_Publicacao);
+    if (disp) p.disponibilizacao = disp;
+    if (it.numeroPublicacao != null && it.numeroPublicacao !== "")
+      p.publicacaoNum = String(it.numeroPublicacao);
+    return p;
+  });
+  marcarDuplicatas(pubs);
+  return pubs;
 }
 
 // Agrupa o resultado para a tela de triagem.

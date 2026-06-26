@@ -14,9 +14,11 @@ import {
   EyeOff,
   AlertTriangle,
   FileDown,
+  RefreshCw,
 } from "lucide-react";
 import {
   importarAASP,
+  sincronizarAASP,
   excluirPublicacao,
   ignorarPublicacao,
   gerarGrifadoSalvo,
@@ -313,6 +315,22 @@ export function TriagemView({
     setCarregando(false);
   };
 
+  const [buscando, setBuscando] = useState(false);
+  // Busca as publicações direto na AASP (sem subir PDF).
+  const buscarNaAASP = async () => {
+    if (buscando) return;
+    setBuscando(true);
+    setMsg(null);
+    try {
+      const r = await sincronizarAASP(5);
+      setMsg(r);
+      if (r.ok) router.refresh();
+    } catch {
+      setMsg({ ok: false, erro: "Não consegui buscar na AASP agora." });
+    }
+    setBuscando(false);
+  };
+
   // Duas categorias só: Trabalhista e Cível (qualquer outra, inclusive federal
   // antigo, conta como cível).
   const trab = pubs.filter((p) => p.area === "trabalhista");
@@ -325,9 +343,33 @@ export function TriagemView({
 
   return (
     <div>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-navy/15 bg-navy/[0.03] px-4 py-3">
+        <div className="text-[13px] text-muted">
+          <span className="font-medium text-navy">Buscar publicações na AASP</span>
+          <span className="ml-1 text-faint">
+            — puxa direto da AASP os últimos dias, sem subir PDF.
+          </span>
+        </div>
+        <button
+          onClick={buscarNaAASP}
+          disabled={buscando}
+          className="inline-flex items-center gap-1.5 rounded-md bg-navy px-3.5 py-1.5 text-[13px] font-medium text-cream hover:bg-navy-dark disabled:opacity-50"
+        >
+          {buscando ? (
+            <>
+              <Loader2 size={14} className="animate-spin" /> Buscando…
+            </>
+          ) : (
+            <>
+              <RefreshCw size={14} /> Buscar publicações
+            </>
+          )}
+        </button>
+      </div>
+
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed border-line bg-surface px-4 py-3">
         <div className="text-[13px] text-muted">
-          <span className="font-medium text-navy">{arquivo?.name ?? "Importar PDF da AASP"}</span>
+          <span className="font-medium text-navy">{arquivo?.name ?? "Ou importe um PDF da AASP"}</span>
           <span className="ml-1 text-faint">
             — separa, agrupa duplicatas, identifica o cliente e sugere a tarefa.
           </span>

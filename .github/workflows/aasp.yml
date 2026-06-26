@@ -1,0 +1,20 @@
+name: Publicações AASP (diário)
+
+# Busca as publicações na API da AASP e joga na triagem do sistema.
+# Roda de manhã em dias úteis (horário UTC; ~07h e ~10h de Brasília). A rota
+# busca os últimos 3 dias e deduplica, então rodar mais de uma vez é seguro.
+on:
+  schedule:
+    - cron: "0 10 * * 1-5"
+    - cron: "0 13 * * 1-5"
+  workflow_dispatch: {}
+
+jobs:
+  sincronizar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sincronizar publicações AASP
+        run: |
+          curl -fsS -X POST \
+            "https://branco-advogados-two.vercel.app/api/aasp/sincronizar" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" || true
