@@ -206,7 +206,7 @@ export function parseBloco(item: number, tribunal: string, bloco: string): Publi
   // paginação "X de Y".
   teor = teor.split(/Intimado\(s\)\s*\/\s*Citado\(s\)/i)[0];
   teor = tirarMetadados(teor).replace(/\b\d{1,3}\s+de\s+\d{1,3}\b\s*$/, "");
-  teor = limpar(teor).slice(0, 6000);
+  teor = limpar(teor).slice(0, 12000);
 
   return {
     item,

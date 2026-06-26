@@ -111,7 +111,7 @@ export async function salvarPublicacoes(
       tribunal: p.tribunal.slice(0, 20),
       tipo: p.atoTipo,
       partes: p.partes.slice(0, 2000),
-      despacho: p.teor.slice(0, 6000),
+      despacho: p.teor.slice(0, 12000),
       prazo: p.prazoDias
         ? `${p.prazoDias} dias ${p.prazoTipo === "corridos" ? "corridos" : "úteis"}`
         : "",
@@ -148,7 +148,7 @@ export async function salvarPublicacoes(
     // Já existe: atualiza no lugar — texto mais completo (refresca os cartões
     // antigos truncados) e migra a chave para o formato novo.
     const dados: { id: string; despacho?: string; chave?: string } = { id: ex.id };
-    const novoTeor = p.teor.slice(0, 6000);
+    const novoTeor = p.teor.slice(0, 12000);
     if (novoTeor.length > (ex.despacho?.length ?? 0)) dados.despacho = novoTeor;
     if (ex.chave !== k) dados.chave = k;
     if (dados.despacho !== undefined || dados.chave !== undefined)
