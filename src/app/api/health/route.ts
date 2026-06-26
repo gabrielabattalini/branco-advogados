@@ -13,6 +13,8 @@ export async function GET() {
     DATABASE_URL_UNPOOLED: !!process.env.DATABASE_URL_UNPOOLED,
     DATABASE_URL: !!process.env.DATABASE_URL,
     POSTGRES_PRISMA_URL: !!process.env.POSTGRES_PRISMA_URL,
+    AASP_API_KEY: !!process.env.AASP_API_KEY,
+    CRON_SECRET: !!process.env.CRON_SECRET,
   };
   try {
     const tarefas = await prisma.tarefa.count();
