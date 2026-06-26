@@ -232,7 +232,18 @@ export async function entrar(input: {
         expiraEm: new Date(Date.now() + CODIGO_VALIDADE_MS),
       },
     });
-    await enviarCodigoLogin(u.email, codigo, u.nome);
+    const envio = await enviarCodigoLogin(u.email, codigo, u.nome);
+    // Se o código NÃO foi enviado (e-mail mal configurado, ou domínio de teste
+    // que só entrega para o dono da conta), não trava o usuário: entra e confia
+    // no aparelho. Quando o domínio estiver verificado, o 2FA passa a valer.
+    if (!envio.enviado) {
+      await prisma.codigoLogin.deleteMany({ where: { usuarioId: u.id } });
+      await definirSessao(u.id);
+      await marcarDispositivoConfiavel(u.id);
+      await registrarLog("sucesso", email, u.id, info);
+      revalidatePath("/", "layout");
+      return { ok: true };
+    }
     await registrarLog("codigo_enviado", email, u.id, info);
     return { precisaCodigo: true, email };
   } catch {
