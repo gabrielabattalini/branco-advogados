@@ -159,10 +159,20 @@ export async function grifarAASP(
       i + 1 < marcas.length && marcas[i + 1].page === page
         ? marcas[i + 1].off
         : pg.text.length;
+    // Ancora a anotação no CABEÇALHO da publicação ("N - D J E N - TRIB"), no
+    // espaço em branco do topo à direita (acima de "<Trib> Diário ... Nacional"),
+    // que é onde o escritório anota. Acha o último cabeçalho até o nº do processo.
+    const headRe = /\d{1,3}\s*-\s*(?:D J E N|TRT)/g;
+    let headOff = -1;
+    let mh: RegExpExecArray | null;
+    while ((mh = headRe.exec(pg.text)) && mh.index <= off) headOff = mh.index;
+    const itHead = headOff >= 0 ? itemNoOffset(pg, headOff) : null;
     const itProc = itemNoOffset(pg, off);
-    // sobe ~2 linhas a partir do número do processo p/ ficar no topo da
-    // publicação, perto do cabeçalho (onde o escritório anota).
-    const y = itProc ? itProc.y + 24 : pdfp.getHeight() - 50;
+    const y = itHead
+      ? itHead.y
+      : itProc
+        ? itProc.y + 24
+        : pdfp.getHeight() - 50;
 
     // Anotação no canto superior direito, em vermelho (pula duplicatas IDEM):
     // "Responsável / Revisor - Tarefa - Data", como o escritório faz à mão.
