@@ -5,8 +5,10 @@
 // pdf-lib (edição).
 
 import { getDocumentProxy } from "unpdf";
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { PDFDocument, rgb } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
 import { parseAASP, type PublicacaoParsed } from "@/lib/aasp";
+import { FONTE_GRIFADO_B64 } from "@/lib/fonte-grifado";
 
 export type Anotacao = { nomes: string; tarefa: string; data: string };
 type It = { str: string; x: number; y: number; w: number; h: number };
@@ -127,7 +129,12 @@ export async function grifarAASP(
 
   const doc = await PDFDocument.load(paraEditar);
   const dp = doc.getPages();
-  const fontB = await doc.embedFont(StandardFonts.HelveticaBold);
+  // Fonte EMBUTIDA (não usar StandardFonts: a Helvetica padrão não fica embutida
+  // e visualizadores sem ela desenham caixas no lugar dos caracteres).
+  doc.registerFontkit(fontkit);
+  const fontB = await doc.embedFont(Buffer.from(FONTE_GRIFADO_B64, "base64"), {
+    subset: true,
+  });
 
   // Liga cada publicação à página onde aparece o NÚMERO DO PROCESSO. É robusto:
   // usa o mesmo número que o parser já classificou por área, sem depender de um
