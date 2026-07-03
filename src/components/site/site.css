@@ -1,0 +1,236 @@
+/* Estilos globais do site público (grupo (site)). Classes prefixadas com
+   "site-" para não colidir com a UI interna do sistema. Cobrem :hover, :focus,
+   seleção e responsividade — o que estilo inline não expressa. */
+
+.site-root ::selection {
+  background: #b08d4f;
+  color: #056234;
+}
+
+/* -------- Cabeçalho -------- */
+.site-nav-link {
+  position: relative;
+  transition: color 0.2s ease;
+}
+.site-nav-link:hover {
+  color: #b08d4f;
+}
+.site-restrito {
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.site-restrito:hover {
+  color: #056234;
+  border-color: #b08d4f;
+}
+.site-contato-btn {
+  transition: background 0.2s ease;
+}
+.site-contato-btn:hover {
+  background: #0a7d45 !important;
+}
+.site-drop-item {
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+.site-drop-item:hover {
+  background: #f6f3ec;
+  border-left-color: #b08d4f !important;
+  color: #056234 !important;
+}
+
+/* -------- Botões do hero -------- */
+.site-btn-gold {
+  transition: background 0.2s ease;
+}
+.site-btn-gold:hover {
+  background: #c39d59 !important;
+}
+.site-btn-ghost {
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+.site-btn-ghost:hover {
+  border-color: #b08d4f !important;
+  color: #b08d4f !important;
+}
+.site-btn-green {
+  transition: background 0.2s ease;
+}
+.site-btn-green:hover {
+  background: #0a7d45 !important;
+}
+
+/* -------- Cartões -------- */
+.site-team-card {
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.site-team-card:hover {
+  border-color: #b08d4f !important;
+  transform: translateY(-3px);
+}
+.site-card-hover {
+  transition: border-color 0.2s ease;
+}
+.site-card-hover:hover {
+  border-color: #b08d4f !important;
+}
+.site-teaser {
+  transition: border-color 0.2s ease;
+}
+.site-teaser:hover {
+  border-color: #b08d4f !important;
+}
+
+/* Áreas — chips e cartões de serviço */
+.site-chip {
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+.site-chip:hover {
+  background: #b08d4f;
+  border-color: #b08d4f !important;
+  color: #056234 !important;
+}
+.site-service {
+  transition: background 0.2s ease;
+}
+.site-service:hover {
+  background: #ffffff !important;
+}
+
+/* Áreas — cartão da home com hover verde */
+.site-prac-card {
+  transition: background 0.25s ease;
+}
+.site-prac-card:hover {
+  background: #056234 !important;
+}
+.site-prac-card:hover .site-prac-num {
+  color: #cda85f !important;
+}
+.site-prac-card:hover .site-prac-title {
+  color: #ffffff !important;
+}
+.site-prac-card:hover .site-prac-desc {
+  color: rgba(246, 243, 236, 0.85) !important;
+}
+.site-prac-card:hover .site-prac-more {
+  color: #f6f3ec !important;
+}
+
+/* Galeria */
+.site-gallery-tile {
+  transition: outline 0.2s ease;
+  outline: 0 solid #b08d4f;
+  outline-offset: -2px;
+}
+.site-gallery-tile:hover {
+  outline: 2px solid #b08d4f;
+}
+
+/* -------- Formulários -------- */
+.site-input {
+  transition: border-color 0.2s ease;
+}
+.site-input::placeholder {
+  color: rgba(246, 243, 236, 0.45);
+}
+.site-input:focus {
+  border-color: #b08d4f !important;
+  border-bottom-color: #b08d4f !important;
+}
+.site-input-light::placeholder {
+  color: #9a9c90;
+}
+
+/* -------- Responsivo -------- */
+@media (max-width: 1024px) {
+  .site-hist-grid {
+    grid-template-columns: 1fr !important;
+    gap: 48px !important;
+  }
+  .site-team-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+  .site-hero-title {
+    font-size: 48px !important;
+  }
+  .site-2col {
+    grid-template-columns: 1fr !important;
+    gap: 40px !important;
+  }
+}
+
+@media (max-width: 860px) {
+  .site-desktop-nav {
+    display: none !important;
+  }
+  .site-mobile-btn {
+    display: flex !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .site-pad {
+    padding-left: 22px !important;
+    padding-right: 22px !important;
+  }
+  .site-hero-inner {
+    padding: 92px 22px 96px !important;
+  }
+  .site-hero-title {
+    font-size: 34px !important;
+  }
+  .site-h1 {
+    font-size: 36px !important;
+  }
+  .site-title {
+    font-size: 32px !important;
+  }
+  .site-hist-title {
+    font-size: 42px !important;
+  }
+  .site-team-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 16px !important;
+  }
+  .site-grid-3,
+  .site-grid-4 {
+    grid-template-columns: 1fr !important;
+  }
+  .site-areas-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .site-estrutura-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    grid-auto-rows: 220px !important;
+  }
+  .site-stat-grid {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+  }
+  .site-stat-num {
+    font-size: 66px !important;
+  }
+  .site-modal-card {
+    grid-template-columns: 1fr !important;
+  }
+  .site-modal-img {
+    min-height: 240px !important;
+  }
+  .site-gallery-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .site-service-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 460px) {
+  .site-team-grid,
+  .site-gallery-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* O botão mobile fica escondido no desktop; mostrado via media query acima. */
+.site-mobile-btn {
+  display: none;
+}
