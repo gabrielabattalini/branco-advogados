@@ -224,8 +224,10 @@ export default function SiteLanding() {
           </div>
           <div className="site-estrutura-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gridAutoRows: "300px", gap: 16 }}>
             {ESTRUTURA.map((src) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={src} src={src} alt="Estrutura do escritório" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              <div key={src} className="site-estrutura-tile" style={{ height: "100%" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={src} alt="Estrutura do escritório" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              </div>
             ))}
           </div>
         </div>
