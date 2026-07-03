@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+
+# Área restrita do sistema (não indexar)
+Disallow: /login
+Disallow: /painel
+Disallow: /admin
+Disallow: /processos
+Disallow: /publicacoes
+Disallow: /agenda
+Disallow: /audiencias
+Disallow: /tarefas
+Disallow: /documentos
+Disallow: /contatos
+Disallow: /perfil
+Disallow: /grifado
