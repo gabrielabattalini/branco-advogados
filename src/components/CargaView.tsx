@@ -130,7 +130,33 @@ export function CargaView({
       .map(([mm, c]) => ({ mm, c, total: Object.values(c).reduce((s, x) => s + x, 0) }));
     const maxMes = Math.max(1, ...porMes.map((m) => m.total));
 
-    return { ts, membros, kpi, avg, maxOpen, porStatus, porArea, porOrigem, porNResp, ranking, solic, revis, porMes, maxMes };
+    // Conclusões por data (usa concluidaEm, carimbado a partir de agora)
+    const concl = ts.filter((t) => t.status === "concluida" && t.concluidaEm);
+    const semMap = new Map<string, number>();
+    for (const t of concl) {
+      const k = segundaDaSemana(t.concluidaEm);
+      semMap.set(k, (semMap.get(k) ?? 0) + 1);
+    }
+    const porSemana = [...semMap.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).slice(-8).map(([k, n]) => ({ k, n }));
+    const maxSem = Math.max(1, ...porSemana.map((x) => x.n));
+
+    const tempoMap = new Map<string, { soma: number; n: number }>();
+    for (const t of concl) {
+      const dias = (new Date(t.concluidaEm).getTime() - new Date(t.criadoEm).getTime()) / 86400000;
+      if (!(dias >= 0)) continue;
+      for (const ini of t.responsaveis) {
+        const o = tempoMap.get(ini) ?? { soma: 0, n: 0 };
+        o.soma += dias;
+        o.n++;
+        tempoMap.set(ini, o);
+      }
+    }
+    const tempoMedio = [...tempoMap.entries()]
+      .map(([ini, o]) => ({ nome: nomeIni.get(ini) ?? ini, dias: o.soma / o.n }))
+      .sort((a, b) => a.dias - b.dias);
+    const maxTempo = Math.max(1, ...tempoMedio.map((x) => x.dias));
+
+    return { ts, membros, kpi, avg, maxOpen, porStatus, porArea, porOrigem, porNResp, ranking, solic, revis, porMes, maxMes, porSemana, maxSem, tempoMedio, maxTempo, totalConcl: concl.length };
   }, [tarefas, equipe, area, HOJE]);
 
   const avgFrac = d.maxOpen ? d.avg / d.maxOpen : 0;
@@ -338,6 +364,32 @@ export function CargaView({
         </Secao>
       </div>
 
+      {/* Conclusões por data */}
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-faint">Conclusões · por data</h2>
+        <span className="text-[11px] text-faint">
+          {d.totalConcl} com data registrada · conta a partir de agora
+        </span>
+      </div>
+      <div className="mb-6 grid gap-4 md:grid-cols-2">
+        <Secao title="Concluídas por semana">
+          {d.porSemana.map((s) => (
+            <Barra key={s.k} label={fmtDia(s.k)} valor={s.n} max={d.maxSem} cor={COR_OK} />
+          ))}
+          {d.porSemana.length === 0 && (
+            <p className="py-4 text-center text-sm text-muted">Ainda sem conclusões com data registrada.</p>
+          )}
+        </Secao>
+        <Secao title="Tempo médio até concluir">
+          {d.tempoMedio.map((x) => (
+            <Barra key={x.nome} label={x.nome} valor={Math.round(x.dias)} max={d.maxTempo} cor="#3f6f82" sufixo=" d" />
+          ))}
+          {d.tempoMedio.length === 0 && (
+            <p className="py-4 text-center text-sm text-muted">Preenche conforme as tarefas forem concluídas.</p>
+          )}
+        </Secao>
+      </div>
+
       {/* Solicitante & revisor */}
       <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-faint">Solicitações &amp; revisões</h2>
       <div className="grid gap-4 md:grid-cols-2">
@@ -423,4 +475,17 @@ function fmtMes(yyyymm: string): string {
   const [y, m] = yyyymm.split("-");
   const idx = Number(m) - 1;
   return `${MESES[idx] ?? m}/${(y ?? "").slice(2)}`;
+}
+
+function fmtDia(iso: string): string {
+  const [, m, dd] = iso.split("-");
+  return `${dd}/${m}`;
+}
+
+// Segunda-feira (UTC) da semana de um ISO — chave estável para agrupar por semana.
+function segundaDaSemana(iso: string): string {
+  const dt = new Date(iso);
+  const off = (dt.getUTCDay() + 6) % 7; // 0 = segunda
+  dt.setUTCDate(dt.getUTCDate() - off);
+  return dt.toISOString().slice(0, 10);
 }

@@ -114,6 +114,7 @@ model Tarefa {
   solicitante  String   @default("") // iniciais — cível: Débora · trabalhista: Karen
   revisor      String   @default("") // iniciais — cível: Mauro · trabalhista: Karen
   origem       String    @default("manual") // manual | aasp
+  concluidaEm  DateTime? // carimbo de quando passou para "concluida" (nulo se ainda não)
   criadoEm     DateTime  @default(now())
 }
 
