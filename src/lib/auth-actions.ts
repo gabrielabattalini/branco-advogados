@@ -233,9 +233,11 @@ export async function entrar(input: {
       },
     });
     const envio = await enviarCodigoLogin(u.email, codigo, u.nome);
-    // Se o código NÃO foi enviado (e-mail mal configurado, ou domínio de teste
-    // que só entrega para o dono da conta), não trava o usuário: entra e confia
-    // no aparelho. Quando o domínio estiver verificado, o 2FA passa a valer.
+    // NOTA DE SEGURANÇA (fail-open conhecido): se o código não puder ser enviado
+    // (e-mail mal configurado / domínio de teste), hoje o login entra e confia no
+    // aparelho para não travar ninguém. O correto é FAIL-CLOSED (negar), mas isso
+    // só deve ser ligado depois de confirmar que o RESEND entrega de verdade —
+    // senão um e-mail quebrado tranca todos. Ativar quando o 2FA estiver validado.
     if (!envio.enviado) {
       await prisma.codigoLogin.deleteMany({ where: { usuarioId: u.id } });
       await definirSessao(u.id);

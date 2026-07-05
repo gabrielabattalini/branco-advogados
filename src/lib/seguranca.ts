@@ -9,20 +9,27 @@ import {
   timingSafeEqual,
 } from "crypto";
 
-// Chave HMAC para assinar o cookie de sessão. O correto é definir AUTH_SECRET
-// (variável de ambiente dedicada). Sem ela, cai numa derivação de ÚLTIMO RECURSO
-// só para o app não travar — mas aí a segurança da sessão passa a depender de
-// outros segredos do ambiente. EM PRODUÇÃO: definir AUTH_SECRET na Vercel.
+// Chave HMAC para assinar o cookie de sessão. DEVE vir de AUTH_SECRET (variável
+// de ambiente dedicada). Se AUTH_SECRET não estiver definida, usamos uma chave
+// ALEATÓRIA gerada em memória — NUNCA derivada de segredo compartilhado (como a
+// DATABASE_URL) nem de constante no código, para que os tokens não sejam
+// forjáveis a partir do código-fonte (que é público). O custo do modo aleatório
+// é que as sessões não sobrevivem a reinícios/instâncias — por isso AUTH_SECRET
+// é obrigatória em produção (defina na Vercel).
+let _chaveEfemera: Buffer | null = null;
 function chaveSessao(): Buffer {
   const segredo = process.env.AUTH_SECRET;
   if (segredo && segredo.length >= 16) {
     return createHash("sha256").update("branco:sessao:" + segredo).digest();
   }
-  const base =
-    process.env.DATABASE_URL_UNPOOLED ||
-    process.env.DATABASE_URL ||
-    "branco-dev-secret-fallback";
-  return createHash("sha256").update("branco:sessao:fallback:" + base).digest();
+  if (!_chaveEfemera) {
+    _chaveEfemera = createHash("sha256").update(randomBytes(32)).digest();
+    console.warn(
+      "[seguranca] AUTH_SECRET ausente/curta — usando chave de sessão EFÊMERA. " +
+        "Defina AUTH_SECRET (>=16 chars) na Vercel; sem ela, os usuários são deslogados a cada deploy.",
+    );
+  }
+  return _chaveEfemera;
 }
 
 // ---- Senha (scrypt + salt aleatório) ----
@@ -104,25 +111,31 @@ export function conferirCodigo(codigo: string, guardado: string): boolean {
 }
 
 // ---- Token de "aparelho confiável" (pula o 2FA por ~60 dias) ----
+// Embute o instante de emissão (iat) e EXPIRA no servidor depois de MAX_DISP_MS,
+// mesmo que o cookie sobreviva — assim o token não é um "passe" permanente.
+const MAX_DISP_MS = 60 * 24 * 60 * 60 * 1000; // 60 dias
 
 export function assinarDispositivo(userId: string): string {
+  const corpo = `${userId}.${Date.now()}`;
   const sig = createHmac("sha256", chaveSessao())
-    .update("disp:" + userId)
+    .update("disp:" + corpo)
     .digest("hex");
-  return `${userId}.${sig}`;
+  return `${corpo}.${sig}`;
 }
 
 export function lerDispositivo(token: string | undefined | null): string | null {
   if (!token) return null;
-  const i = token.lastIndexOf(".");
-  if (i <= 0) return null;
-  const userId = token.slice(0, i);
-  const sig = token.slice(i + 1);
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  const [userId, iatStr, sig] = parts;
+  if (!userId || !iatStr) return null;
   const esperado = createHmac("sha256", chaveSessao())
-    .update("disp:" + userId)
+    .update(`disp:${userId}.${iatStr}`)
     .digest("hex");
   const a = Buffer.from(sig);
   const b = Buffer.from(esperado);
-  if (a.length !== b.length) return null;
-  return timingSafeEqual(a, b) ? userId : null;
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  const iat = Number(iatStr);
+  if (!Number.isFinite(iat) || Date.now() - iat > MAX_DISP_MS) return null;
+  return userId;
 }
