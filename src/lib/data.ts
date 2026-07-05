@@ -223,6 +223,7 @@ export type CargaTarefa = {
   solicitante: string;
   revisor: string;
   origem: string;
+  criadoEm: string; // ISO
 };
 export type MembroEquipe = {
   iniciais: string;
@@ -256,6 +257,7 @@ export async function getCargaEquipe(): Promise<{
       solicitante: r.solicitante || "",
       revisor: r.revisor || "",
       origem: r.origem || "manual",
+      criadoEm: r.criadoEm.toISOString(),
     })),
     equipe: users,
   };
