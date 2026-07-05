@@ -210,6 +210,57 @@ export async function getTarefas(): Promise<TarefaFull[]> {
   }));
 }
 
+// Carga de trabalho da equipe (dashboard de balanceamento). Só gestores —
+// busca TODAS as tarefas (sem o escopo por responsável) + a equipe atribuível.
+export type CargaTarefa = {
+  id: string;
+  titulo: string;
+  area: Area;
+  status: Status;
+  responsaveis: string[];
+  prazoUrgente: boolean;
+  data: string;
+  solicitante: string;
+  revisor: string;
+  origem: string;
+};
+export type MembroEquipe = {
+  iniciais: string;
+  nome: string;
+  area: string;
+  papel: string;
+};
+export async function getCargaEquipe(): Promise<{
+  tarefas: CargaTarefa[];
+  equipe: MembroEquipe[];
+}> {
+  const s = await getSessao();
+  if (!s || !ehGestor(s.papel)) return { tarefas: [], equipe: [] };
+  const [rows, users] = await Promise.all([
+    prisma.tarefa.findMany({ orderBy: { criadoEm: "desc" } }),
+    prisma.usuario.findMany({
+      where: { ativo: true, papel: { in: ["socio", "coordenador", "advogado"] } },
+      orderBy: { nome: "asc" },
+      select: { iniciais: true, nome: true, area: true, papel: true },
+    }),
+  ]);
+  return {
+    tarefas: rows.map((r) => ({
+      id: r.id,
+      titulo: r.titulo,
+      area: r.area as Area,
+      status: r.status as Status,
+      responsaveis: r.responsaveis,
+      prazoUrgente: r.prazoUrgente,
+      data: r.data,
+      solicitante: r.solicitante || "",
+      revisor: r.revisor || "",
+      origem: r.origem || "manual",
+    })),
+    equipe: users,
+  };
+}
+
 export async function getProcessos(): Promise<Processo[]> {
   const rows = await prisma.processo.findMany({ orderBy: { criadoEm: "desc" } });
   return rows.map(mapProcesso);
