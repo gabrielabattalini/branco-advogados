@@ -7,7 +7,6 @@ import {
   Users,
   Scale,
   ListChecks,
-  Calendar,
   Gavel,
   Folder,
   Newspaper,
@@ -25,7 +24,6 @@ const navBase = [
   { href: "/contatos", label: "Contatos", Icon: Users },
   { href: "/processos", label: "Processos", Icon: Scale },
   { href: "/tarefas", label: "Tarefas", Icon: ListChecks },
-  { href: "/agenda", label: "Agenda", Icon: Calendar },
   { href: "/audiencias", label: "Audiências", Icon: Gavel },
   { href: "/documentos", label: "Documentos", Icon: Folder },
   { href: "/publicacoes", label: "Publicações", Icon: Newspaper },
@@ -45,7 +43,7 @@ export function Sidebar({
     ...navBase,
     ...(ehGestor(papel)
       ? [
-          { href: "/carga", label: "Carga", Icon: BarChart3 },
+          { href: "/carga", label: "Estatísticas", Icon: BarChart3 },
           { href: "/relatorio", label: "Relatório", Icon: FileBarChart },
           { href: "/portal-clientes", label: "Portal clientes", Icon: ExternalLink },
           { href: "/admin", label: "Administração", Icon: ShieldCheck },

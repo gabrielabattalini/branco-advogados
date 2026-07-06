@@ -113,6 +113,14 @@ export default function SiteHeader({ active = "" }: { active?: Active }) {
             </Link>
 
             <Link
+              href="/cliente"
+              className="site-restrito"
+              style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: COR.green, border: "1px solid rgba(5,98,52,0.4)", padding: "10px 16px" }}
+            >
+              Portal do Cliente
+            </Link>
+
+            <Link
               href="/login"
               className="site-restrito"
               style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: COR.muted, border: "1px solid rgba(27,29,27,0.18)", padding: "10px 16px" }}
@@ -170,6 +178,9 @@ export default function SiteHeader({ active = "" }: { active?: Active }) {
               ))}
               <Link href="/galeria" onClick={() => setMobile(false)} style={{ padding: "15px 4px", fontSize: 15, fontWeight: 600, color: COR.ink, borderTop: "1px solid rgba(27,29,27,0.08)", marginTop: 14 }}>
                 Galeria
+              </Link>
+              <Link href="/cliente" onClick={() => setMobile(false)} style={{ padding: "13px 4px", fontSize: 13.5, fontWeight: 700, color: COR.green }}>
+                Portal do Cliente
               </Link>
               <Link href="/login" onClick={() => setMobile(false)} style={{ padding: "13px 4px", fontSize: 13.5, fontWeight: 600, color: COR.muted }}>
                 Área Restrita

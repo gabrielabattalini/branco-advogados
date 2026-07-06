@@ -23,6 +23,7 @@ import type { Responsavel, AudienciaDTO, EventoAgendaDTO } from "@/lib/data";
 import { AreaTag } from "@/components/AreaTag";
 import { StatusSelect } from "@/components/StatusSelect";
 import { NovaTarefaModal } from "@/components/NovaTarefaModal";
+import { NovoEventoModal } from "@/components/NovoEventoModal";
 import { AndamentoModal } from "@/components/AndamentoModal";
 import { atualizarStatusTarefa } from "@/lib/actions";
 import { DOWS, NOMES_MES, gridMes } from "@/lib/calendario";
@@ -67,6 +68,7 @@ export function TarefasView({
   const [showNova, setShowNova] = useState(
     searchParams.get("novo") === "1",
   );
+  const [showEvento, setShowEvento] = useState(false);
   const [editar, setEditar] = useState<TarefaFull | null>(null);
   // Arrastar-e-soltar no Quadro.
   const [dragId, setDragId] = useState<string | null>(null);
@@ -765,10 +767,16 @@ export function TarefasView({
           {tabBtn("quadro", "Quadro")}
           {tabBtn("lista", "Lista")}
           <button
-            onClick={() => setShowNova(true)}
-            className="ml-1 flex items-center gap-2 rounded-md bg-navy px-3 py-1.5 text-sm text-cream hover:bg-navy-dark"
+            onClick={() => setShowEvento(true)}
+            className="ml-1 flex items-center gap-2 rounded-md border border-[#2f6f8f]/50 px-3 py-1.5 text-sm text-[#2f6f8f] hover:bg-[#2f6f8f]/5"
           >
-            <Plus size={16} /> Nova
+            <Calendar size={16} /> Evento
+          </button>
+          <button
+            onClick={() => setShowNova(true)}
+            className="flex items-center gap-2 rounded-md bg-navy px-3 py-1.5 text-sm text-cream hover:bg-navy-dark"
+          >
+            <Plus size={16} /> Nova tarefa
           </button>
         </div>
       </div>
@@ -868,6 +876,13 @@ export function TarefasView({
           processoNumero={andamentoTarefa.processo}
           tarefaId={andamentoTarefa.id}
           onClose={() => setAndamentoTarefa(null)}
+        />
+      )}
+      {showEvento && (
+        <NovoEventoModal
+          responsaveis={responsaveis}
+          dataInicial={hojeISO()}
+          onClose={() => setShowEvento(false)}
         />
       )}
     </div>

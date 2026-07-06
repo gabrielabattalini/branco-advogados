@@ -142,6 +142,17 @@ export async function resetarSenhaCliente(input: {
   }
 }
 
+export async function excluirAcessoCliente(id: string): Promise<ActionResult> {
+  const s = await getSessao();
+  if (!s || !ehGestor(s.papel)) return { ok: false, erro: "Sem permissão." };
+  try {
+    await prisma.clienteAcesso.delete({ where: { id } });
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Não foi possível excluir o acesso." };
+  }
+}
+
 export async function alternarAtivoCliente(id: string): Promise<ActionResult> {
   const s = await getSessao();
   if (!s || !ehGestor(s.papel)) return { ok: false, erro: "Sem permissão." };

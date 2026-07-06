@@ -9,12 +9,14 @@ import {
   Link as LinkIcon,
   Check,
   Search,
+  Trash2,
 } from "lucide-react";
 import type { AcessoCliente } from "@/lib/data";
 import {
   criarAcessoCliente,
   resetarSenhaCliente,
   alternarAtivoCliente,
+  excluirAcessoCliente,
 } from "@/lib/cliente-actions";
 
 function slug(nome: string): string {
@@ -45,7 +47,7 @@ export function PortalClientesView({
 }) {
   const router = useRouter();
   const [nome, setNome] = useState("");
-  const [buscaNome, setBuscaNome] = useState("");
+  const [sugAberta, setSugAberta] = useState(false);
   const [login, setLogin] = useState("");
   const [senha, setSenha] = useState("");
   const [salvando, setSalvando] = useState(false);
@@ -56,16 +58,16 @@ export function PortalClientesView({
     typeof window !== "undefined" ? window.location.origin : "";
 
   const nomesFiltrados = useMemo(() => {
-    const q = buscaNome.trim().toLowerCase();
-    return (q ? nomesClientes.filter((n) => n.toLowerCase().includes(q)) : nomesClientes).slice(
-      0,
-      8,
-    );
-  }, [buscaNome, nomesClientes]);
+    const q = nome.trim().toLowerCase();
+    return (q
+      ? nomesClientes.filter((n) => n.toLowerCase().includes(q))
+      : nomesClientes
+    ).slice(0, 8);
+  }, [nome, nomesClientes]);
 
   const escolherNome = (n: string) => {
     setNome(n);
-    setBuscaNome(n);
+    setSugAberta(false);
     if (!login) setLogin(slug(n));
   };
 
@@ -76,12 +78,19 @@ export function PortalClientesView({
     const res = await criarAcessoCliente({ nomeCliente: nome, login, senha });
     if (res.ok) {
       setNome("");
-      setBuscaNome("");
       setLogin("");
       setSenha("");
       router.refresh();
     } else setErro(res.erro);
     setSalvando(false);
+  };
+
+  const excluir = async (id: string, nomeC: string) => {
+    if (!confirm(`Excluir o acesso de "${nomeC}"? Esta ação não pode ser desfeita.`))
+      return;
+    const res = await excluirAcessoCliente(id);
+    if (!res.ok) alert(res.erro);
+    else router.refresh();
   };
 
   const resetar = async (id: string) => {
@@ -125,21 +134,24 @@ export function PortalClientesView({
             <div className="flex items-center gap-2 rounded-md border border-line bg-surface px-2.5 py-2 focus-within:border-navy/60">
               <Search size={14} className="shrink-0 text-faint" />
               <input
-                value={buscaNome}
+                value={nome}
                 onChange={(e) => {
-                  setBuscaNome(e.target.value);
                   setNome(e.target.value);
+                  setSugAberta(true);
                 }}
+                onFocus={() => setSugAberta(true)}
+                onBlur={() => setTimeout(() => setSugAberta(false), 150)}
                 placeholder="Buscar cliente…"
                 className="w-full bg-transparent text-sm text-ink outline-none"
               />
             </div>
-            {buscaNome && nome !== buscaNome && nomesFiltrados.length > 0 && (
-              <div className="absolute left-0 right-0 z-20 mt-1 max-h-48 overflow-auto rounded-md border border-line bg-surface shadow-lg">
+            {sugAberta && nomesFiltrados.length > 0 && (
+              <div className="absolute left-0 right-0 z-20 mt-1 max-h-56 overflow-auto rounded-md border border-line bg-surface shadow-lg">
                 {nomesFiltrados.map((n) => (
                   <button
                     key={n}
                     type="button"
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => escolherNome(n)}
                     className="block w-full border-t border-line px-3 py-2 text-left text-[12.5px] text-ink first:border-t-0 hover:bg-cream"
                   >
@@ -147,6 +159,11 @@ export function PortalClientesView({
                   </button>
                 ))}
               </div>
+            )}
+            {nomesClientes.length === 0 && (
+              <p className="mt-1 text-[11px] text-faint">
+                Nenhum cliente com processo cadastrado ainda.
+              </p>
             )}
           </div>
           <div>
@@ -234,11 +251,18 @@ export function PortalClientesView({
               className={
                 "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] " +
                 (a.ativo
-                  ? "border-line text-danger hover:bg-cream"
+                  ? "border-line text-muted hover:bg-cream"
                   : "border-line text-ok hover:bg-cream")
               }
             >
               <Power size={13} /> {a.ativo ? "desativar" : "ativar"}
+            </button>
+            <button
+              onClick={() => excluir(a.id, a.nomeCliente)}
+              aria-label="Excluir acesso"
+              className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-[11px] text-danger hover:bg-cream"
+            >
+              <Trash2 size={13} /> excluir
             </button>
           </div>
         ))}

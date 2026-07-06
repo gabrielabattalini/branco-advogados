@@ -180,9 +180,9 @@ export function CargaView({
       {/* Cabeçalho + filtro */}
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-ink">Carga de Trabalho</h1>
+          <h1 className="text-xl font-semibold text-ink">Estatísticas</h1>
           <p className="mt-1 text-sm text-muted">
-            Distribuição das tarefas entre a equipe — para equilibrar quem está com mais e quem tem folga.
+            Carga de trabalho e produtividade da equipe — para equilibrar quem está com mais e quem tem folga.
           </p>
         </div>
         <div className="flex overflow-hidden rounded-md border border-line">
