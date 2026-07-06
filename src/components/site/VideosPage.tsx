@@ -14,7 +14,6 @@ const MINUTO: Video[] = [
 const ENTREVISTAS: Video[] = [
   { vid: "ir8WIA_O83w", title: "Escritório Branco Advogados Associados, Direito Civil, Trabalhista e Comercial" },
   { vid: "h6kB3TLbMzI", title: "Entrevista, Advogado Dr. Luiz Carlos Branco, Empresários de Sucesso TV" },
-  { vid: "zk5o99ARPkY", title: "Entrevista Dr. Luiz Carlos Branco, Empresários de Sucesso TV" },
   { vid: "uoCqCfCybdE", title: "Dr. Luiz Carlos Branco entrevistado pela Band News" },
 ];
 
