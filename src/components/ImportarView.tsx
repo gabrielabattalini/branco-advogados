@@ -2,8 +2,9 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { FileSpreadsheet, FileText, Loader2, Check, AlertTriangle } from "lucide-react";
+import { Users, FileSpreadsheet, FileText, Loader2, Check, AlertTriangle } from "lucide-react";
 import {
+  importarContatos,
   importarPlanilhaClientes,
   importarRelatoriosDocx,
 } from "@/lib/importar-actions";
@@ -12,12 +13,28 @@ type Msg = { ok: boolean; texto: string } | null;
 
 export function ImportarView() {
   const router = useRouter();
+  const contatosRef = useRef<HTMLInputElement>(null);
   const planRef = useRef<HTMLInputElement>(null);
   const docsRef = useRef<HTMLInputElement>(null);
+  const [impContatos, setImpContatos] = useState(false);
   const [impPlan, setImpPlan] = useState(false);
   const [impDocs, setImpDocs] = useState(false);
+  const [msgContatos, setMsgContatos] = useState<Msg>(null);
   const [msgPlan, setMsgPlan] = useState<Msg>(null);
   const [msgDocs, setMsgDocs] = useState<Msg>(null);
+
+  const enviarContatos = async () => {
+    const file = contatosRef.current?.files?.[0];
+    if (!file) return;
+    setImpContatos(true);
+    setMsgContatos(null);
+    const fd = new FormData();
+    fd.set("arquivo", file);
+    const res = await importarContatos(fd);
+    setMsgContatos({ ok: res.ok, texto: res.ok ? res.msg : res.erro });
+    setImpContatos(false);
+    router.refresh();
+  };
 
   const enviarPlanilha = async () => {
     const file = planRef.current?.files?.[0];
@@ -68,10 +85,32 @@ export function ImportarView() {
         Traga os dados reais do escritório para o sistema.
       </p>
 
-      {/* 1. Planilha de clientes */}
+      {/* 1. Contatos (Legal One) */}
       <div className={card + " mb-4"}>
         <div className="flex items-center gap-2 text-[14px] font-medium text-navy">
-          <FileSpreadsheet size={16} /> 1. Planilha de clientes (envio)
+          <Users size={16} /> 1. Contatos (export do Legal One)
+        </div>
+        <p className="mt-1 mb-3 text-[12.5px] text-muted">
+          Sobe a planilha de contatos exportada (.xlsx) com nome, CPF/CNPJ,
+          profissão, telefone, e-mail, grupos e classificações. Os contatos
+          aparecem na aba Contatos. Contatos já cadastrados não são duplicados.
+        </p>
+        <input ref={contatosRef} type="file" accept=".xlsx,.xlsm" className={fileInput} />
+        <button
+          onClick={enviarContatos}
+          disabled={impContatos}
+          className="mt-3 inline-flex items-center gap-2 rounded-md bg-navy px-3 py-2 text-sm text-cream hover:bg-navy-dark disabled:opacity-40"
+        >
+          {impContatos ? <Loader2 size={15} className="animate-spin" /> : <Users size={15} />}
+          {impContatos ? "Importando…" : "Importar contatos"}
+        </button>
+        {aviso(msgContatos)}
+      </div>
+
+      {/* 2. Planilha de clientes */}
+      <div className={card + " mb-4"}>
+        <div className="flex items-center gap-2 text-[14px] font-medium text-navy">
+          <FileSpreadsheet size={16} /> 2. Planilha de clientes (envio)
         </div>
         <p className="mt-1 mb-3 text-[12.5px] text-muted">
           Sobe a planilha (.xlsx/.xlsm) com nome, e-mails, corpo do e-mail, nome
@@ -89,10 +128,10 @@ export function ImportarView() {
         {aviso(msgPlan)}
       </div>
 
-      {/* 2. Relatórios .docx */}
+      {/* 3. Relatórios .docx */}
       <div className={card}>
         <div className="flex items-center gap-2 text-[14px] font-medium text-navy">
-          <FileText size={16} /> 2. Relatórios dos clientes (.docx)
+          <FileText size={16} /> 3. Relatórios dos clientes (.docx)
         </div>
         <p className="mt-1 mb-3 text-[12.5px] text-muted">
           Sobe um ou vários relatórios .docx. O sistema cria os processos (parte

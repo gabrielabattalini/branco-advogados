@@ -53,11 +53,35 @@ export default async function ArtigoPage({
         <p style={{ fontSize: 18, lineHeight: 1.7, color: COR.muted, margin: "24px 0 28px", fontStyle: "italic" }}>
           {a.excerpt}
         </p>
-        {a.corpo.map((par, i) => (
-          <p key={i} style={{ fontSize: 16.5, lineHeight: 1.85, color: "#2a2c28", margin: "0 0 18px" }}>
-            {par}
-          </p>
-        ))}
+        {a.imagem && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={a.imagem}
+            alt={a.title}
+            style={{ width: "100%", height: "auto", display: "block", margin: "0 0 30px", border: "1px solid rgba(27,29,27,0.08)" }}
+          />
+        )}
+        {a.corpo.map((item, i) =>
+          typeof item === "object" && "h" in item ? (
+            <h2
+              key={i}
+              style={{ fontFamily: SERIF, fontSize: 23, fontWeight: 600, color: COR.green, lineHeight: 1.3, margin: "36px 0 14px" }}
+            >
+              {item.h}
+            </h2>
+          ) : item.startsWith("• ") ? (
+            <p
+              key={i}
+              style={{ fontSize: 16.5, lineHeight: 1.7, color: "#2a2c28", margin: "0 0 10px", paddingLeft: 22, textIndent: -22 }}
+            >
+              {item}
+            </p>
+          ) : (
+            <p key={i} style={{ fontSize: 16.5, lineHeight: 1.85, color: "#2a2c28", margin: "0 0 18px" }}>
+              {item}
+            </p>
+          ),
+        )}
 
         <div style={{ marginTop: 40, padding: "26px 28px", background: "#fff", border: "1px solid rgba(27,29,27,0.08)" }}>
           <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 600, color: COR.green, marginBottom: 6 }}>
