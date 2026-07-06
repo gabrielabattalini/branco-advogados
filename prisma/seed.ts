@@ -12,19 +12,13 @@ import {
   intimacoes,
   classificarArea,
 } from "../src/lib/mock";
-import { randomBytes } from "crypto";
-import { hashSenha } from "../src/lib/seguranca";
 import { instanteBRT } from "../src/lib/audiencia";
 import { hojeISO } from "../src/lib/hoje";
 
 const prisma = new PrismaClient();
 
-// Senha inicial das contas semeadas. NÃO fica hardcoded (o código é público):
-// vem de SEED_SENHA_INICIAL ou, se ausente, é gerada aleatoriamente e impressa
-// no console de quem roda o seed. O usuário deve trocar no Perfil no 1º acesso.
-const SENHA_INICIAL =
-  process.env.SEED_SENHA_INICIAL || `Branco-${randomBytes(5).toString("hex")}`;
-console.log(`\n[seed] Senha inicial das contas: ${SENHA_INICIAL}\n`);
+// Contas nascem SEM senha (senhaHash nulo). Não há senha padrão no código —
+// cada pessoa define a própria no 1º acesso, via código enviado por e-mail.
 
 // Remapeia as iniciais dos dados de demonstração para a equipe real.
 const equipeByIni: Record<string, { nome: string; iniciais: string }> =
@@ -50,7 +44,7 @@ async function main() {
         nome: p.nome,
         iniciais: p.iniciais,
         email: p.email,
-        senhaHash: hashSenha(SENHA_INICIAL),
+        senhaHash: null, // sem senha — define no 1º acesso por e-mail
         area: p.area,
         papel: p.papel,
       },

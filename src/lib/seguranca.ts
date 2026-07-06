@@ -139,3 +139,33 @@ export function lerDispositivo(token: string | undefined | null): string | null 
   if (!Number.isFinite(iat) || Date.now() - iat > MAX_DISP_MS) return null;
   return userId;
 }
+
+// ---- Ticket de definição de senha (1º acesso / reset) ----
+// Emitido só depois de o código por e-mail ser validado; autoriza a criação da
+// senha por poucos minutos. Assinado com a mesma chave HMAC e com expiração.
+const MAX_TICKET_MS = 15 * 60 * 1000; // 15 min
+
+export function assinarTicketSenha(userId: string): string {
+  const corpo = `${userId}.${Date.now()}`;
+  const sig = createHmac("sha256", chaveSessao())
+    .update("pwset:" + corpo)
+    .digest("hex");
+  return `${corpo}.${sig}`;
+}
+
+export function lerTicketSenha(token: string | undefined | null): string | null {
+  if (!token) return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  const [userId, iatStr, sig] = parts;
+  if (!userId || !iatStr) return null;
+  const esperado = createHmac("sha256", chaveSessao())
+    .update(`pwset:${userId}.${iatStr}`)
+    .digest("hex");
+  const a = Buffer.from(sig);
+  const b = Buffer.from(esperado);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  const iat = Number(iatStr);
+  if (!Number.isFinite(iat) || Date.now() - iat > MAX_TICKET_MS) return null;
+  return userId;
+}
