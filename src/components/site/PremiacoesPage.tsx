@@ -1,6 +1,7 @@
 import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
 import { PageHero, SERIF, SANS, COR, U } from "./ui";
+import { GaleriaLightbox } from "./GaleriaLightbox";
 
 const CARDS = [
   { big: "45", sup: "+", title: "Anos de história", desc: "Uma das mais longevas bancas de advocacia empresarial de Jundiaí e região." },
@@ -62,14 +63,10 @@ export default function PremiacoesPage() {
         <div className="site-pad" style={{ maxWidth: 1260, margin: "0 auto", padding: "88px 40px" }}>
           <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.3em", textTransform: "uppercase", color: COR.gold, marginBottom: 14 }}>Momentos</div>
           <h2 style={{ fontFamily: SERIF, fontWeight: 500, fontSize: 36, lineHeight: 1.12, margin: "0 0 44px", color: COR.green, maxWidth: 680 }}>Destaques & Reconhecimentos</h2>
-          <div className="site-grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20 }}>
-            {PHOTOS.map((p) => (
-              <figure key={p.cap} style={{ margin: 0, background: COR.cream, border: "1px solid rgba(27,29,27,0.08)", overflow: "hidden" }}>
-                <div style={{ width: "100%", aspectRatio: "4 / 3", backgroundColor: "#e8e6dc", backgroundImage: `url("${p.src}")`, backgroundSize: "cover", backgroundPosition: "center" }} />
-                <figcaption style={{ padding: "16px 20px", fontSize: 13, letterSpacing: "0.03em", color: COR.green, fontWeight: 600 }}>{p.cap}</figcaption>
-              </figure>
-            ))}
-          </div>
+          <GaleriaLightbox fotos={PHOTOS} />
+          <p style={{ marginTop: 18, fontSize: 12.5, color: COR.muted }}>
+            Clique em uma foto para ampliar.
+          </p>
         </div>
       </section>
 
