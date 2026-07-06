@@ -118,6 +118,20 @@ model Tarefa {
   criadoEm     DateTime  @default(now())
 }
 
+// Linha do tempo da tarefa: comentários livres + registro automático de
+// mudanças (status, responsáveis, prazo). "autor" guarda as iniciais (ou
+// "sistema"); "tipo" distingue comentário de mudança para o ícone/estilo.
+model TarefaHistorico {
+  id       String   @id @default(cuid())
+  tarefaId String
+  autor    String // iniciais do usuário (ou "sistema")
+  tipo     String // comentario | criacao | status | responsaveis | prazo
+  texto    String   @default("") // comentário livre OU descrição da mudança
+  criadoEm DateTime @default(now())
+
+  @@index([tarefaId])
+}
+
 model Documento {
   id              String   @id @default(cuid())
   processoId      String

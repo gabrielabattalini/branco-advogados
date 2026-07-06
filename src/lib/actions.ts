@@ -3,7 +3,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { STATUS_LIST } from "@/lib/mock";
+import { STATUS_LIST, statusLabel } from "@/lib/mock";
 import { getSessao, ehGestor } from "@/lib/sessao";
 import { instanteBRT } from "@/lib/audiencia";
 import { hojeISO, hojeBR } from "@/lib/hoje";
@@ -24,6 +24,23 @@ function limparOffsets(lembretes: number[] | undefined): number[] {
 
 export type ActionResult = { ok: true } | { ok: false; erro: string };
 
+// Registra um item na linha do tempo da tarefa (comentário ou mudança).
+// Nunca derruba a operação principal: falha de log é silenciosa.
+async function registrarHistorico(
+  tarefaId: string,
+  autor: string,
+  tipo: string,
+  texto: string,
+): Promise<void> {
+  try {
+    await prisma.tarefaHistorico.create({
+      data: { tarefaId, autor, tipo, texto: texto.slice(0, 2000) },
+    });
+  } catch {
+    /* histórico é secundário — não interrompe a ação */
+  }
+}
+
 // Aceita só "yyyy-mm-dd"; qualquer outra coisa vira "" (campo opcional).
 function isoOuVazio(v: string | undefined): string {
   return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : "";
@@ -40,6 +57,10 @@ function prazoTipoOk(t: string | undefined): string {
 
 const AREAS = ["trabalhista", "civel"];
 const STATUSES = STATUS_LIST.map((s) => s.key as string);
+
+function labelStatus(k: string): string {
+  return (statusLabel as Record<string, string>)[k] ?? k;
+}
 
 // Iniciais válidas = usuários ativos no banco (equipe atual).
 async function iniciaisValidas(): Promise<Set<string>> {
@@ -80,7 +101,7 @@ export async function criarTarefa(input: {
           where: { numero: input.processoNumero },
         })
       : null;
-    await prisma.tarefa.create({
+    const nova = await prisma.tarefa.create({
       data: {
         titulo,
         descricao: input.descricao?.trim().slice(0, 5000) || null,
@@ -99,6 +120,7 @@ export async function criarTarefa(input: {
         origem: input.origem === "aasp" ? "aasp" : "manual",
       },
     });
+    await registrarHistorico(nova.id, s.iniciais, "criacao", "criou a tarefa");
     revalidatePath("/tarefas");
     revalidatePath("/painel");
     revalidatePath("/processos");
@@ -118,7 +140,7 @@ export async function atualizarStatusTarefa(
   try {
     const tarefa = await prisma.tarefa.findUnique({
       where: { id },
-      select: { responsaveis: true },
+      select: { responsaveis: true, status: true },
     });
     if (!tarefa) return { ok: false, erro: "Tarefa não encontrada." };
     if (!ehGestor(s.papel) && !tarefa.responsaveis.includes(s.iniciais))
@@ -128,6 +150,13 @@ export async function atualizarStatusTarefa(
       // Carimba a conclusão (base dos gráficos de produtividade); limpa se reabrir.
       data: { status, concluidaEm: status === "concluida" ? new Date() : null },
     });
+    if (tarefa.status !== status)
+      await registrarHistorico(
+        id,
+        s.iniciais,
+        "status",
+        `mudou o status: ${labelStatus(tarefa.status)} → ${labelStatus(status)}`,
+      );
     revalidatePath("/tarefas");
     revalidatePath("/painel");
     revalidatePath("/carga");
@@ -166,7 +195,7 @@ export async function editarTarefa(input: {
     const resps = resp.length ? resp : [s.iniciais];
     const alvo = await prisma.tarefa.findUnique({
       where: { id: input.id },
-      select: { responsaveis: true, status: true },
+      select: { responsaveis: true, status: true, data: true, prazo: true },
     });
     if (!alvo) return { ok: false, erro: "Tarefa não encontrada." };
     // Só um gestor ou um responsável pela tarefa pode editá-la.
@@ -212,6 +241,30 @@ export async function editarTarefa(input: {
           : {}),
       },
     });
+    // Registra na linha do tempo o que de fato mudou.
+    if (alvo.status !== input.status)
+      await registrarHistorico(
+        input.id,
+        s.iniciais,
+        "status",
+        `mudou o status: ${labelStatus(alvo.status)} → ${labelStatus(input.status)}`,
+      );
+    const antes = [...alvo.responsaveis].sort().join(",");
+    const depois = [...resps].sort().join(",");
+    if (antes !== depois)
+      await registrarHistorico(
+        input.id,
+        s.iniciais,
+        "responsaveis",
+        `alterou os responsáveis: ${resps.join(" / ") || "—"}`,
+      );
+    if (gestor && alvo.data !== dataFatal)
+      await registrarHistorico(
+        input.id,
+        s.iniciais,
+        "prazo",
+        `alterou a data fatal para ${input.prazo || dataFatal}`,
+      );
     revalidatePath("/tarefas");
     revalidatePath("/painel");
     revalidatePath("/processos");
@@ -219,6 +272,77 @@ export async function editarTarefa(input: {
   } catch {
     return { ok: false, erro: "Não foi possível salvar a tarefa." };
   }
+}
+
+// Adiciona um comentário livre à tarefa. Qualquer pessoa com acesso à tarefa
+// (gestor ou responsável) pode comentar.
+export async function comentarTarefa(
+  tarefaId: string,
+  texto: string,
+): Promise<ActionResult> {
+  const s = await getSessao();
+  if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
+  const t = (texto ?? "").trim();
+  if (!t) return { ok: false, erro: "Escreva um comentário." };
+  try {
+    const tarefa = await prisma.tarefa.findUnique({
+      where: { id: tarefaId },
+      select: { responsaveis: true },
+    });
+    if (!tarefa) return { ok: false, erro: "Tarefa não encontrada." };
+    if (!ehGestor(s.papel) && !tarefa.responsaveis.includes(s.iniciais))
+      return { ok: false, erro: "Sem permissão para comentar nesta tarefa." };
+    await registrarHistorico(tarefaId, s.iniciais, "comentario", t);
+    revalidatePath("/tarefas");
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Não foi possível salvar o comentário." };
+  }
+}
+
+export type HistoricoItem = {
+  id: string;
+  autor: string; // iniciais
+  autorNome: string;
+  tipo: string;
+  texto: string;
+  quando: string; // ISO
+};
+
+// Linha do tempo completa da tarefa (comentários + mudanças), mais antiga → recente.
+export async function getHistoricoTarefa(
+  tarefaId: string,
+): Promise<HistoricoItem[]> {
+  const s = await getSessao();
+  if (!s) return [];
+  const tarefa = await prisma.tarefa.findUnique({
+    where: { id: tarefaId },
+    select: { responsaveis: true },
+  });
+  if (!tarefa) return [];
+  if (!ehGestor(s.papel) && !tarefa.responsaveis.includes(s.iniciais)) return [];
+  const rows = await prisma.tarefaHistorico.findMany({
+    where: { tarefaId },
+    orderBy: { criadoEm: "asc" },
+    take: 200,
+  });
+  const inis = [...new Set(rows.map((r) => r.autor))];
+  const nomes = new Map(
+    (
+      await prisma.usuario.findMany({
+        where: { iniciais: { in: inis } },
+        select: { iniciais: true, nome: true },
+      })
+    ).map((u) => [u.iniciais, u.nome]),
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    autor: r.autor,
+    autorNome: nomes.get(r.autor) ?? r.autor,
+    tipo: r.tipo,
+    texto: r.texto,
+    quando: r.criadoEm.toISOString(),
+  }));
 }
 
 export async function excluirTarefa(id: string): Promise<ActionResult> {

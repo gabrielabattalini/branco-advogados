@@ -21,6 +21,7 @@ import {
 import type { Responsavel } from "@/lib/data";
 import { criarTarefa, editarTarefa, excluirTarefa } from "@/lib/actions";
 import { criarTarefaPublicacao } from "@/lib/aasp-actions";
+import { TarefaTimeline } from "@/components/TarefaTimeline";
 
 // Pré-carregamento ao abrir o modal a partir da Triagem.
 export type InicialTarefa = {
@@ -659,6 +660,8 @@ export function NovaTarefaModal({
         )}
 
         {erro && <p className="text-[12px] text-danger">{erro}</p>}
+
+        {edicao && tarefa && <TarefaTimeline tarefaId={tarefa.id} />}
       </div>
     </Modal>
   );
