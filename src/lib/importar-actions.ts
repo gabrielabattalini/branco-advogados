@@ -19,6 +19,21 @@ async function exigirGestor() {
   return s;
 }
 
+// Iniciais a partir do nome (2 primeiras palavras relevantes).
+function iniciaisDe(nome: string): string {
+  const parts = nome
+    .trim()
+    .split(/\s+/)
+    .filter((p) => p.length > 1 || /[A-Za-zÀ-ú]/.test(p));
+  const letras = (parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? parts[0]?.[1] ?? "");
+  return letras.toUpperCase() || "?";
+}
+
+// PF | PJ (da planilha) → pf | pj (do Contato). Sem info clara → pj.
+function tipoContatoDe(tipoPlanilha: string): "pf" | "pj" {
+  return /pf|f[ií]sic/i.test(tipoPlanilha) ? "pf" : "pj";
+}
+
 // Importa a planilha de clientes (nome, e-mails, corpo, arquivo, PF/PJ).
 export async function importarPlanilhaClientes(
   formData: FormData,
@@ -33,6 +48,7 @@ export async function importarPlanilhaClientes(
     if (clientes.length === 0)
       return { ok: false, erro: "Nenhum cliente encontrado na planilha." };
     let criados = 0;
+    let contatosNovos = 0;
     for (const c of clientes) {
       const existe = await prisma.clienteRelatorio.findFirst({
         where: { nome: c.nome },
@@ -51,10 +67,37 @@ export async function importarPlanilhaClientes(
         await prisma.clienteRelatorio.create({ data: c });
         criados++;
       }
+
+      // Também cadastra como Contato (tipo cliente) para aparecer na aba Contatos.
+      const email = c.emails.split(/[;,]/)[0]?.trim() ?? "";
+      const jaContato = await prisma.contato.findFirst({
+        where: { nome: c.nome, tipoContato: "cliente" },
+      });
+      if (jaContato) {
+        await prisma.contato.update({
+          where: { id: jaContato.id },
+          data: {
+            tipo: tipoContatoDe(c.tipo),
+            email: email || jaContato.email,
+          },
+        });
+      } else {
+        await prisma.contato.create({
+          data: {
+            tipo: tipoContatoDe(c.tipo),
+            nome: c.nome,
+            documento: "",
+            tipoContato: "cliente",
+            email,
+            iniciais: iniciaisDe(c.nome),
+          },
+        });
+        contatosNovos++;
+      }
     }
     return {
       ok: true,
-      msg: `${clientes.length} cliente(s) na planilha · ${criados} novo(s).`,
+      msg: `${clientes.length} cliente(s) na planilha · ${criados} novo(s) no relatório · ${contatosNovos} novo(s) em Contatos.`,
     };
   } catch {
     return { ok: false, erro: "Não foi possível ler a planilha." };
