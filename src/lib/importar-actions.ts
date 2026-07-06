@@ -198,12 +198,19 @@ export async function importarRelatoriosDocx(
     for (const file of files) {
       const buf = await file.arrayBuffer();
       const tabelas = await docxParaTabelas(buf);
-      // Detecta o formato: tabela (ex.: LOMA) ou campos rotulados (demais).
+      const texto = await docxParaTexto(buf);
+      // Roda os dois leitores (tabela tipo LOMA e campos rotulados) e usa o que
+      // encontrar mais processos — cobre relatórios híbridos com segurança.
       const relTab = parseRelatorioTabela(tabelas);
-      let rel = relTab && relTab.processos.length > 0 ? relTab : null;
-      if (!rel) rel = parseRelatorioDocx(await docxParaTexto(buf));
+      const relLbl = parseRelatorioDocx(texto);
+      let rel =
+        (relTab?.processos.length ?? 0) > relLbl.processos.length
+          ? relTab!
+          : relLbl;
       if (!rel.cliente) {
-        const texto = await docxParaTexto(buf);
+        rel.cliente = relTab?.cliente || relLbl.cliente || "";
+      }
+      if (!rel.cliente) {
         const m = texto.match(/CLIENTE\s*:?\s*([^\n]+)/i);
         rel.cliente = m ? m[1].replace(/\s{2,}.*$/, "").trim() : "";
       }
