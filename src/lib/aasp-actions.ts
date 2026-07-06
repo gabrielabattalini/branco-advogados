@@ -189,9 +189,15 @@ async function montarGrifados(bytes: Uint8Array): Promise<ResultadoGrifado> {
 
   try {
     const out = await grifarAASP(bytes, (p) => {
-      // Quem FAZ (responsável do histórico do processo) + quem REVISA (revisor
-      // da área). NÃO entra a solicitante (Karen/Débora), que é quem lança.
+      // Quem FAZ (responsável do histórico do processo). NÃO entra a solicitante
+      // (Karen/Débora), que é quem lança.
       const quemFaz = (ultimos[p.processo] ?? []).map((i) => primeiroNome[i] ?? i);
+      // IMPORTANTE: só anota (nome/tarefa/prazo em vermelho) quando o processo já
+      // tem tarefa real no sistema — ou seja, quando VOCÊ realmente lançou algo.
+      // Antes, o grifado escrevia uma sugestão (revisor + ação) em TODA
+      // publicação, inclusive nas que ninguém tinha lançado. As demais ficam só
+      // com o grifo amarelo (dispositivo + partes), sem nomes.
+      if (quemFaz.length === 0) return { nomes: "", tarefa: "", data: "" };
       const revisor = p.area === "trabalhista" ? revisorTrab : revisorCivel;
       const nomes = [...new Set([...quemFaz, revisor].filter(Boolean))].join(" / ");
       const d = calcPrazo(p.disponibilizacao, p.prazoDias, p.prazoTipo);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -27,8 +27,32 @@ export function LoginForm() {
   const [confirma, setConfirma] = useState("");
   const [erro, setErro] = useState("");
   const [ocupado, setOcupado] = useState(false);
+  const [salvar, setSalvar] = useState(true); // salvar e-mail neste aparelho
+  const [auto, setAuto] = useState(true); // login automático (manter conectado)
+
+  // Pré-preenche o e-mail salvo neste aparelho.
+  useEffect(() => {
+    try {
+      const salvo = localStorage.getItem("bl_email");
+      if (salvo) setEmail(salvo);
+      if (localStorage.getItem("bl_auto") === "0") setAuto(false);
+    } catch {
+      /* localStorage indisponível */
+    }
+  }, []);
+
+  const guardarPrefs = () => {
+    try {
+      if (salvar) localStorage.setItem("bl_email", email);
+      else localStorage.removeItem("bl_email");
+      localStorage.setItem("bl_auto", auto ? "1" : "0");
+    } catch {
+      /* ignora */
+    }
+  };
 
   const entrou = () => {
+    guardarPrefs();
     router.push("/painel");
     router.refresh();
   };
@@ -229,6 +253,26 @@ export function LoginForm() {
         <p className="mt-1 text-[11px] text-faint">
           Primeiro acesso? Deixe a senha em branco — você vai criá-la após o código enviado por e-mail.
         </p>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label className="inline-flex cursor-pointer items-center gap-2 text-[12.5px] text-muted">
+          <input
+            type="checkbox"
+            className="h-3.5 w-3.5 accent-navy"
+            checked={auto}
+            onChange={(e) => setAuto(e.target.checked)}
+          />
+          Login automático (manter-me conectado neste aparelho)
+        </label>
+        <label className="inline-flex cursor-pointer items-center gap-2 text-[12.5px] text-muted">
+          <input
+            type="checkbox"
+            className="h-3.5 w-3.5 accent-navy"
+            checked={salvar}
+            onChange={(e) => setSalvar(e.target.checked)}
+          />
+          Salvar meu e-mail neste aparelho
+        </label>
       </div>
       {erro && <p className="text-[12px] text-danger">{erro}</p>}
       <button
