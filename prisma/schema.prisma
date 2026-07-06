@@ -130,6 +130,10 @@ model Processo {
   valorEstimado       String       @default("")
   audienciaRel        String       @default("") // texto da audiência no relatório (vazio = puxa da próxima audiência)
   observacoesRel      String       @default("") // observações do relatório
+  // Modalidade do lançamento no relatório do cliente. Separa em seções:
+  // judicial | recuperacao_falencia | procon | administrativo | outro
+  categoria           String       @default("judicial")
+  infoAdicional       String       @default("") // dados extras (ex.: crédito habilitado em RJ/falência)
   criadoEm            DateTime     @default(now())
   tarefas             Tarefa[]
   documentos          Documento[]

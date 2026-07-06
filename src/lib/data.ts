@@ -496,6 +496,8 @@ export type ProcRelClienteDTO = {
   valorEstimado: string;
   audiencia: string;
   observacoes: string;
+  categoria: string;
+  infoAdicional: string;
 };
 // Texto da próxima audiência agendada de um processo, para o relatório.
 // Ex.: "Instrução em 12/08/2026 às 14:00 (virtual)." — "" se não houver.
@@ -558,6 +560,8 @@ export async function getRelatorioClienteDados(
       valorEstimado: p.valorEstimado,
       audiencia: p.audienciaRel || textoProximaAudiencia(p.audiencias),
       observacoes: p.observacoesRel,
+      categoria: p.categoria,
+      infoAdicional: p.infoAdicional,
     })),
   };
 }
@@ -577,6 +581,8 @@ export type ProcRelEditorDTO = {
   audienciaRel: string;
   audienciaSugerida: string;
   observacoesRel: string;
+  categoria: string;
+  infoAdicional: string;
   situacoes: SituacaoEditorDTO[];
 };
 export async function getRelatorioClienteEditor(
@@ -610,6 +616,8 @@ export async function getRelatorioClienteEditor(
       audienciaRel: p.audienciaRel,
       audienciaSugerida: textoProximaAudiencia(p.audiencias),
       observacoesRel: p.observacoesRel,
+      categoria: p.categoria,
+      infoAdicional: p.infoAdicional,
       situacoes: p.andamentos.map((a) => ({
         id: a.id,
         texto: a.texto,

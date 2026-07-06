@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getSessao } from "@/lib/sessao";
 import { ehGestor } from "@/lib/papeis";
+import { CATEGORIAS_VALIDAS } from "@/lib/relatorio-categorias";
 import { enviarRelatorioDiario, type ResultadoEnvio } from "@/lib/relatorio-envio";
 
 export type AcaoResult = { ok: true } | { ok: false; erro: string };
@@ -29,6 +30,8 @@ export async function salvarProcessoRelatorio(
     valorEstimado: string;
     audienciaRel: string;
     observacoesRel: string;
+    categoria: string;
+    infoAdicional: string;
   },
 ): Promise<AcaoResult> {
   const s = await exigirGestor();
@@ -46,6 +49,8 @@ export async function salvarProcessoRelatorio(
         valorEstimado: lim(campos.valorEstimado, 60),
         audienciaRel: lim(campos.audienciaRel, 300),
         observacoesRel: lim(campos.observacoesRel),
+        categoria: CATEGORIAS_VALIDAS.includes(campos.categoria) ? campos.categoria : "judicial",
+        infoAdicional: lim(campos.infoAdicional),
       },
     });
     revalidatePath("/relatorio/clientes");

@@ -19,6 +19,7 @@ import {
   removerSituacao,
   removerProcesso,
 } from "@/lib/relatorio-actions";
+import { CATEGORIAS_RELATORIO } from "@/lib/relatorio-categorias";
 import type { ProcRelEditorDTO, SituacaoEditorDTO } from "@/lib/data";
 
 const inputCls =
@@ -121,6 +122,8 @@ function ProcessoForm({ p }: { p: ProcRelEditorDTO }) {
     valorEstimado: p.valorEstimado,
     audienciaRel: p.audienciaRel,
     observacoesRel: p.observacoesRel,
+    categoria: p.categoria || "judicial",
+    infoAdicional: p.infoAdicional,
   });
   const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState(false);
@@ -174,6 +177,24 @@ function ProcessoForm({ p }: { p: ProcRelEditorDTO }) {
       </div>
 
       <div className="flex flex-col gap-4 p-5">
+        <div>
+          <label className={labelCls}>Modalidade (seção do relatório)</label>
+          <select
+            className={inputCls}
+            value={f.categoria}
+            onChange={(e) => {
+              setF({ ...f, categoria: e.target.value });
+              setSalvo(false);
+            }}
+          >
+            {CATEGORIAS_RELATORIO.map((c) => (
+              <option key={c.valor} value={c.valor}>
+                {c.rotulo}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="grid grid-cols-[1fr_160px] gap-3">
           <div>
             <label className={labelCls}>Parte contrária</label>
@@ -257,6 +278,11 @@ function ProcessoForm({ p }: { p: ProcRelEditorDTO }) {
         <div>
           <label className={labelCls}>5. Observações</label>
           <textarea className={inputCls + " min-h-[60px] resize-y"} value={f.observacoesRel} onChange={set("observacoesRel")} maxLength={4000} />
+        </div>
+
+        <div>
+          <label className={labelCls}>Informações adicionais</label>
+          <textarea className={inputCls + " min-h-[60px] resize-y"} value={f.infoAdicional} onChange={set("infoAdicional")} maxLength={4000} placeholder="Dados extras — ex.: crédito habilitado, classe, administrador judicial (recuperação/falência)…" />
         </div>
 
         <div className="flex items-center gap-3">
