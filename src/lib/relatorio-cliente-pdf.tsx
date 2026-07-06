@@ -62,13 +62,18 @@ function Proc({ p, ordem }: { p: ProcRelCliente; ordem: number }) {
   const rom = romano(ordem);
   const tipo = p.parteContrariaTipo ? ` (${p.parteContrariaTipo})` : "";
   return (
-    <View style={s.proc} wrap={false}>
-      <Text style={s.parte}>
-        {rom} - PARTE CONTRÁRIA{tipo}: {p.parteContraria || "—"}
-      </Text>
-      <Text style={s.linhaProc}>
-        PROCESSO n. {p.numero}    {p.juizo ? `JUÍZO: ${p.juizo}` : ""}
-      </Text>
+    // Sem wrap={false}: blocos longos (status grande) quebram entre páginas
+    // em vez de transbordar por cima do cabeçalho.
+    <View style={s.proc}>
+      {/* O cabeçalho do processo fica junto (não fica órfão no fim da página). */}
+      <View wrap={false} minPresenceAhead={30}>
+        <Text style={s.parte}>
+          {rom} - PARTE CONTRÁRIA{tipo}: {p.parteContraria || "—"}
+        </Text>
+        <Text style={s.linhaProc}>
+          PROCESSO n. {p.numero}    {p.juizo ? `JUÍZO: ${p.juizo}` : ""}
+        </Text>
+      </View>
       <Campo rotulo="1. SÍNTESE DO PEDIDO:" valor={p.sinteseDoPedido} />
       <View style={s.campo}>
         <Text style={s.rot}>2. SITUAÇÃO ATUAL (STATUS):</Text>
@@ -97,8 +102,11 @@ function Proc({ p, ordem }: { p: ProcRelCliente; ordem: number }) {
 }
 
 function romano(n: number): string {
-  const r = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
-  return r[n - 1] ?? String(n);
+  const un = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"];
+  const dez = ["", "X", "XX", "XXX", "XL", "L", "LX", "LXX", "LXXX", "XC"];
+  const cem = ["", "C", "CC", "CCC", "CD", "D", "DC", "DCC", "DCCC", "CM"];
+  if (n < 1 || n > 399) return String(n);
+  return cem[Math.floor(n / 100) % 10] + dez[Math.floor(n / 10) % 10] + un[n % 10];
 }
 
 function Relatorio({ dados }: { dados: RelatorioClienteDados }) {
