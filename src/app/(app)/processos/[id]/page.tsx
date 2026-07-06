@@ -25,7 +25,7 @@ export default async function ProcessoPage({
     getResponsaveis(),
   ]);
   if (!ficha) notFound();
-  const { processo: p, tarefas, documentos, publicacoes } = ficha;
+  const { processo: p, tarefas, documentos, publicacoes, andamento } = ficha;
   const primeiroNome = (ini: string) =>
     responsaveis.find((r) => r.iniciais === ini)?.nome.split(/\s+/)[0] ?? ini;
 
@@ -78,6 +78,23 @@ export default async function ProcessoPage({
           ))}
         </div>
       </div>
+
+      {andamento && (
+        <section className="mb-3 rounded-lg border border-gold/40 bg-gold/5 p-5">
+          <h2 className="mb-1 text-[13px] font-medium text-gold">
+            Situação atual (relatório do cliente)
+          </h2>
+          <p className="whitespace-pre-wrap text-[13.5px] text-ink">
+            {andamento.texto}
+          </p>
+          <div className="mt-1.5 text-[11px] text-faint">
+            Atualizado por {andamento.autor} em{" "}
+            {new Date(andamento.quando).toLocaleDateString("pt-BR", {
+              timeZone: "America/Sao_Paulo",
+            })}
+          </div>
+        </section>
+      )}
 
       <section className="mb-3 rounded-lg border border-line bg-surface p-5">
         <div className="mb-2 flex items-center justify-between">

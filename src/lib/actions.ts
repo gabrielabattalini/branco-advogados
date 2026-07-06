@@ -298,6 +298,59 @@ export async function editarTarefa(input: {
   }
 }
 
+// Registra a "situação atual" de um processo (pelo número). É pedido ao
+// concluir uma tarefa vinculada ao processo — vira o andamento mais recente,
+// que o relatório mensal do cliente puxa.
+export async function registrarAndamentoProcesso(input: {
+  processoNumero: string;
+  texto: string;
+  tarefaId?: string;
+}): Promise<ActionResult> {
+  const s = await getSessao();
+  if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
+  const texto = (input.texto ?? "").trim();
+  if (!texto) return { ok: false, erro: "Escreva um resumo da situação." };
+  try {
+    const proc = await prisma.processo.findUnique({
+      where: { numero: input.processoNumero },
+      select: { id: true },
+    });
+    if (!proc) return { ok: false, erro: "Processo não encontrado." };
+    await prisma.processoAndamento.create({
+      data: {
+        processoId: proc.id,
+        texto: texto.slice(0, 2000),
+        autor: s.iniciais,
+        tarefaId: input.tarefaId ?? "",
+      },
+    });
+    revalidatePath("/processos");
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Não foi possível salvar a situação." };
+  }
+}
+
+// Situação mais recente de um processo (para pré-preencher o campo ao concluir).
+export async function getUltimoAndamento(
+  processoNumero: string,
+): Promise<{ texto: string; autor: string; quando: string } | null> {
+  const s = await getSessao();
+  if (!s) return null;
+  const proc = await prisma.processo.findUnique({
+    where: { numero: processoNumero },
+    select: { id: true },
+  });
+  if (!proc) return null;
+  const a = await prisma.processoAndamento.findFirst({
+    where: { processoId: proc.id },
+    orderBy: { criadoEm: "desc" },
+  });
+  return a
+    ? { texto: a.texto, autor: a.autor, quando: a.criadoEm.toISOString() }
+    : null;
+}
+
 // Adiciona um comentário livre à tarefa. Qualquer pessoa com acesso à tarefa
 // (gestor ou responsável) pode comentar.
 export async function comentarTarefa(

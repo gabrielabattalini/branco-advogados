@@ -23,6 +23,7 @@ import type { Responsavel, AudienciaDTO, EventoAgendaDTO } from "@/lib/data";
 import { AreaTag } from "@/components/AreaTag";
 import { StatusSelect } from "@/components/StatusSelect";
 import { NovaTarefaModal } from "@/components/NovaTarefaModal";
+import { AndamentoModal } from "@/components/AndamentoModal";
 import { atualizarStatusTarefa } from "@/lib/actions";
 import { DOWS, NOMES_MES, gridMes } from "@/lib/calendario";
 
@@ -70,10 +71,16 @@ export function TarefasView({
   // Arrastar-e-soltar no Quadro.
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragCol, setDragCol] = useState<string | null>(null);
+  // Pedido de "situação do processo" ao concluir uma tarefa com processo.
+  const [andamentoTarefa, setAndamentoTarefa] = useState<TarefaFull | null>(null);
 
   const setStatus = async (id: string, status: Status) => {
+    const tarefa = tarefas.find((t) => t.id === id);
     await atualizarStatusTarefa(id, status);
     router.refresh();
+    // Ao concluir uma tarefa vinculada a um processo, pede a situação atual.
+    if (status === "concluida" && tarefa?.processo)
+      setAndamentoTarefa(tarefa);
   };
   const prazoCls = (urgente?: boolean) =>
     urgente ? "font-medium text-danger" : "text-muted";
@@ -854,6 +861,13 @@ export function TarefasView({
           papel={papel}
           me={me}
           onClose={() => setEditar(null)}
+        />
+      )}
+      {andamentoTarefa?.processo && (
+        <AndamentoModal
+          processoNumero={andamentoTarefa.processo}
+          tarefaId={andamentoTarefa.id}
+          onClose={() => setAndamentoTarefa(null)}
         />
       )}
     </div>

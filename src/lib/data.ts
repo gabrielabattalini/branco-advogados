@@ -414,6 +414,7 @@ export type FichaProcesso = {
   tarefas: TarefaFull[];
   documentos: DocItem[];
   publicacoes: { id: string; titulo: string; origem: string; estado: string }[];
+  andamento: { texto: string; autor: string; quando: string } | null;
 };
 
 export async function getFichaProcesso(
@@ -428,9 +429,11 @@ export async function getFichaProcesso(
         where: { statusTriagem: { not: "pendente" } },
         orderBy: { criadoEm: "desc" },
       },
+      andamentos: { orderBy: { criadoEm: "desc" }, take: 1 },
     },
   });
   if (!p) return null;
+  const ultimo = p.andamentos[0];
   return {
     processo: mapProcesso(p),
     tarefas: p.tarefas.map((t) => ({
@@ -466,6 +469,13 @@ export async function getFichaProcesso(
       origem: `${pub.tribunal} · ${pub.tipo}`,
       estado: pub.statusTriagem,
     })),
+    andamento: ultimo
+      ? {
+          texto: ultimo.texto,
+          autor: ultimo.autor,
+          quando: ultimo.criadoEm.toISOString(),
+        }
+      : null,
   };
 }
 

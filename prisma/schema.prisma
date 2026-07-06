@@ -98,6 +98,22 @@ model Processo {
   documentos          Documento[]
   publicacoes         Publicacao[]
   audiencias          Audiencia[]
+  andamentos          ProcessoAndamento[]
+}
+
+// Histórico da "situação atual" do processo. Cada vez que uma tarefa do
+// processo é concluída, pedimos um breve resumo — que vira o andamento mais
+// recente. O relatório mensal do cliente puxa o último de cada processo.
+model ProcessoAndamento {
+  id         String   @id @default(cuid())
+  processoId String
+  processo   Processo @relation(fields: [processoId], references: [id])
+  texto      String
+  autor      String // iniciais de quem registrou
+  tarefaId   String   @default("") // tarefa que originou o resumo (se houver)
+  criadoEm   DateTime @default(now())
+
+  @@index([processoId])
 }
 
 model Tarefa {
