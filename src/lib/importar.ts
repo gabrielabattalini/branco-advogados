@@ -112,9 +112,11 @@ export type ClienteImportado = {
   tipo: string;
 };
 
-export async function parsePlanilhaClientes(
+// Lê uma planilha .xlsx/.xlsm e devolve as linhas como mapa de colunas (A, B, …).
+// A primeira linha (cabeçalho) é descartada.
+async function lerLinhasPlanilha(
   buf: ArrayBuffer,
-): Promise<ClienteImportado[]> {
+): Promise<Record<string, string>[]> {
   const zip = await JSZip.loadAsync(buf);
   const ssFile = zip.file("xl/sharedStrings.xml");
   const shared: string[] = [];
@@ -137,10 +139,9 @@ export async function parsePlanilhaClientes(
     zip.file(/xl\/worksheets\/sheet\d+\.xml/)[0];
   if (!sheetFile) return [];
   const data = await sheetFile.async("string");
-  const clientes: ClienteImportado[] = [];
   const rows = data.match(/<row[^>]*>[\s\S]*?<\/row>/g) ?? [];
-  for (let ri = 0; ri < rows.length; ri++) {
-    if (ri === 0) continue; // cabeçalho
+  const out: Record<string, string>[] = [];
+  for (let ri = 1; ri < rows.length; ri++) {
     const cells: Record<string, string> = {};
     for (const cm of rows[ri].matchAll(
       /<c\s+r="([A-Z]+)\d+"([^>]*)>(?:<v>([\s\S]*?)<\/v>)?/g,
@@ -152,6 +153,17 @@ export async function parsePlanilhaClientes(
       const isShared = /t="s"/.test(attrs);
       cells[col] = isShared ? (shared[parseInt(raw, 10)] ?? "") : raw;
     }
+    out.push(cells);
+  }
+  return out;
+}
+
+export async function parsePlanilhaClientes(
+  buf: ArrayBuffer,
+): Promise<ClienteImportado[]> {
+  const rows = await lerLinhasPlanilha(buf);
+  const clientes: ClienteImportado[] = [];
+  for (const cells of rows) {
     const nome = (cells["A"] || "").trim();
     if (!nome) continue;
     clientes.push({
@@ -163,4 +175,74 @@ export async function parsePlanilhaClientes(
     });
   }
   return clientes;
+}
+
+// ---------- Planilha de contatos (export do Legal One) ----------
+// Colunas: A=Nome/Razão social, B=CPF/CNPJ, C=Profissão/Nome fantasia,
+// D=Telefone, E=E-mail, F=Grupos, G=Classificações, H=Tipo (Pessoa física/jurídica).
+export type ContatoImportado = {
+  tipo: "pf" | "pj";
+  nome: string;
+  documento: string;
+  profissao: string;
+  telefone: string;
+  email: string;
+  grupos: string;
+  classificacao: string;
+  tipoContato: string;
+  ativo: boolean;
+};
+
+// Grupos (ou, na falta, Classificações) → tipoContato do sistema.
+function classificarTipoContato(grupos: string, classif: string): string {
+  const g = (grupos.split(";")[0] || "").trim().toLowerCase();
+  const mapa: [RegExp, string][] = [
+    [/advogad/, "advogado_contrario"],
+    [/parte contr|contrári/, "parte_contraria"],
+    [/parte do processo/, "parte_processo"],
+    [/client/, "cliente"],
+    [/fornecedor|prestador/, "fornecedor"],
+    [/escrit[óo]rio/, "correspondente"],
+    [/pessoal dr|interno/, "interno"],
+    [/perito/, "perito"],
+  ];
+  for (const [re, tipo] of mapa) if (re.test(g)) return tipo;
+  // Sem grupo útil: tenta pela classificação.
+  const c = classif.toLowerCase();
+  if (/advogado contr/.test(c)) return "advogado_contrario";
+  if (/contrári/.test(c)) return "parte_contraria";
+  if (/client/.test(c)) return "cliente";
+  if (/fornecedor/.test(c)) return "fornecedor";
+  if (/respons[áa]vel|usu[áa]rio/.test(c)) return "interno";
+  return "diverso";
+}
+
+export async function parsePlanilhaContatos(
+  buf: ArrayBuffer,
+): Promise<ContatoImportado[]> {
+  const rows = await lerLinhasPlanilha(buf);
+  const out: ContatoImportado[] = [];
+  for (const cells of rows) {
+    const nome = (cells["A"] || "").trim();
+    if (!nome) continue;
+    const grupos = (cells["F"] || "").trim();
+    const classificacao = (cells["G"] || "").trim();
+    const tipoH = (cells["H"] || "").toLowerCase();
+    const c = classificacao.toLowerCase();
+    // "inativo" sem nenhum "ativo" solto → contato inativo.
+    const ativo = !(/inativ/.test(c) && !/(^|[^n])ativ/.test(c));
+    out.push({
+      tipo: /jur[íi]dic/.test(tipoH) ? "pj" : "pf",
+      nome,
+      documento: (cells["B"] || "").trim(),
+      profissao: (cells["C"] || "").trim(),
+      telefone: (cells["D"] || "").trim(),
+      email: (cells["E"] || "").trim(),
+      grupos,
+      classificacao,
+      tipoContato: classificarTipoContato(grupos, classificacao),
+      ativo,
+    });
+  }
+  return out;
 }

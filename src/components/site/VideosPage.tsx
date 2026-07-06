@@ -9,14 +9,14 @@ const YT = "https://www.youtube.com/channel/UCJUu5SUmxNk2BKECyL8sfXw";
 type Video = { title: string; desc: string; vid?: string };
 
 const MINUTO: Video[] = [
+  { vid: "rCJ72dhigFQ", title: "Posso ser demitido por justa causa, mesmo em home office?", desc: "Minuto Branco Legal #7 — o que a lei diz sobre a demissão por justa causa no trabalho remoto." },
   { vid: "IU_qq_c_lKA", title: "Minuto Branco Legal", desc: "Conteúdo prático e direto sobre o universo jurídico empresarial." },
-  { title: "Contratei errado. E agora?", desc: "Os cuidados essenciais na contratação para evitar passivos trabalhistas." },
-  { title: "O que olhar antes de assinar", desc: "Pontos de atenção em contratos empresariais antes da assinatura." },
 ];
 const ENTREVISTAS: Video[] = [
-  { title: "Prevenção como estratégia", desc: "Como a orientação jurídica preventiva transforma a rotina das empresas." },
-  { title: "Relações de consumo e a empresa", desc: "O que o empresário precisa saber sobre o Código de Defesa do Consumidor." },
-  { title: "45 anos de advocacia", desc: "Uma conversa sobre a trajetória e os valores do escritório." },
+  { vid: "ir8WIA_O83w", title: "Branco Advogados Associados", desc: "Um panorama do escritório e da atuação em Direito Civil, Trabalhista e Comercial." },
+  { vid: "h6kB3TLbMzI", title: "Entrevista — Empresários de Sucesso TV", desc: "Dr. Luiz Carlos Branco no programa Empresários de Sucesso TV." },
+  { vid: "zk5o99ARPkY", title: "Entrevista — Empresários de Sucesso TV", desc: "Dr. Luiz Carlos Branco fala sobre advocacia empresarial e prevenção." },
+  { vid: "uoCqCfCybdE", title: "Entrevista — Band News", desc: "Dr. Luiz Carlos Branco entrevistado pela Band News." },
 ];
 
 // Capa do vídeo: usa a thumbnail real do YouTube quando há ID; senão, uma capa
