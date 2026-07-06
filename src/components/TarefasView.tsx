@@ -18,7 +18,7 @@ import {
   type Processo,
 } from "@/lib/mock";
 import { ehGestor } from "@/lib/papeis";
-import { hojeISO, semanaUtil, brCurto } from "@/lib/hoje";
+import { hojeISO, semanaUtil, brCurto, diasAte } from "@/lib/hoje";
 import type { Responsavel, AudienciaDTO, EventoAgendaDTO } from "@/lib/data";
 import { AreaTag } from "@/components/AreaTag";
 import { StatusSelect } from "@/components/StatusSelect";
@@ -67,6 +67,9 @@ export function TarefasView({
     searchParams.get("novo") === "1",
   );
   const [editar, setEditar] = useState<TarefaFull | null>(null);
+  // Arrastar-e-soltar no Quadro.
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragCol, setDragCol] = useState<string | null>(null);
 
   const setStatus = async (id: string, status: Status) => {
     await atualizarStatusTarefa(id, status);
@@ -74,6 +77,51 @@ export function TarefasView({
   };
   const prazoCls = (urgente?: boolean) =>
     urgente ? "font-medium text-danger" : "text-muted";
+
+  // Contagem regressiva do prazo (data fatal = t.data). Só para tarefas
+  // ainda não concluídas — o que já passou aparece em vermelho.
+  type PrazoInfo = { label: string; cls: string; forte: boolean };
+  const prazoInfo = (t: TarefaFull): PrazoInfo | null => {
+    if (t.status === "concluida") return null;
+    const d = diasAte(t.data);
+    if (!Number.isFinite(d)) return null;
+    if (d < 0)
+      return {
+        label: `Atrasada ${Math.abs(d)} ${Math.abs(d) === 1 ? "dia" : "dias"}`,
+        cls: "bg-danger text-cream",
+        forte: true,
+      };
+    if (d === 0)
+      return { label: "Vence hoje", cls: "bg-danger/15 text-danger", forte: true };
+    if (d === 1)
+      return { label: "Vence amanhã", cls: "bg-danger/10 text-danger", forte: true };
+    if (d <= 3)
+      return {
+        label: `Faltam ${d} dias`,
+        cls: "bg-[#c0892e]/15 text-[#c0892e]",
+        forte: false,
+      };
+    return null;
+  };
+  const prazoBadge = (t: TarefaFull) => {
+    const p = prazoInfo(t);
+    if (!p) return null;
+    return (
+      <span
+        className={
+          "inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none " +
+          p.cls
+        }
+      >
+        {p.label}
+      </span>
+    );
+  };
+  // Moldura vermelha em cartões de tarefa atrasada / vencendo hoje.
+  const cartaoBorda = (t: TarefaFull) => {
+    const p = prazoInfo(t);
+    return p?.forte ? "border-danger/50" : "border-line";
+  };
 
   // Mostra os responsáveis pelo primeiro nome, separados por " / ".
   const primeiroNome = (ini: string) => {
@@ -155,7 +203,20 @@ export function TarefasView({
   const cartao = (t: TarefaFull) => (
     <div
       key={t.id}
-      className="mb-2 rounded-md border border-line bg-surface p-2.5"
+      draggable
+      onDragStart={(e) => {
+        setDragId(t.id);
+        e.dataTransfer.effectAllowed = "move";
+      }}
+      onDragEnd={() => {
+        setDragId(null);
+        setDragCol(null);
+      }}
+      className={
+        "mb-2 cursor-grab rounded-md border bg-surface p-2.5 active:cursor-grabbing " +
+        cartaoBorda(t) +
+        (dragId === t.id ? " opacity-50" : "")
+      }
     >
       <button onClick={() => setEditar(t)} className="block w-full text-left">
         <div className="text-[12.5px] text-ink">{t.titulo}</div>
@@ -164,8 +225,9 @@ export function TarefasView({
             {t.descricao}
           </div>
         )}
-        <div className="mt-1 flex items-center gap-1.5">
+        <div className="mt-1 flex flex-wrap items-center gap-1.5">
           {coord && <AreaTag area={t.area} />}
+          {prazoBadge(t)}
           <span className="font-mono text-[10.5px] text-faint">
             {t.processo ? "…" + t.processo.slice(-12) : "sem processo"}
           </span>
@@ -261,10 +323,34 @@ export function TarefasView({
       <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
         {STATUS_LIST.map((col) => {
           const items = visiveis.filter((t) => t.status === col.key);
+          const alvo = dragCol === col.key && dragId !== null;
+          const soltar = () => {
+            if (dragId) {
+              const t = tarefas.find((x) => x.id === dragId);
+              if (t && t.status !== col.key) setStatus(dragId, col.key);
+            }
+            setDragId(null);
+            setDragCol(null);
+          };
           return (
             <div
               key={col.key}
-              className="rounded-lg border border-line bg-navy/5 p-3"
+              onDragOver={(e) => {
+                if (dragId === null) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                if (dragCol !== col.key) setDragCol(col.key);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                soltar();
+              }}
+              className={
+                "rounded-lg border bg-navy/5 p-3 transition-colors " +
+                (alvo
+                  ? "border-navy/60 bg-navy/10 ring-2 ring-navy/30"
+                  : "border-line")
+              }
             >
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-[12.5px] font-medium text-muted">
@@ -276,7 +362,16 @@ export function TarefasView({
               </div>
               {items.map(cartao)}
               {items.length === 0 && (
-                <div className="py-3 text-center text-[11px] text-faint">—</div>
+                <div
+                  className={
+                    "rounded-md border border-dashed py-4 text-center text-[11px] " +
+                    (alvo
+                      ? "border-navy/40 text-navy"
+                      : "border-transparent text-faint")
+                  }
+                >
+                  {alvo ? "Soltar aqui" : "—"}
+                </div>
               )}
             </div>
           );
@@ -368,7 +463,9 @@ export function TarefasView({
             {items.map((t) => (
               <div
                 key={t.id}
-                className="mb-1.5 rounded-md border border-line bg-surface p-2"
+                className={
+                  "mb-1.5 rounded-md border bg-surface p-2 " + cartaoBorda(t)
+                }
               >
                 <button
                   onClick={() => setEditar(t)}
@@ -378,6 +475,7 @@ export function TarefasView({
                     {t.titulo}
                   </div>
                 </button>
+                {prazoBadge(t) && <div className="mt-1">{prazoBadge(t)}</div>}
                 <div className="mt-1.5">
                   <StatusSelect
                     value={t.status}
@@ -490,15 +588,19 @@ export function TarefasView({
                     </button>
                   ))}
                   {items.slice(0, 3).map((t) => {
+                    const p = prazoInfo(t);
                     const c = corDoStatus(t.status);
+                    const cls = p?.forte
+                      ? "bg-danger/15 text-danger font-medium"
+                      : `${c.bg} ${c.text}`;
                     return (
                       <button
                         key={t.id}
                         onClick={() => setEditar(t)}
-                        title={t.titulo}
+                        title={p ? `${p.label} — ${t.titulo}` : t.titulo}
                         className={
                           "truncate rounded px-1 py-0.5 text-left text-[10.5px] " +
-                          `${c.bg} ${c.text}`
+                          cls
                         }
                       >
                         {t.titulo}
@@ -634,11 +736,12 @@ export function TarefasView({
                 </div>
               )}
             </div>
-            <span
-              className={"w-12 text-right text-[11px] " + prazoCls(t.prazoUrgente)}
-            >
-              {t.prazo}
-            </span>
+            <div className="flex w-24 flex-col items-end gap-1">
+              <span className={"text-[11px] " + prazoCls(t.prazoUrgente)}>
+                {t.prazo}
+              </span>
+              {prazoBadge(t)}
+            </div>
             <StatusSelect value={t.status} onChange={(s) => setStatus(t.id, s)} />
           </div>
         );

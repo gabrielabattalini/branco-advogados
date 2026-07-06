@@ -65,6 +65,16 @@ export function addDiasISO(iso: string, n: number): string {
   ).padStart(2, "0")}`;
 }
 
+// Dias corridos de hoje (Brasília) até a data ISO informada.
+// > 0 = falta(m) N dias · 0 = é hoje · < 0 = venceu há N dias.
+export function diasAte(iso: string): number {
+  if (!iso) return NaN;
+  const base = Date.parse(hojeISO() + "T00:00:00Z");
+  const alvo = Date.parse(iso + "T00:00:00Z");
+  if (Number.isNaN(alvo)) return NaN;
+  return Math.round((alvo - base) / 86400000);
+}
+
 const DOW_CURTO = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 // Os 5 dias úteis (seg–sex) da semana em que cai a data ISO informada.
