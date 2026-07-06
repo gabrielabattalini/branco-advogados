@@ -19,6 +19,9 @@ const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "o
 
 type AreaFiltro = "todas" | "civel" | "trabalhista";
 
+// Piso do alerta de sobrecarga (o efetivo é o maior entre isto e 1,75× a média).
+const LIMITE_SOBRECARGA = 12;
+
 type Membro = MembroEquipe & {
   byStatus: Record<string, number>;
   aberto: number;
@@ -156,7 +159,13 @@ export function CargaView({
       .sort((a, b) => a.dias - b.dias);
     const maxTempo = Math.max(1, ...tempoMedio.map((x) => x.dias));
 
-    return { ts, membros, kpi, avg, maxOpen, porStatus, porArea, porOrigem, porNResp, ranking, solic, revis, porMes, maxMes, porSemana, maxSem, tempoMedio, maxTempo, totalConcl: concl.length };
+    // Sobrecarga: quem está bem acima da média (e do limite) em tarefas abertas.
+    const limite = Math.max(LIMITE_SOBRECARGA, Math.ceil(avg * 1.75));
+    const sobrecarregados = membros
+      .filter((m) => m.aberto > limite)
+      .map((m) => ({ nome: primeiroNome(m.nome), aberto: m.aberto }));
+
+    return { ts, membros, kpi, avg, maxOpen, porStatus, porArea, porOrigem, porNResp, ranking, solic, revis, porMes, maxMes, porSemana, maxSem, tempoMedio, maxTempo, totalConcl: concl.length, sobrecarregados, limite };
   }, [tarefas, equipe, area, HOJE]);
 
   const avgFrac = d.maxOpen ? d.avg / d.maxOpen : 0;
@@ -201,6 +210,23 @@ export function CargaView({
         <Kpi icon={<AlertTriangle size={18} />} label="Urgentes" valor={d.kpi.urgentes} tom={d.kpi.urgentes ? "danger" : undefined} />
         <Kpi icon={<AlertTriangle size={18} />} label="Atrasadas" valor={d.kpi.atrasadas} tom={d.kpi.atrasadas ? "danger" : undefined} />
       </div>
+
+      {/* Alerta de sobrecarga */}
+      {d.sobrecarregados.length > 0 && (
+        <div className="mb-6 flex items-start gap-3 rounded-lg border border-danger/40 bg-danger/[0.06] p-4">
+          <AlertTriangle size={18} className="mt-0.5 shrink-0 text-danger" />
+          <div className="text-[13px] text-ink">
+            <span className="font-semibold text-danger">
+              Sobrecarga na equipe.
+            </span>{" "}
+            Acima de {d.limite} tarefas em aberto:{" "}
+            {d.sobrecarregados
+              .map((m) => `${m.nome} (${m.aberto})`)
+              .join(", ")}
+            . Vale redistribuir no balanceamento abaixo.
+          </div>
+        </div>
+      )}
 
       {/* Carga por pessoa */}
       <div className="mb-6 rounded-lg border border-line bg-surface p-5">

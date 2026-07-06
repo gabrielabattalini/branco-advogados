@@ -7,6 +7,8 @@ import { STATUS_LIST, statusLabel } from "@/lib/mock";
 import { getSessao, ehGestor } from "@/lib/sessao";
 import { instanteBRT } from "@/lib/audiencia";
 import { hojeISO, hojeBR } from "@/lib/hoje";
+import { avisarPorIniciais } from "@/lib/telegram-notify";
+import { escT } from "@/lib/telegram";
 
 const TIPOS_AUDIENCIA = ["instrucao", "conciliacao", "inicial", "una", "outra"];
 const STATUS_AUDIENCIA = ["agendada", "realizada", "cancelada"];
@@ -121,6 +123,15 @@ export async function criarTarefa(input: {
       },
     });
     await registrarHistorico(nova.id, s.iniciais, "criacao", "criou a tarefa");
+    // Avisa no Telegram quem foi atribuído (menos quem criou).
+    const avisar = resps.filter((r) => r !== s.iniciais);
+    if (avisar.length)
+      await avisarPorIniciais(
+        avisar,
+        `📋 <b>Nova tarefa</b>\n${escT(titulo)}\nPrazo: ${escT(
+          input.prazo || "—",
+        )}${processo ? `\nProcesso: ${escT(processo.numero)}` : ""}`,
+      );
     revalidatePath("/tarefas");
     revalidatePath("/painel");
     revalidatePath("/processos");
@@ -251,13 +262,25 @@ export async function editarTarefa(input: {
       );
     const antes = [...alvo.responsaveis].sort().join(",");
     const depois = [...resps].sort().join(",");
-    if (antes !== depois)
+    if (antes !== depois) {
       await registrarHistorico(
         input.id,
         s.iniciais,
         "responsaveis",
         `alterou os responsáveis: ${resps.join(" / ") || "—"}`,
       );
+      // Avisa no Telegram quem passou a ser responsável agora (menos o autor).
+      const novos = resps.filter(
+        (r) => !alvo.responsaveis.includes(r) && r !== s.iniciais,
+      );
+      if (novos.length)
+        await avisarPorIniciais(
+          novos,
+          `📋 <b>Você entrou numa tarefa</b>\n${escT(titulo)}\nPrazo: ${escT(
+            input.prazo || "—",
+          )}`,
+        );
+    }
     if (gestor && alvo.data !== dataFatal)
       await registrarHistorico(
         input.id,

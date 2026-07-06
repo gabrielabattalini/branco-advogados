@@ -6,6 +6,7 @@ import { Check, LogOut } from "lucide-react";
 import { ehGestor, labelPapel } from "@/lib/papeis";
 import { salvarPerfil } from "@/lib/actions";
 import { alterarSenha, sair } from "@/lib/auth-actions";
+import { TelegramCard } from "@/components/TelegramCard";
 
 const inputCls =
   "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-navy/60";
@@ -13,8 +14,10 @@ const labelCls = "mb-1 block text-[13px] text-muted";
 
 export function PerfilView({
   inicial,
+  telegram,
 }: {
   inicial: { nome: string; email: string; area: string; papel: string };
+  telegram: { configurado: boolean; conectado: boolean };
 }) {
   const router = useRouter();
   const [nome, setNome] = useState(inicial.nome);
@@ -216,6 +219,11 @@ export function PerfilView({
           )}
         </div>
       </div>
+
+      <TelegramCard
+        configurado={telegram.configurado}
+        conectado={telegram.conectado}
+      />
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface p-5">
         <div>

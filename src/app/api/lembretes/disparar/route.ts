@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { enviarEmail, emailConfigurado } from "@/lib/email";
 import {
+  enviarTelegram,
+  telegramConfigurado,
+  escT,
+} from "@/lib/telegram";
+import {
   formatOffset,
   brData,
   labelTipoAudiencia,
@@ -20,7 +25,9 @@ function esc(s: string): string {
 
 async function processar() {
   const agora = new Date();
-  const configurado = emailConfigurado();
+  const temEmail = emailConfigurado();
+  const temTelegram = telegramConfigurado();
+  const configurado = temEmail || temTelegram;
   // Candidatos: lembretes não enviados de audiências futuras agendadas.
   const lembretes = await prisma.lembrete.findMany({
     where: {
@@ -34,7 +41,7 @@ async function processar() {
     (l) =>
       l.audiencia.inicioUtc.getTime() - l.offsetMin * 60000 <= agora.getTime(),
   );
-  // Sem provedor de e-mail, não marca nada (envia quando configurar).
+  // Sem nenhum canal (e-mail ou Telegram), não marca nada — envia ao configurar.
   if (devidos.length === 0 || !configurado) {
     return { verificados: lembretes.length, devidos: devidos.length, enviados: 0, configurado };
   }
@@ -43,10 +50,15 @@ async function processar() {
   const usuarios = inis.length
     ? await prisma.usuario.findMany({
         where: { iniciais: { in: inis }, ativo: true },
-        select: { iniciais: true, email: true },
+        select: { iniciais: true, email: true, telegramChatId: true },
       })
     : [];
   const emailPorIni = new Map(usuarios.map((u) => [u.iniciais, u.email]));
+  const chatPorIni = new Map(
+    usuarios
+      .filter((u) => u.telegramChatId)
+      .map((u) => [u.iniciais, u.telegramChatId as string]),
+  );
 
   let enviados = 0;
   for (const l of devidos) {
@@ -62,12 +74,27 @@ async function processar() {
     const para = a.participantes
       .map((i) => emailPorIni.get(i))
       .filter((e): e is string => !!e);
+    const chats = a.participantes
+      .map((i) => chatPorIni.get(i))
+      .filter((c): c is string => !!c);
     const quando = `${brData(a.data)} às ${a.hora}`;
     const antecedencia = formatOffset(l.offsetMin).replace(" antes", "");
-    const assunto = `Lembrete: ${a.titulo} — ${quando}`;
-    const linha = (rotulo: string, valor: string) =>
-      valor ? `<li><strong>${rotulo}:</strong> ${esc(valor)}</li>` : "";
-    const html = `<div style="font-family:Arial,Helvetica,sans-serif;color:#2a2a28;max-width:520px">
+
+    // Se ninguém tem e-mail nem Telegram, considera "entregue" (nada a fazer)
+    // para não reprocessar eternamente este lembrete.
+    if (para.length === 0 && chats.length === 0) {
+      enviados++;
+      continue;
+    }
+
+    let algumOk = false;
+
+    // ---- E-mail (Resend) ----
+    if (temEmail && para.length) {
+      const assunto = `Lembrete: ${a.titulo} — ${quando}`;
+      const linha = (rotulo: string, valor: string) =>
+        valor ? `<li><strong>${rotulo}:</strong> ${esc(valor)}</li>` : "";
+      const html = `<div style="font-family:Arial,Helvetica,sans-serif;color:#2a2a28;max-width:520px">
   <h2 style="color:#056235;margin:0 0 8px">Lembrete de audiência</h2>
   <p style="margin:0 0 4px"><strong>${esc(a.titulo)}</strong> — ${esc(labelTipoAudiencia(a.tipo))}</p>
   <p style="margin:0 0 12px;color:#6e6a60">Faltam ${esc(antecedencia)} para a audiência.</p>
@@ -85,16 +112,35 @@ async function processar() {
   </ul>
   <p style="color:#9a9488;font-size:12px;margin-top:16px">Branco Advogados · sistema interno</p>
 </div>`;
-    const texto =
-      `Lembrete: ${a.titulo} — ${quando}. ${a.local}` +
-      (a.modalidade === "virtual" && linkSeguro(a.link)
-        ? ` Link: ${linkSeguro(a.link)}`
-        : "");
-    const res = await enviarEmail({ para, assunto, html, texto });
-    if (res.enviado) {
+      const texto =
+        `Lembrete: ${a.titulo} — ${quando}. ${a.local}` +
+        (a.modalidade === "virtual" && linkSeguro(a.link)
+          ? ` Link: ${linkSeguro(a.link)}`
+          : "");
+      const res = await enviarEmail({ para, assunto, html, texto });
+      if (res.enviado) algumOk = true;
+    }
+
+    // ---- Telegram ----
+    if (temTelegram && chats.length) {
+      const partes = [
+        `⚖️ <b>Lembrete de audiência</b>`,
+        `${escT(a.titulo)} — ${escT(labelTipoAudiencia(a.tipo))}`,
+        `🗓 ${escT(quando)} (faltam ${escT(antecedencia)})`,
+        a.modalidade === "virtual" && linkSeguro(a.link)
+          ? `🔗 ${escT(linkSeguro(a.link))}`
+          : "",
+        a.local ? `📍 ${escT(a.local)}` : "",
+      ].filter(Boolean);
+      const msg = partes.join("\n");
+      const rs = await Promise.all(chats.map((c) => enviarTelegram(c, msg)));
+      if (rs.some((r) => r.enviado)) algumOk = true;
+    }
+
+    if (algumOk) {
       enviados++;
     } else {
-      // Falhou: devolve para a fila (tenta no próximo ciclo).
+      // Nenhum canal entregou: devolve para a fila (tenta no próximo ciclo).
       await prisma.lembrete.update({
         where: { id: l.id },
         data: { enviadoEm: null },

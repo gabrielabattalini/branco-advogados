@@ -26,6 +26,9 @@ model Usuario {
   // Anti-bruteforce: tentativas de senha erradas + bloqueio temporário.
   tentativasLogin Int       @default(0)
   bloqueadoAte    DateTime?
+  // Notificações no Telegram: chatId vinculado + token temporário de vínculo.
+  telegramChatId  String?
+  telegramToken   String?   @unique
   criadoEm        DateTime  @default(now())
 }
 
