@@ -5,7 +5,9 @@ import { getSessao, ehGestor } from "@/lib/sessao";
 import { classificarArea } from "@/lib/mock";
 import {
   docxParaTexto,
+  docxParaTabelas,
   parseRelatorioDocx,
+  parseRelatorioTabela,
   parsePlanilhaClientes,
   parsePlanilhaContatos,
 } from "@/lib/importar";
@@ -191,50 +193,74 @@ export async function importarRelatoriosDocx(
   try {
     let processos = 0;
     let clientes = 0;
+    const ord = Date.now(); // base de carimbo p/ preservar a ordem dos andamentos
     for (const file of files) {
-      const texto = await docxParaTexto(await file.arrayBuffer());
-      const rel = parseRelatorioDocx(texto);
+      const buf = await file.arrayBuffer();
+      // Detecta o formato: tabela (ex.: LOMA) ou campos rotulados (demais).
+      const relTab = parseRelatorioTabela(await docxParaTabelas(buf));
+      let rel = relTab && relTab.processos.length > 0 ? relTab : null;
+      if (!rel) rel = parseRelatorioDocx(await docxParaTexto(buf));
+      if (!rel.cliente) {
+        const texto = await docxParaTexto(buf);
+        const m = texto.match(/CLIENTE\s*:?\s*([^\n]+)/i);
+        rel.cliente = m ? m[1].replace(/\s{2,}.*$/, "").trim() : "";
+      }
       if (!rel.cliente || rel.processos.length === 0) continue;
       clientes++;
-      for (const p of rel.processos) {
-        const numero = p.numero;
-        const area = classificarArea(numero);
-        const dados = {
-          area,
-          tribunal: p.juizo || "—",
-          status: "Em andamento",
-          cliente: rel.cliente,
-          parteContraria: p.parteContraria || "—",
-          responsavel: "",
-          responsavelIniciais: "",
-          valorCausa: p.valorCausa || "",
-          distribuido: "",
-          fase: "",
-          parteContrariaTipo: p.parteContrariaTipo,
-          juizo: p.juizo,
-          sinteseDoPedido: p.sinteseDoPedido,
-        };
-        const proc = await prisma.processo.upsert({
-          where: { numero },
-          update: dados,
-          create: { numero, ...dados },
-        });
-        // Situação atual como um lançamento (só se veio texto e ainda não há um igual).
-        if (p.status.trim()) {
-          const jaTem = await prisma.processoAndamento.findFirst({
-            where: { processoId: proc.id, texto: p.status.trim() },
-          });
-          if (!jaTem) {
-            await prisma.processoAndamento.create({
-              data: {
-                processoId: proc.id,
-                texto: p.status.trim().slice(0, 2000),
-                autor: s.iniciais,
-              },
+      const cliente = rel.cliente;
+      const lista = rel.processos;
+      // Grava em lotes concorrentes (o relatório pode ter muitos processos).
+      for (let i = 0; i < lista.length; i += 8) {
+        const chunk = lista.slice(i, i + 8);
+        await Promise.all(
+          chunk.map(async (p, j) => {
+            const pi = i + j;
+            const numero = p.numero;
+            const dados = {
+              area: classificarArea(numero),
+              tribunal: p.juizo || "—",
+              status: "Em andamento",
+              cliente,
+              parteContraria: p.parteContraria || "—",
+              responsavel: "",
+              responsavelIniciais: "",
+              valorCausa: p.valorCausa || "",
+              distribuido: "",
+              fase: "",
+              parteContrariaTipo: p.parteContrariaTipo,
+              juizo: p.juizo,
+              sinteseDoPedido: p.sinteseDoPedido,
+            };
+            const proc = await prisma.processo.upsert({
+              where: { numero },
+              update: dados,
+              create: { numero, ...dados },
             });
-          }
-        }
-        processos++;
+            // Situação atual: cada linha da "Fase atual" vira um andamento.
+            // Substitui os andamentos vindos de importação (tarefaId ""),
+            // preservando os gerados por tarefas concluídas.
+            const linhas = p.status
+              .split("\n")
+              .map((l) => l.trim())
+              .filter(Boolean);
+            await prisma.processoAndamento.deleteMany({
+              where: { processoId: proc.id, tarefaId: "" },
+            });
+            if (linhas.length) {
+              await prisma.processoAndamento.createMany({
+                data: linhas.map((texto, ai) => ({
+                  processoId: proc.id,
+                  texto: texto.slice(0, 2000),
+                  autor: s.iniciais,
+                  tarefaId: "",
+                  // carimbo crescente por processo → ordem cronológica no relatório
+                  criadoEm: new Date(ord + pi * 100000 + ai),
+                })),
+              });
+            }
+          }),
+        );
+        processos += chunk.length;
       }
     }
     return {

@@ -17,6 +17,7 @@ import {
   adicionarSituacao,
   editarSituacao,
   removerSituacao,
+  removerProcesso,
 } from "@/lib/relatorio-actions";
 import type { ProcRelEditorDTO, SituacaoEditorDTO } from "@/lib/data";
 
@@ -154,10 +155,22 @@ function ProcessoForm({ p }: { p: ProcRelEditorDTO }) {
 
   return (
     <div className="rounded-lg border border-line bg-surface">
-      <div className="border-b border-line px-5 py-3">
+      <div className="flex items-center justify-between border-b border-line px-5 py-3">
         <div className="font-mono text-[13px] font-medium text-navy">
           {p.numero}
         </div>
+        <button
+          onClick={async () => {
+            if (!confirm(`Remover este processo (${p.numero}) do relatório?`)) return;
+            const res = await removerProcesso(p.id);
+            if (res.ok) router.refresh();
+            else alert(res.erro);
+          }}
+          title="Remover processo"
+          className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-[11.5px] text-faint hover:border-danger/40 hover:text-danger"
+        >
+          <Trash2 size={13} /> Remover
+        </button>
       </div>
 
       <div className="flex flex-col gap-4 p-5">

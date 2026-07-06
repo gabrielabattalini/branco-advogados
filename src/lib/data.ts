@@ -540,7 +540,7 @@ export async function getRelatorioClienteDados(
     where: { cliente: nome },
     orderBy: { criadoEm: "asc" },
     include: {
-      andamentos: { orderBy: { criadoEm: "desc" }, take: 5 },
+      andamentos: { orderBy: { criadoEm: "asc" }, take: 50 },
       audiencias: true,
     },
   });
@@ -590,7 +590,7 @@ export async function getRelatorioClienteEditor(
     where: { cliente: nome },
     orderBy: { criadoEm: "asc" },
     include: {
-      andamentos: { orderBy: { criadoEm: "desc" } },
+      andamentos: { orderBy: { criadoEm: "asc" } },
       audiencias: true,
     },
   });
