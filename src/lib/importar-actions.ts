@@ -8,6 +8,7 @@ import {
   docxParaTabelas,
   parseRelatorioDocx,
   parseRelatorioTabela,
+  parseRecuperacaoFalencia,
   parsePlanilhaClientes,
   parsePlanilhaContatos,
 } from "@/lib/importar";
@@ -196,14 +197,23 @@ export async function importarRelatoriosDocx(
     const ord = Date.now(); // base de carimbo p/ preservar a ordem dos andamentos
     for (const file of files) {
       const buf = await file.arrayBuffer();
+      const tabelas = await docxParaTabelas(buf);
       // Detecta o formato: tabela (ex.: LOMA) ou campos rotulados (demais).
-      const relTab = parseRelatorioTabela(await docxParaTabelas(buf));
+      const relTab = parseRelatorioTabela(tabelas);
       let rel = relTab && relTab.processos.length > 0 ? relTab : null;
       if (!rel) rel = parseRelatorioDocx(await docxParaTexto(buf));
       if (!rel.cliente) {
         const texto = await docxParaTexto(buf);
         const m = texto.match(/CLIENTE\s*:?\s*([^\n]+)/i);
         rel.cliente = m ? m[1].replace(/\s{2,}.*$/, "").trim() : "";
+      }
+      // Seção separada de Recuperação Judicial / Falência (quando houver).
+      const jaTem = new Set(rel.processos.map((p) => p.numero));
+      for (const rj of parseRecuperacaoFalencia(tabelas)) {
+        if (!jaTem.has(rj.numero)) {
+          jaTem.add(rj.numero);
+          rel.processos.push(rj);
+        }
       }
       if (!rel.cliente || rel.processos.length === 0) continue;
       clientes++;
@@ -230,6 +240,7 @@ export async function importarRelatoriosDocx(
               parteContrariaTipo: p.parteContrariaTipo,
               juizo: p.juizo,
               sinteseDoPedido: p.sinteseDoPedido,
+              categoria: p.categoria ?? "judicial",
             };
             const proc = await prisma.processo.upsert({
               where: { numero },

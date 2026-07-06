@@ -60,8 +60,10 @@ export async function docxParaTabelas(
 // Relatório em formato de TABELA (ex.: LOMA — "Ações Judiciais").
 // Colunas: N. | PARTES | AÇÃO | PROCESSO/VARA + DISTR. | VALOR | FASE ATUAL.
 const CNJ_RE = /\d{7}-?\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/;
+// Nota: usamos um lookahead (não \b) porque \b não reconhece limites após
+// letras acentuadas em JS (ex.: "Ré:" falharia com \b).
 const TIPO_PARTE_RE =
-  /^(Autora?|R[ée]us?|Exequente|Execut[ao]d?[ao]?|Embargantes?|Requerentes?|Requerid[ao]s?|Reclamantes?|Reclamad[ao]s?|Impetrantes?)\b/i;
+  /^(Autora?|R[ée]u?s?|Exequente|Execut[ao]d?[ao]?|Embargantes?|Requerentes?|Requerid[ao]s?|Reclamantes?|Reclamad[ao]s?|Impetrantes?)(?=[\s:.)\-]|$)/i;
 
 export function parseRelatorioTabela(
   tabelas: string[][][],
@@ -136,11 +138,76 @@ export type ProcessoImportado = {
   status: string;
   valorCausa: string;
   audiencia: string;
+  categoria?: string; // judicial (padrão) | recuperacao_falencia
 };
 export type RelatorioImportado = {
   cliente: string;
   processos: ProcessoImportado[];
 };
+
+// Seção "RECUPERAÇÃO JUDICIAL / FALÊNCIA" (tabela ao fim de muitos relatórios).
+// Colunas: Nº | Ré: nome | CNJ + Vara + Dist. | Valor | Andamento(status).
+export function parseRecuperacaoFalencia(
+  tabelas: string[][][],
+): ProcessoImportado[] {
+  const out: ProcessoImportado[] = [];
+  for (const tab of tabelas) {
+    const cabecalho = tab
+      .slice(0, 2)
+      .flat()
+      .join(" ")
+      .toUpperCase();
+    if (!/RECUPERA[ÇC][ÃA]O JUDICIAL|FAL[ÊE]NCIA/.test(cabecalho)) continue;
+    for (const cells of tab) {
+      const linhas = cells.map((c) => c.split("\n"));
+      // Célula com o CNJ (processo/vara/dist).
+      const procIdx = cells.findIndex((c) => CNJ_RE.test(c));
+      if (procIdx < 0) continue;
+      const procCell = linhas[procIdx];
+      const cnj = (procCell.find((l) => CNJ_RE.test(l)) ?? "").match(CNJ_RE)?.[0] ?? "";
+      if (!cnj) continue;
+      // Parte: célula com "Ré:/Autor:/..." (ou a imediatamente antes do CNJ).
+      const parteCell =
+        cells.find((c) => TIPO_PARTE_RE.test(c.trim())) ??
+        cells[procIdx - 1] ??
+        "";
+      const parteRaw = parteCell.replace(/\n/g, " ").trim();
+      const tipo = (parteRaw.match(TIPO_PARTE_RE)?.[0] ?? "").trim();
+      const parte = parteRaw.replace(TIPO_PARTE_RE, "").replace(/^\s*:?\s*/, "").trim();
+      // Vara e distribuição (linhas do proc. que não são o CNJ).
+      const vara = procCell
+        .filter((l) => !CNJ_RE.test(l) && !/^Dist/i.test(l))
+        .join(" ")
+        .trim();
+      // Valor: célula com "R$".
+      const valor = (cells.find((c, i) => i !== procIdx && /R\$/.test(c)) ?? "")
+        .replace(/\s+/g, " ")
+        .trim();
+      // Andamento: a maior célula que não é parte/proc/valor/número.
+      const status = cells
+        .filter(
+          (c, i) =>
+            i !== procIdx &&
+            c !== parteCell &&
+            !/^\s*\d{1,3}\s*$/.test(c) &&
+            !/^R\$[\d\s.,]*$/.test(c.trim()),
+        )
+        .sort((a, b) => b.length - a.length)[0] ?? "";
+      out.push({
+        numero: cnj,
+        parteContrariaTipo: tipo || "Ré",
+        parteContraria: parte,
+        juizo: vara,
+        sinteseDoPedido: "",
+        status: status.split("\n").map((l) => l.trim()).filter(Boolean).join("\n"),
+        valorCausa: valor,
+        audiencia: "",
+        categoria: "recuperacao_falencia",
+      });
+    }
+  }
+  return out;
+}
 
 const PROC =
   /PROCESSO\s*n[ºo.:\s]*\s*(\d{7}-?\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})/gi;
