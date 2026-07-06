@@ -4,19 +4,18 @@ import { SERIF, SANS, COR } from "./ui";
 
 const YT = "https://www.youtube.com/channel/UCJUu5SUmxNk2BKECyL8sfXw";
 
-// Vídeos do canal. Quando o `vid` (ID do YouTube) é preenchido, o card mostra
-// a capa real do vídeo e leva direto para ele. Sem `vid`, leva ao canal.
-type Video = { title: string; desc: string; vid?: string };
+// Vídeos reais do YouTube — apenas vídeos que existem, com o título real.
+// O card mostra a capa real do vídeo (thumbnail) e leva direto para ele.
+type Video = { title: string; vid: string };
 
 const MINUTO: Video[] = [
-  { vid: "rCJ72dhigFQ", title: "Posso ser demitido por justa causa, mesmo em home office?", desc: "Minuto Branco Legal #7 — o que a lei diz sobre a demissão por justa causa no trabalho remoto." },
-  { vid: "IU_qq_c_lKA", title: "Minuto Branco Legal", desc: "Conteúdo prático e direto sobre o universo jurídico empresarial." },
+  { vid: "rCJ72dhigFQ", title: "Posso ser demitido por justa causa, mesmo sendo home office? | Minuto Branco Legal #7" },
 ];
 const ENTREVISTAS: Video[] = [
-  { vid: "ir8WIA_O83w", title: "Branco Advogados Associados", desc: "Um panorama do escritório e da atuação em Direito Civil, Trabalhista e Comercial." },
-  { vid: "h6kB3TLbMzI", title: "Entrevista — Empresários de Sucesso TV", desc: "Dr. Luiz Carlos Branco no programa Empresários de Sucesso TV." },
-  { vid: "zk5o99ARPkY", title: "Entrevista — Empresários de Sucesso TV", desc: "Dr. Luiz Carlos Branco fala sobre advocacia empresarial e prevenção." },
-  { vid: "uoCqCfCybdE", title: "Entrevista — Band News", desc: "Dr. Luiz Carlos Branco entrevistado pela Band News." },
+  { vid: "ir8WIA_O83w", title: "Escritório Branco Advogados Associados, Direito Civil, Trabalhista e Comercial" },
+  { vid: "h6kB3TLbMzI", title: "Entrevista, Advogado Dr. Luiz Carlos Branco, Empresários de Sucesso TV" },
+  { vid: "zk5o99ARPkY", title: "Entrevista Dr. Luiz Carlos Branco, Empresários de Sucesso TV" },
+  { vid: "uoCqCfCybdE", title: "Dr. Luiz Carlos Branco entrevistado pela Band News" },
 ];
 
 // Capa do vídeo: usa a thumbnail real do YouTube quando há ID; senão, uma capa
@@ -51,7 +50,7 @@ function Capa({ vid, alt, aspect = "16/9" }: { vid?: string; alt: string; aspect
 }
 
 function href(v: Video) {
-  return v.vid ? `https://www.youtube.com/watch?v=${v.vid}` : YT;
+  return `https://www.youtube.com/watch?v=${v.vid}`;
 }
 
 export default function VideosPage() {
@@ -66,7 +65,7 @@ export default function VideosPage() {
             <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.3em", textTransform: "uppercase", color: COR.gold }}>Conteúdo em Vídeo</span>
           </div>
           <h1 className="site-h1" style={{ fontFamily: SERIF, fontWeight: 500, fontSize: 54, lineHeight: 1.1, margin: "0 0 22px", maxWidth: 740, color: COR.cream }}>Minuto Branco Legal &amp; Entrevistas</h1>
-          <p style={{ fontSize: 18, lineHeight: 1.7, color: "rgba(232,230,220,0.75)", maxWidth: 620, margin: "0 0 36px" }}>Conteúdo prático e direto sobre o universo jurídico empresarial, para ajudar empresários a tomar decisões mais seguras.</p>
+          <p style={{ fontSize: 18, lineHeight: 1.7, color: "rgba(232,230,220,0.75)", maxWidth: 620, margin: "0 0 36px" }}>Vídeos do canal do escritório no YouTube.</p>
           <a href={YT} target="_blank" rel="noopener noreferrer" className="site-btn-gold" style={{ display: "inline-flex", alignItems: "center", gap: 12, background: COR.gold, color: COR.green, padding: "14px 28px", fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>▶ Canal no YouTube</a>
         </div>
       </section>
@@ -79,8 +78,7 @@ export default function VideosPage() {
             <a key={v.title} href={href(v)} target="_blank" rel="noopener noreferrer" className="site-card-hover" style={{ display: "block", background: "#fff", border: "1px solid rgba(27,29,27,0.08)" }}>
               <Capa vid={v.vid} alt={v.title} />
               <div style={{ padding: "22px 24px 26px" }}>
-                <h3 style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 600, color: COR.green, margin: "0 0 8px", lineHeight: 1.25 }}>{v.title}</h3>
-                <p style={{ fontSize: 13.5, lineHeight: 1.6, color: COR.muted, margin: 0 }}>{v.desc}</p>
+                <h3 style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 600, color: COR.green, margin: 0, lineHeight: 1.3 }}>{v.title}</h3>
               </div>
             </a>
           ))}
@@ -95,8 +93,7 @@ export default function VideosPage() {
             <a key={e.title} href={href(e)} target="_blank" rel="noopener noreferrer" className="site-card-hover" style={{ display: "block", background: "#fff", border: "1px solid rgba(27,29,27,0.08)" }}>
               <Capa vid={e.vid} alt={e.title} />
               <div style={{ padding: "22px 24px 26px" }}>
-                <h3 style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 600, color: COR.green, margin: "0 0 8px", lineHeight: 1.25 }}>{e.title}</h3>
-                <p style={{ fontSize: 13.5, lineHeight: 1.6, color: COR.muted, margin: 0 }}>{e.desc}</p>
+                <h3 style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 600, color: COR.green, margin: 0, lineHeight: 1.3 }}>{e.title}</h3>
               </div>
             </a>
           ))}

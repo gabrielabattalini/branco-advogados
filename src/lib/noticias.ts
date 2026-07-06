@@ -261,20 +261,6 @@ export const ARTIGOS: Artigo[] = [
       "Negócios que crescem sem essa estrutura acabam corrigindo erros depois, geralmente de forma mais cara e desgastante. Já quem organiza a base jurídica desde cedo ganha previsibilidade, reduz riscos e consegue focar no que realmente importa, fazendo a empresa evoluir com estabilidade, inclusive com previsão e evolução do passivo.",
     ],
   },
-  {
-    slug: "clausula-penal-aplicabilidade",
-    tag: "Contratos",
-    title: "Cláusula penal: aplicabilidade",
-    data: "Setembro de 2024",
-    excerpt:
-      "O papel da cláusula penal nos contratos: quando incide, seus limites e como funciona diante do inadimplemento e da mora.",
-    corpo: [
-      "A cláusula penal é a disposição contratual que fixa, previamente, a consequência do descumprimento de uma obrigação. Prevista no Código Civil, ela funciona como uma prefixação das perdas e danos e como um reforço ao cumprimento do que foi pactuado.",
-      "Costuma-se distinguir a cláusula penal compensatória — ligada ao inadimplemento total da obrigação — da cláusula penal moratória, que incide sobre o atraso (a mora) ou o descumprimento de cláusula específica. Cada uma cumpre uma função e produz efeitos próprios.",
-      "A lei impõe limites relevantes: o valor da penalidade não pode exceder o da obrigação principal, e o juiz pode reduzi-la de forma equitativa quando a obrigação tiver sido cumprida em parte ou quando o montante se mostrar manifestamente excessivo.",
-      "Bem redigida, a cláusula penal traz previsibilidade e segurança ao contrato, deixando claro para as partes o custo do descumprimento. Mal calibrada, pode se tornar inexequível — daí a importância de dimensioná-la com técnica no momento da elaboração.",
-    ],
-  },
 ];
 
 export function getArtigo(slug: string): Artigo | undefined {
