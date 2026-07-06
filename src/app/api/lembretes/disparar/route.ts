@@ -167,7 +167,10 @@ export async function GET(req: Request) {
       { ok: false, erro: "CRON_SECRET não configurado." },
       { status: 503 },
     );
-  if (req.headers.get("x-cron-secret") !== segredo)
+  const ok =
+    req.headers.get("x-cron-secret") === segredo ||
+    req.headers.get("authorization") === `Bearer ${segredo}`;
+  if (!ok)
     return NextResponse.json({ ok: false, erro: "não autorizado" }, { status: 401 });
   return NextResponse.json({ ok: true, ...(await processar()) });
 }

@@ -1,0 +1,6 @@
+{
+  "crons": [
+    { "path": "/api/telegram/resumo", "schedule": "0 11 * * *" },
+    { "path": "/api/relatorio-diario", "schedule": "0 22 * * *" }
+  ]
+}
