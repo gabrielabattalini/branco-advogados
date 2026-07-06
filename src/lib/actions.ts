@@ -123,9 +123,14 @@ export async function atualizarStatusTarefa(
     if (!tarefa) return { ok: false, erro: "Tarefa não encontrada." };
     if (!ehGestor(s.papel) && !tarefa.responsaveis.includes(s.iniciais))
       return { ok: false, erro: "Sem permissão para esta tarefa." };
-    await prisma.tarefa.update({ where: { id }, data: { status } });
+    await prisma.tarefa.update({
+      where: { id },
+      // Carimba a conclusão (base dos gráficos de produtividade); limpa se reabrir.
+      data: { status, concluidaEm: status === "concluida" ? new Date() : null },
+    });
     revalidatePath("/tarefas");
     revalidatePath("/painel");
+    revalidatePath("/carga");
     return { ok: true };
   } catch {
     return { ok: false, erro: "Não foi possível atualizar o status." };
@@ -161,7 +166,7 @@ export async function editarTarefa(input: {
     const resps = resp.length ? resp : [s.iniciais];
     const alvo = await prisma.tarefa.findUnique({
       where: { id: input.id },
-      select: { responsaveis: true },
+      select: { responsaveis: true, status: true },
     });
     if (!alvo) return { ok: false, erro: "Tarefa não encontrada." };
     // Só um gestor ou um responsável pela tarefa pode editá-la.
@@ -181,6 +186,14 @@ export async function editarTarefa(input: {
         descricao: input.descricao?.trim() || null,
         processoId: processo?.id ?? null,
         status: input.status,
+        // Carimba a conclusão ao entrar em "concluida"; mantém a data se já
+        // estava concluída (undefined = não altera); limpa se reabrir.
+        concluidaEm:
+          input.status === "concluida"
+            ? alvo.status === "concluida"
+              ? undefined
+              : new Date()
+            : null,
         responsaveis: resps,
         // Prazo/datas só um gestor pode alterar.
         ...(gestor

@@ -11,6 +11,8 @@ import {
   gerarCodigoLogin,
   hashCodigo,
   conferirCodigo,
+  assinarTicketSenha,
+  lerTicketSenha,
 } from "@/lib/seguranca";
 import {
   definirSessao,
@@ -125,7 +127,8 @@ async function registrarLog(
 export type LoginResult =
   | { ok: true }
   | { ok: false; erro: string }
-  | { precisaCodigo: true; email: string };
+  | { precisaCodigo: true; email: string; primeiroAcesso?: boolean }
+  | { precisaDefinirSenha: true; email: string; ticket: string };
 
 // Iniciais a partir do nome (sem acentos; 1ª letra do primeiro e do último nome).
 function baseIniciais(nome: string): string {
@@ -158,13 +161,27 @@ async function iniciaisUnicas(nome: string): Promise<string> {
   return base + Date.now();
 }
 
+// Gera, guarda e envia um novo código de 6 dígitos por e-mail. Retorna se saiu.
+async function enviarNovoCodigo(u: { id: string; email: string; nome: string }): Promise<boolean> {
+  const codigo = gerarCodigoLogin();
+  await prisma.codigoLogin.deleteMany({ where: { usuarioId: u.id } });
+  await prisma.codigoLogin.create({
+    data: {
+      usuarioId: u.id,
+      codigoHash: hashCodigo(codigo),
+      expiraEm: new Date(Date.now() + CODIGO_VALIDADE_MS),
+    },
+  });
+  const envio = await enviarCodigoLogin(u.email, codigo, u.nome);
+  return envio.enviado;
+}
+
 export async function entrar(input: {
   email: string;
   senha: string;
 }): Promise<LoginResult> {
   const email = input.email.trim().toLowerCase();
-  if (!email || !input.senha)
-    return { ok: false, erro: "Informe e-mail e senha." };
+  if (!email) return { ok: false, erro: "Informe o e-mail." };
   const info = await infoReq();
   if (loginBloqueado(email)) {
     await registrarLog("bloqueado", email, null, info);
@@ -178,11 +195,30 @@ export async function entrar(input: {
     // Bloqueio de conta por tentativas (anti-bruteforce persistente).
     if (u && u.bloqueadoAte && u.bloqueadoAte.getTime() > Date.now()) {
       await registrarLog("bloqueado", email, u.id, info);
+      // Mensagem IDÊNTICA à do rate-limit em memória — não revela se a conta
+      // existe (antes, "Conta bloqueada..." denunciava e-mails válidos).
       return {
         ok: false,
-        erro: "Conta bloqueada por tentativas. Tente novamente em alguns minutos.",
+        erro: "Muitas tentativas. Tente novamente em alguns minutos.",
       };
     }
+    // PRIMEIRO ACESSO: conta ativa e SEM senha definida (senhaHash nulo). Não há
+    // senha padrão — a pessoa recebe um código por e-mail e cria a própria senha.
+    if (u && u.ativo && !u.senhaHash) {
+      if (!emailConfigurado()) {
+        return {
+          ok: false,
+          erro: "Primeiro acesso indisponível: envio de e-mail não configurado. Contate o administrador.",
+        };
+      }
+      const enviado = await enviarNovoCodigo(u);
+      if (!enviado)
+        return { ok: false, erro: "Não foi possível enviar o código agora. Tente em instantes." };
+      await registrarLog("codigo_enviado", email, u.id, info);
+      return { precisaCodigo: true, email, primeiroAcesso: true };
+    }
+    // A partir daqui, fluxo com senha — exige senha preenchida.
+    if (!input.senha) return { ok: false, erro: "E-mail ou senha incorretos." };
     // Mensagem genérica de propósito (não revela se o e-mail existe).
     if (!u || !u.ativo || !verificarSenha(input.senha, u.senhaHash)) {
       registrarFalhaLogin(email);
@@ -223,20 +259,13 @@ export async function entrar(input: {
       revalidatePath("/", "layout");
       return { ok: true };
     }
-    const codigo = gerarCodigoLogin();
-    await prisma.codigoLogin.deleteMany({ where: { usuarioId: u.id } });
-    await prisma.codigoLogin.create({
-      data: {
-        usuarioId: u.id,
-        codigoHash: hashCodigo(codigo),
-        expiraEm: new Date(Date.now() + CODIGO_VALIDADE_MS),
-      },
-    });
-    const envio = await enviarCodigoLogin(u.email, codigo, u.nome);
-    // Se o código NÃO foi enviado (e-mail mal configurado, ou domínio de teste
-    // que só entrega para o dono da conta), não trava o usuário: entra e confia
-    // no aparelho. Quando o domínio estiver verificado, o 2FA passa a valer.
-    if (!envio.enviado) {
+    const enviado = await enviarNovoCodigo(u);
+    // NOTA DE SEGURANÇA (fail-open conhecido): se o código não puder ser enviado
+    // (e-mail mal configurado / domínio de teste), hoje o login entra e confia no
+    // aparelho para não travar ninguém. O correto é FAIL-CLOSED (negar), mas isso
+    // só deve ser ligado depois de confirmar que o RESEND entrega de verdade —
+    // senão um e-mail quebrado tranca todos. Ativar quando o 2FA estiver validado.
+    if (!enviado) {
       await prisma.codigoLogin.deleteMany({ where: { usuarioId: u.id } });
       await definirSessao(u.id);
       await marcarDispositivoConfiavel(u.id);
@@ -288,6 +317,11 @@ export async function verificarCodigoLogin(input: {
       return { ok: false, erro: "Código incorreto." };
     }
     await prisma.codigoLogin.deleteMany({ where: { usuarioId: u.id } });
+    // PRIMEIRO ACESSO: código validado, mas a conta ainda não tem senha. Não cria
+    // sessão aqui — devolve um ticket curto (15 min) que autoriza definir a senha.
+    if (!u.senhaHash) {
+      return { precisaDefinirSenha: true, email, ticket: assinarTicketSenha(u.id) };
+    }
     await definirSessao(u.id);
     await marcarDispositivoConfiavel(u.id);
     await registrarLog("novo_aparelho", email, u.id, info);
@@ -301,6 +335,63 @@ export async function verificarCodigoLogin(input: {
     return { ok: true };
   } catch {
     return { ok: false, erro: "Não foi possível validar o código." };
+  }
+}
+
+// 1º acesso: com o ticket (emitido após o código de e-mail), a pessoa define a
+// própria senha. Só então cria a sessão e confia no aparelho.
+export async function definirSenhaPrimeiroAcesso(input: {
+  email: string;
+  ticket: string;
+  senha: string;
+}): Promise<LoginResult> {
+  const email = input.email.trim().toLowerCase();
+  const userId = lerTicketSenha(input.ticket);
+  if (!userId)
+    return { ok: false, erro: "Tempo esgotado. Faça o login de novo para receber outro código." };
+  if (!input.senha || input.senha.length < 8)
+    return { ok: false, erro: "A senha deve ter ao menos 8 caracteres." };
+  try {
+    const u = await prisma.usuario.findUnique({ where: { id: userId } });
+    if (!u || !u.ativo || u.email.toLowerCase() !== email)
+      return { ok: false, erro: "Sessão inválida. Faça o login de novo." };
+    await prisma.usuario.update({
+      where: { id: u.id },
+      data: {
+        senhaHash: hashSenha(input.senha),
+        tentativasLogin: 0,
+        bloqueadoAte: null,
+      },
+    });
+    const info = await infoReq();
+    await definirSessao(u.id);
+    await marcarDispositivoConfiavel(u.id);
+    await registrarLog("sucesso", email, u.id, info);
+    revalidatePath("/", "layout");
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Não foi possível definir a senha." };
+  }
+}
+
+// Gestor: zera a senha de um usuário (senhaHash nulo), forçando o fluxo de 1º
+// acesso por e-mail. É como a senha antiga "Branco@2026" deve ser aposentada.
+export async function resetarParaPrimeiroAcesso(userId: string): Promise<ActionResult> {
+  const s = await getSessao();
+  if (!s || !ehGestor(s.papel))
+    return { ok: false, erro: "Sem permissão." };
+  try {
+    const u = await prisma.usuario.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!u) return { ok: false, erro: "Usuário não encontrado." };
+    await prisma.usuario.update({
+      where: { id: userId },
+      data: { senhaHash: null, tentativasLogin: 0, bloqueadoAte: null },
+    });
+    await prisma.codigoLogin.deleteMany({ where: { usuarioId: userId } });
+    revalidatePath("/admin");
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Não foi possível resetar a senha." };
   }
 }
 

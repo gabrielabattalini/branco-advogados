@@ -2,12 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, KeyRound } from "lucide-react";
 import { Modal } from "@/components/Modal";
 import { Avatar } from "@/components/Avatar";
 import { EditarUsuarioModal } from "@/components/EditarUsuarioModal";
 import { PAPEIS, labelPapel } from "@/lib/papeis";
-import { criarUsuario, alterarPapel, alternarAtivo } from "@/lib/auth-actions";
+import {
+  criarUsuario,
+  alterarPapel,
+  alternarAtivo,
+  resetarParaPrimeiroAcesso,
+} from "@/lib/auth-actions";
 import type { UsuarioAdmin } from "@/lib/data";
 
 const inputCls =
@@ -71,6 +76,21 @@ export function AdminView({
     setBusy(u.id);
     setErro("");
     const res = await alternarAtivo({ id: u.id, ativo: !u.ativo });
+    if (!res.ok) setErro(res.erro);
+    router.refresh();
+    setBusy(null);
+  };
+
+  const resetarSenha = async (u: UsuarioAdmin) => {
+    if (
+      !confirm(
+        `Resetar a senha de ${u.nome}?\n\nA senha atual é apagada e a pessoa cria uma nova no próximo acesso (código enviado por e-mail).`,
+      )
+    )
+      return;
+    setBusy(u.id);
+    setErro("");
+    const res = await resetarParaPrimeiroAcesso(u.id);
     if (!res.ok) setErro(res.erro);
     router.refresh();
     setBusy(null);
@@ -164,6 +184,14 @@ export function AdminView({
                 className="inline-flex items-center gap-1 rounded-md border border-line px-2.5 py-1.5 text-[12px] text-navy hover:bg-cream disabled:opacity-40"
               >
                 <Pencil size={12} /> Editar
+              </button>
+              <button
+                onClick={() => resetarSenha(u)}
+                disabled={!podeEditarDetalhes(u) || busy === u.id}
+                title="Apaga a senha; a pessoa cria uma nova no próximo acesso"
+                className="inline-flex items-center gap-1 rounded-md border border-line px-2.5 py-1.5 text-[12px] text-muted hover:bg-cream disabled:opacity-40"
+              >
+                <KeyRound size={12} /> Resetar senha
               </button>
             </div>
           );

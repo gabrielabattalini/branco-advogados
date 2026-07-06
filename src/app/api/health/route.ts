@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
+import { getSessao } from "@/lib/sessao";
+import { ehGestor } from "@/lib/papeis";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +12,27 @@ const limpar = (s?: string) =>
   (s ?? "").replace(/:\/\/[^@]*@/g, "://***@").slice(0, 800);
 
 export async function GET() {
+  // Liveness é público (sem detalhes). Os detalhes de diagnóstico (quais env
+  // estão setadas, contagens do banco, erros) só para gestor logado ou com o
+  // header x-cron-secret — antes ficavam expostos a qualquer um.
+  const sessao = await getSessao().catch(() => null);
+  const cronSecret = process.env.CRON_SECRET;
+  const headerSecret = (await headers()).get("x-cron-secret");
+  const autorizado =
+    (sessao && ehGestor(sessao.papel)) ||
+    (!!cronSecret && headerSecret === cronSecret);
+
+  if (!autorizado) {
+    let bancoOk = false;
+    try {
+      await prisma.tarefa.count();
+      bancoOk = true;
+    } catch {
+      bancoOk = false;
+    }
+    return NextResponse.json({ ok: bancoOk });
+  }
+
   const env = {
     DATABASE_URL_UNPOOLED: !!process.env.DATABASE_URL_UNPOOLED,
     DATABASE_URL: !!process.env.DATABASE_URL,

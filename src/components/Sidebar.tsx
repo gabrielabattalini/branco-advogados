@@ -13,6 +13,7 @@ import {
   Newspaper,
   ShieldCheck,
   UserCog,
+  BarChart3,
 } from "lucide-react";
 import { ehGestor, labelPapel } from "@/lib/papeis";
 import { Logo } from "@/components/Logo";
@@ -41,7 +42,10 @@ export function Sidebar({
   const nav = [
     ...navBase,
     ...(ehGestor(papel)
-      ? [{ href: "/admin", label: "Administração", Icon: ShieldCheck }]
+      ? [
+          { href: "/carga", label: "Carga", Icon: BarChart3 },
+          { href: "/admin", label: "Administração", Icon: ShieldCheck },
+        ]
       : []),
     { href: "/perfil", label: "Perfil", Icon: UserCog },
   ];
