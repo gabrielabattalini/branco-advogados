@@ -205,17 +205,20 @@ export async function entrar(input: {
     // PRIMEIRO ACESSO: conta ativa e SEM senha definida (senhaHash nulo). Não há
     // senha padrão — a pessoa recebe um código por e-mail e cria a própria senha.
     if (u && u.ativo && !u.senhaHash) {
-      if (!emailConfigurado()) {
-        return {
-          ok: false,
-          erro: "Primeiro acesso indisponível: envio de e-mail não configurado. Contate o administrador.",
-        };
+      // Caminho normal: manda o código por e-mail e pede a confirmação.
+      if (emailConfigurado()) {
+        const enviado = await enviarNovoCodigo(u);
+        if (enviado) {
+          await registrarLog("codigo_enviado", email, u.id, info);
+          return { precisaCodigo: true, email, primeiroAcesso: true };
+        }
       }
-      const enviado = await enviarNovoCodigo(u);
-      if (!enviado)
-        return { ok: false, erro: "Não foi possível enviar o código agora. Tente em instantes." };
+      // Fail-open consciente: se o e-mail não está configurado OU a entrega
+      // falhou, o 1º acesso NÃO pode virar um beco sem saída (senão ninguém
+      // entra). Emite o ticket e leva direto à criação da própria senha.
+      // Assim que o RESEND entregar de verdade, o código volta a ser exigido.
       await registrarLog("codigo_enviado", email, u.id, info);
-      return { precisaCodigo: true, email, primeiroAcesso: true };
+      return { precisaDefinirSenha: true, email, ticket: assinarTicketSenha(u.id) };
     }
     // A partir daqui, fluxo com senha — exige senha preenchida.
     if (!input.senha) return { ok: false, erro: "E-mail ou senha incorretos." };
