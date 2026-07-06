@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, Plus, Scale, Phone, Mail, ChevronLeft, ChevronRight } from "lucide-react";
 import type { TipoContato } from "@/lib/mock";
@@ -118,10 +119,20 @@ export function ContatosView({
       </div>
 
       <div className="overflow-hidden rounded-lg border border-line bg-surface">
-        {contatos.map((c) => (
-          <div
+        {contatos.map((c) => {
+          const cliente = c.tipoContato === "cliente";
+          const Wrapper = cliente ? Link : "div";
+          const wrapperProps = cliente
+            ? { href: `/clientes/${encodeURIComponent(c.nome)}` }
+            : {};
+          return (
+          <Wrapper
             key={c.id}
-            className="flex items-center gap-3 border-t border-line px-4 py-3 first:border-t-0"
+            {...(wrapperProps as { href: string })}
+            className={
+              "flex items-center gap-3 border-t border-line px-4 py-3 first:border-t-0 " +
+              (cliente ? "hover:bg-cream/60" : "")
+            }
           >
             <Avatar ini={c.iniciais} size={34} />
             <div className="min-w-0 flex-1">
@@ -164,8 +175,9 @@ export function ContatosView({
                 {c.processos}
               </span>
             )}
-          </div>
-        ))}
+          </Wrapper>
+          );
+        })}
         {contatos.length === 0 && (
           <div className="px-4 py-10 text-center text-[13px] text-faint">
             Nenhum contato encontrado.

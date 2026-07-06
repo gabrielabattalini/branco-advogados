@@ -64,7 +64,16 @@ export default async function ProcessoPage({
           {meta.map(([label, value]) => (
             <div key={label}>
               <div className="text-[11px] text-faint">{label}</div>
-              <div className="text-[13px] text-ink">{value}</div>
+              {label === "Cliente" && value ? (
+                <Link
+                  href={`/clientes/${encodeURIComponent(value)}`}
+                  className="text-[13px] text-navy underline decoration-navy/30 underline-offset-2 hover:decoration-navy"
+                >
+                  {value}
+                </Link>
+              ) : (
+                <div className="text-[13px] text-ink">{value}</div>
+              )}
             </div>
           ))}
         </div>

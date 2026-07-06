@@ -368,6 +368,121 @@ export async function getFichaProcesso(
   };
 }
 
+export type FichaAudiencia = {
+  id: string;
+  processoNumero: string;
+  titulo: string;
+  data: string;
+  hora: string;
+  tipo: string;
+  modalidade: string;
+  local: string;
+  status: string;
+};
+export type FichaCliente = {
+  nome: string;
+  contato: {
+    documento: string;
+    telefone: string;
+    email: string;
+    tipo: string; // pf | pj
+    profissao: string;
+  } | null;
+  processos: Processo[];
+  tarefas: TarefaFull[];
+  audiencias: FichaAudiencia[];
+  totais: { processos: number; tarefasAbertas: number; audienciasFuturas: number };
+};
+
+// Reúne tudo de um cliente (por nome, como aparece nos processos): dados de
+// contato, processos, tarefas e audiências. Tarefas/audiências respeitam o
+// escopo do usuário (advogado vê só as suas); processos são visíveis a todos.
+export async function getFichaCliente(
+  nome: string,
+): Promise<FichaCliente | null> {
+  const alvo = nome.trim();
+  if (!alvo) return null;
+  const procs = await prisma.processo.findMany({
+    where: { cliente: alvo },
+    orderBy: { criadoEm: "desc" },
+  });
+  if (procs.length === 0) {
+    // Sem processos: ainda pode existir como contato cadastrado.
+    const c = await prisma.contato.findFirst({
+      where: { nome: alvo, tipoContato: "cliente" },
+    });
+    if (!c) return null;
+  }
+  const procIds = procs.map((p) => p.id);
+  const contato = await prisma.contato.findFirst({
+    where: { nome: alvo, tipoContato: "cliente" },
+    orderBy: { criadoEm: "asc" },
+  });
+  const [escT, escA] = [await escopoTarefas(), await escopoAgenda()];
+  const [tars, audis] = await Promise.all([
+    procIds.length
+      ? prisma.tarefa.findMany({
+          where: { processoId: { in: procIds }, ...escT },
+          orderBy: { data: "asc" },
+        })
+      : Promise.resolve([]),
+    procIds.length
+      ? prisma.audiencia.findMany({
+          where: { processoId: { in: procIds }, ...escA },
+          orderBy: { inicioUtc: "asc" },
+        })
+      : Promise.resolve([]),
+  ]);
+  const hoje = hojeISO();
+  return {
+    nome: alvo,
+    contato: contato
+      ? {
+          documento: contato.documento,
+          telefone: contato.telefone,
+          email: contato.email,
+          tipo: contato.tipo,
+          profissao: contato.profissao,
+        }
+      : null,
+    processos: procs.map(mapProcesso),
+    tarefas: tars.map((t) => ({
+      id: t.id,
+      titulo: t.titulo,
+      descricao: t.descricao ?? undefined,
+      processo:
+        procs.find((p) => p.id === t.processoId)?.numero ?? "",
+      area: t.area as Area,
+      data: t.data,
+      prazo: t.prazo,
+      prazoUrgente: t.prazoUrgente,
+      status: t.status as Status,
+      responsaveis: t.responsaveis,
+      solicitante: t.solicitante || undefined,
+      revisor: t.revisor || undefined,
+    })),
+    audiencias: audis.map((a) => ({
+      id: a.id,
+      processoNumero:
+        procs.find((p) => p.id === a.processoId)?.numero ?? "",
+      titulo: a.titulo,
+      data: a.data,
+      hora: a.hora,
+      tipo: a.tipo,
+      modalidade: a.modalidade,
+      local: a.local,
+      status: a.status,
+    })),
+    totais: {
+      processos: procs.length,
+      tarefasAbertas: tars.filter((t) => t.status !== "concluida").length,
+      audienciasFuturas: audis.filter(
+        (a) => a.status === "agendada" && a.data >= hoje,
+      ).length,
+    },
+  };
+}
+
 export type ContatosPagina = {
   contatos: Contato[];
   total: number;
