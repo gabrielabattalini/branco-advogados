@@ -60,7 +60,8 @@ export function TarefasView({
     ano: Number(HOJE.slice(0, 4)),
     mes: Number(HOJE.slice(5, 7)),
   });
-  const [filtroAdv, setFiltroAdv] = useState("");
+  // Gestor abre já filtrado nas próprias tarefas; pode trocar para "Todas".
+  const [filtroAdv, setFiltroAdv] = useState(coord && me ? me : "");
   const [statusSel, setStatusSel] = useState<string[]>(
     STATUS_LIST.map((s) => s.key),
   );
