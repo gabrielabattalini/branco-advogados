@@ -255,3 +255,12 @@
 .site-mobile-btn {
   display: none;
 }
+
+/* Botão flutuante do WhatsApp */
+.site-whats {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.site-whats:hover {
+  transform: scale(1.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.34) !important;
+}
