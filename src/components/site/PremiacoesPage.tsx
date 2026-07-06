@@ -9,11 +9,14 @@ const CARDS = [
   { big: "OAB", sup: "", title: "Tribunal de Ética", desc: "Ex-membro julgador do Tribunal de Ética da OAB/SP." },
 ];
 
+// Prêmios e destaques do escritório, do mais recente ao mais antigo.
 const ITEMS = [
-  { year: "Acadêmico", title: "Pós-Doutorado em Salamanca", desc: "Formação pós-doutoral pela Universidade de Salamanca (Espanha) e Doutorado em Filosofia do Direito e do Estado pela PUC/SP — reconhecimento da profundidade técnica que orienta o escritório." },
-  { year: "Magistério", title: "Mais de 25 anos de docência", desc: "Atuação como professor titular e convidado em cursos de Direito, contribuindo para a formação de gerações de juristas na região." },
-  { year: "Institucional", title: "Tribunal de Ética da OAB/SP", desc: "Participação como membro julgador do Tribunal de Ética da Ordem dos Advogados do Brasil — Seção São Paulo." },
-  { year: "Produção", title: "Obras e artigos publicados", desc: "Autoria de livros e de artigos em revistas e periódicos jurídicos, com destaque para o Manual de Introdução ao Direito (Editora Millennium)." },
+  { year: "2025", title: "Prêmio Destaque CDL Jundiaí", desc: "Pelo 5º ano consecutivo, somos destaque na categoria Advocacia pelo Prêmio CDL Jundiaí." },
+  { year: "2024", title: "Advogado mais lembrado de Jundiaí", desc: "O Doutor Branco foi reconhecido pela CDL de Jundiaí como o advogado mais lembrado de Jundiaí e região em 2024. Uma conquista que reforça sua dedicação e a confiança conquistada junto à comunidade." },
+  { year: "2023", title: "Advogado mais lembrado de Jundiaí", desc: "O Doutor Branco foi reconhecido pela CDL de Jundiaí como o advogado mais lembrado de Jundiaí e região em 2023. Uma conquista que reforça sua dedicação e a confiança conquistada junto à comunidade." },
+  { year: "2022", title: "Prêmio Destaque CDL Jundiaí", desc: "O Doutor Luiz Carlos Branco foi reconhecido pela CDL Jundiaí como o advogado mais lembrado de Jundiaí e região, destacando sua dedicação, excelência e a confiança conquistada junto à comunidade." },
+  { year: "2020", title: "1º lugar na preferência da população", desc: "Concedido pela CDL Jundiaí e Sincomércio Jundiaí e Região ao Doutor Luiz Carlos Branco, em reconhecimento por conquistar o 1º lugar na preferência e lembrança da população jundiaiense na categoria Advogado." },
+  { year: "2006", title: "Encontro Brasileiro de Faculdades de Direito", desc: "Realizado em João Pessoa, o Encontro Brasileiro de Faculdades de Direito, presidido pelo Doutor Luiz Carlos Branco, reuniu instituições de ensino jurídico de todo o país para discutir diretrizes acadêmicas, desafios do ensino superior e perspectivas para a formação jurídica no Brasil." },
 ];
 
 const PHOTOS = [

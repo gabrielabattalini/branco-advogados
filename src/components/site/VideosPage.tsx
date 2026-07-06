@@ -4,16 +4,55 @@ import { SERIF, SANS, COR } from "./ui";
 
 const YT = "https://www.youtube.com/channel/UCJUu5SUmxNk2BKECyL8sfXw";
 
-const MINUTO = [
+// Vídeos do canal. Quando o `vid` (ID do YouTube) é preenchido, o card mostra
+// a capa real do vídeo e leva direto para ele. Sem `vid`, leva ao canal.
+type Video = { title: string; desc: string; vid?: string };
+
+const MINUTO: Video[] = [
+  { vid: "IU_qq_c_lKA", title: "Minuto Branco Legal", desc: "Conteúdo prático e direto sobre o universo jurídico empresarial." },
   { title: "Contratei errado. E agora?", desc: "Os cuidados essenciais na contratação para evitar passivos trabalhistas." },
   { title: "O que olhar antes de assinar", desc: "Pontos de atenção em contratos empresariais antes da assinatura." },
-  { title: "Locação comercial sem surpresas", desc: "O que a empresa precisa saber ao alugar um imóvel." },
 ];
-const ENTREVISTAS = [
-  { title: "Prevenção como estratégia", meta: "Entrevista · YouTube" },
-  { title: "Relações de consumo e a empresa", meta: "Entrevista · YouTube" },
-  { title: "45 anos de advocacia", meta: "Entrevista · YouTube" },
+const ENTREVISTAS: Video[] = [
+  { title: "Prevenção como estratégia", desc: "Como a orientação jurídica preventiva transforma a rotina das empresas." },
+  { title: "Relações de consumo e a empresa", desc: "O que o empresário precisa saber sobre o Código de Defesa do Consumidor." },
+  { title: "45 anos de advocacia", desc: "Uma conversa sobre a trajetória e os valores do escritório." },
 ];
+
+// Capa do vídeo: usa a thumbnail real do YouTube quando há ID; senão, uma capa
+// com a marca do canal. Sempre com o botão vermelho de "play" do YouTube.
+function Capa({ vid, alt, aspect = "16/9" }: { vid?: string; alt: string; aspect?: string }) {
+  return (
+    <div style={{ position: "relative", aspectRatio: aspect, background: COR.green, overflow: "hidden" }}>
+      {vid ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={`https://i.ytimg.com/vi/${vid}/hqdefault.jpg`}
+          alt={alt}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      ) : (
+        <span style={{ position: "absolute", top: 18, left: 18, fontSize: 11, fontWeight: 700, letterSpacing: "0.24em", color: "rgba(176,141,79,0.6)", textTransform: "uppercase" }}>
+          Branco Legal
+        </span>
+      )}
+      <span style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(0,0,0,0) 40%,rgba(0,0,0,0.28) 100%)" }} />
+      <span
+        aria-hidden
+        style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 60, height: 42, borderRadius: 10, background: "#ff0000", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 14px rgba(0,0,0,0.35)" }}
+      >
+        <span style={{ width: 0, height: 0, borderTop: "9px solid transparent", borderBottom: "9px solid transparent", borderLeft: "15px solid #fff", marginLeft: 3 }} />
+      </span>
+      <span style={{ position: "absolute", bottom: 12, right: 14, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", color: "rgba(255,255,255,0.85)", textTransform: "uppercase" }}>
+        ▶ Assista no YouTube
+      </span>
+    </div>
+  );
+}
+
+function href(v: Video) {
+  return v.vid ? `https://www.youtube.com/watch?v=${v.vid}` : YT;
+}
 
 export default function VideosPage() {
   return (
@@ -37,11 +76,8 @@ export default function VideosPage() {
         <h2 style={{ fontFamily: SERIF, fontWeight: 500, fontSize: 36, lineHeight: 1.12, margin: "0 0 44px", color: COR.green }}>Minuto Branco Legal</h2>
         <div className="site-grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 28 }}>
           {MINUTO.map((v) => (
-            <a key={v.title} href={YT} target="_blank" rel="noopener noreferrer" className="site-card-hover" style={{ display: "block", background: "#fff", border: "1px solid rgba(27,29,27,0.08)" }}>
-              <div style={{ position: "relative", aspectRatio: "16/9", background: COR.green, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.24em", color: "rgba(176,141,79,0.55)", textTransform: "uppercase", position: "absolute", top: 18, left: 18 }}>Minuto Legal</span>
-                <span style={{ width: 56, height: 56, border: "1.5px solid #b08d4f", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: COR.gold, fontSize: 18 }}>▶</span>
-              </div>
+            <a key={v.title} href={href(v)} target="_blank" rel="noopener noreferrer" className="site-card-hover" style={{ display: "block", background: "#fff", border: "1px solid rgba(27,29,27,0.08)" }}>
+              <Capa vid={v.vid} alt={v.title} />
               <div style={{ padding: "22px 24px 26px" }}>
                 <h3 style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 600, color: COR.green, margin: "0 0 8px", lineHeight: 1.25 }}>{v.title}</h3>
                 <p style={{ fontSize: 13.5, lineHeight: 1.6, color: COR.muted, margin: 0 }}>{v.desc}</p>
@@ -54,27 +90,16 @@ export default function VideosPage() {
       <section className="site-pad" style={{ maxWidth: 1260, margin: "0 auto", padding: "64px 40px 96px" }}>
         <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.3em", textTransform: "uppercase", color: COR.gold, marginBottom: 14 }}>Conversas</div>
         <h2 style={{ fontFamily: SERIF, fontWeight: 500, fontSize: 36, lineHeight: 1.12, margin: "0 0 44px", color: COR.green }}>Entrevistas</h2>
-        <div className="site-2col" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 28 }}>
-          <a href={YT} target="_blank" rel="noopener noreferrer" className="site-card-hover" style={{ display: "block", background: "#fff", border: "1px solid rgba(27,29,27,0.08)" }}>
-            <div style={{ position: "relative", aspectRatio: "16/9", background: "#0a7d45", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ width: 64, height: 64, border: "1.5px solid #b08d4f", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: COR.gold, fontSize: 20 }}>▶</span>
-            </div>
-            <div style={{ padding: "28px 30px 32px" }}>
-              <h3 style={{ fontFamily: SERIF, fontSize: 24, fontWeight: 600, color: COR.green, margin: "0 0 10px" }}>Direito empresarial na prática</h3>
-              <p style={{ fontSize: 15, lineHeight: 1.65, color: COR.muted, margin: 0 }}>Uma conversa sobre como a orientação jurídica preventiva transforma a rotina e a segurança das empresas.</p>
-            </div>
-          </a>
-          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            {ENTREVISTAS.map((e) => (
-              <a key={e.title} href={YT} target="_blank" rel="noopener noreferrer" className="site-card-hover" style={{ display: "flex", gap: 18, alignItems: "center", background: "#fff", border: "1px solid rgba(27,29,27,0.08)", padding: 16 }}>
-                <span style={{ width: 64, height: 48, flex: "none", background: COR.green, display: "flex", alignItems: "center", justifyContent: "center", color: COR.gold, fontSize: 14 }}>▶</span>
-                <div>
-                  <h4 style={{ fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: COR.green, margin: "0 0 4px", lineHeight: 1.25 }}>{e.title}</h4>
-                  <p style={{ fontSize: 12.5, color: "#8a8c80", margin: 0 }}>{e.meta}</p>
-                </div>
-              </a>
-            ))}
-          </div>
+        <div className="site-grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 28 }}>
+          {ENTREVISTAS.map((e) => (
+            <a key={e.title} href={href(e)} target="_blank" rel="noopener noreferrer" className="site-card-hover" style={{ display: "block", background: "#fff", border: "1px solid rgba(27,29,27,0.08)" }}>
+              <Capa vid={e.vid} alt={e.title} />
+              <div style={{ padding: "22px 24px 26px" }}>
+                <h3 style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 600, color: COR.green, margin: "0 0 8px", lineHeight: 1.25 }}>{e.title}</h3>
+                <p style={{ fontSize: 13.5, lineHeight: 1.6, color: COR.muted, margin: 0 }}>{e.desc}</p>
+              </div>
+            </a>
+          ))}
         </div>
       </section>
 
