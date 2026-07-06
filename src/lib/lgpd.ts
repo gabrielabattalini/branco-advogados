@@ -4,8 +4,8 @@
 export const LGPD = {
   controlador: "Branco Advogados Associados",
   cnpj: process.env.LGPD_CNPJ || "01.256.531/0001-02",
-  encarregadoNome: process.env.LGPD_DPO_NOME || "",
-  encarregadoEmail: process.env.LGPD_DPO_EMAIL || "privacidade@brancoadvogados.com.br",
+  encarregadoNome: process.env.LGPD_DPO_NOME || "Gabriel Amorim Battaglini",
+  encarregadoEmail: process.env.LGPD_DPO_EMAIL || "gabriel@brancoadvogados.com.br",
   contatoEmail: "branco@brancoadvogados.com.br",
   telefone: "+55 (11) 4586-6329",
   endereco:
