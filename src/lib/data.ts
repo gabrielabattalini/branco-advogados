@@ -277,6 +277,103 @@ export async function getCargaEquipe(): Promise<{
   };
 }
 
+// ---- Relatório diário de atividades (por pessoa) ----
+export type AcaoDiaria = {
+  hora: string; // HH:MM Brasília
+  tipo: string; // criacao | status | responsaveis | prazo | comentario
+  texto: string;
+  tarefa: string;
+};
+export type PessoaDia = {
+  iniciais: string;
+  nome: string;
+  acoes: AcaoDiaria[];
+  criadas: number;
+  concluidas: number;
+  revisao: number;
+  comentarios: number;
+};
+export type RelatorioDiario = {
+  data: string; // yyyy-mm-dd
+  pessoas: PessoaDia[];
+  total: number;
+};
+
+// Todas as ações registradas na linha do tempo das tarefas em um dia (Brasília),
+// agrupadas por pessoa. Base do relatório diário enviado ao sócio. Gestor-only.
+export async function getRelatorioDiario(
+  dataISO: string,
+): Promise<RelatorioDiario> {
+  const s = await getSessao();
+  if (!s || !ehGestor(s.papel)) return { data: dataISO, pessoas: [], total: 0 };
+  return montarRelatorioDiario(dataISO);
+}
+
+// Versão sem checagem de sessão — usada pelo cron (protegido por CRON_SECRET).
+export async function montarRelatorioDiario(
+  dataISO: string,
+): Promise<RelatorioDiario> {
+  const inicio = new Date(`${dataISO}T03:00:00.000Z`); // 00:00 BRT
+  const fim = new Date(inicio.getTime() + 24 * 3600 * 1000);
+  const hist = await prisma.tarefaHistorico.findMany({
+    where: { criadoEm: { gte: inicio, lt: fim } },
+    orderBy: { criadoEm: "asc" },
+  });
+  const tids = [...new Set(hist.map((h) => h.tarefaId))];
+  const tarefas = tids.length
+    ? await prisma.tarefa.findMany({
+        where: { id: { in: tids } },
+        select: { id: true, titulo: true },
+      })
+    : [];
+  const titulo = new Map(tarefas.map((t) => [t.id, t.titulo]));
+  const inis = [...new Set(hist.map((h) => h.autor))];
+  const users = inis.length
+    ? await prisma.usuario.findMany({
+        where: { iniciais: { in: inis } },
+        select: { iniciais: true, nome: true },
+      })
+    : [];
+  const nome = new Map(users.map((u) => [u.iniciais, u.nome]));
+
+  const map = new Map<string, PessoaDia>();
+  for (const h of hist) {
+    if (!map.has(h.autor))
+      map.set(h.autor, {
+        iniciais: h.autor,
+        nome: nome.get(h.autor) ?? h.autor,
+        acoes: [],
+        criadas: 0,
+        concluidas: 0,
+        revisao: 0,
+        comentarios: 0,
+      });
+    const p = map.get(h.autor)!;
+    const hora = new Date(h.criadoEm.getTime() - 3 * 3600 * 1000)
+      .toISOString()
+      .slice(11, 16);
+    let texto = h.texto;
+    if (h.tipo === "comentario") texto = `Comentou: “${h.texto}”`;
+    else if (h.tipo === "criacao") texto = "Criou a tarefa";
+    p.acoes.push({
+      hora,
+      tipo: h.tipo,
+      texto,
+      tarefa: titulo.get(h.tarefaId) ?? "(tarefa removida)",
+    });
+    if (h.tipo === "criacao") p.criadas++;
+    else if (h.tipo === "comentario") p.comentarios++;
+    else if (h.tipo === "status") {
+      if (h.texto.includes("Concluída")) p.concluidas++;
+      if (h.texto.includes("Em correção")) p.revisao++;
+    }
+  }
+  const pessoas = [...map.values()].sort(
+    (a, b) => b.acoes.length - a.acoes.length || a.nome.localeCompare(b.nome),
+  );
+  return { data: dataISO, pessoas, total: hist.length };
+}
+
 export async function getProcessos(): Promise<Processo[]> {
   const rows = await prisma.processo.findMany({ orderBy: { criadoEm: "desc" } });
   return rows.map(mapProcesso);

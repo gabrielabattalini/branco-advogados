@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Printer } from "lucide-react";
+import { ChevronLeft, ChevronRight, Printer, FileText, Download } from "lucide-react";
 import type { CargaTarefa, MembroEquipe } from "@/lib/data";
 import { NOMES_MES } from "@/lib/calendario";
 
@@ -35,6 +35,7 @@ export function RelatorioView({
     ano: Number(hoje.slice(0, 4)),
     mes: Number(hoje.slice(5, 7)),
   });
+  const [diaAtiv, setDiaAtiv] = useState(hoje);
   const mesKey = `${ref.ano}-${String(ref.mes).padStart(2, "0")}`;
 
   const linhas = useMemo<Linha[]>(() => {
@@ -135,6 +136,39 @@ export function RelatorioView({
           >
             <Printer size={16} /> Imprimir / PDF
           </button>
+        </div>
+      </div>
+
+      {/* Relatório diário de atividades (PDF por pessoa, via linha do tempo) */}
+      <div className="no-print mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-cream/40 p-4">
+        <div className="flex items-start gap-2.5">
+          <FileText size={18} className="mt-0.5 shrink-0 text-navy" />
+          <div>
+            <div className="text-[14px] font-medium text-navy">
+              Relatório diário de atividades
+            </div>
+            <div className="text-[12px] text-muted">
+              O que cada pessoa fez no dia (criou, mandou pra revisão, concluiu,
+              comentou), em PDF. Enviado ao sócio às 19h e disponível aqui na hora.
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={diaAtiv}
+            max={hoje}
+            onChange={(e) => setDiaAtiv(e.target.value)}
+            className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-[13px] text-ink outline-none"
+          />
+          <a
+            href={`/api/relatorio-diario?data=${diaAtiv}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-md bg-navy px-3 py-1.5 text-sm text-cream hover:bg-navy-dark"
+          >
+            <Download size={15} /> Baixar PDF
+          </a>
         </div>
       </div>
 

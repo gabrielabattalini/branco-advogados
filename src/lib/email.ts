@@ -66,6 +66,7 @@ export async function enviarEmail(msg: {
   assunto: string;
   html: string;
   texto?: string;
+  anexos?: { nome: string; conteudoBase64: string }[];
 }): Promise<EnvioResultado> {
   const key = process.env.RESEND_API_KEY;
   const from =
@@ -88,6 +89,14 @@ export async function enviarEmail(msg: {
         subject: msg.assunto,
         html: msg.html,
         text: msg.texto,
+        ...(msg.anexos && msg.anexos.length
+          ? {
+              attachments: msg.anexos.map((a) => ({
+                filename: a.nome,
+                content: a.conteudoBase64,
+              })),
+            }
+          : {}),
       }),
     });
     if (!resp.ok) {
