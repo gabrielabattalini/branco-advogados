@@ -160,30 +160,68 @@ export function TarefasView({
     </div>
   );
 
+  const audienciasOrdenadas = [...audVisiveis].sort(
+    (a, b) => a.data.localeCompare(b.data) || a.hora.localeCompare(b.hora),
+  );
+
   const quadro = (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
-      {STATUS_LIST.map((col) => {
-        const items = visiveis.filter((t) => t.status === col.key);
-        return (
-          <div
-            key={col.key}
-            className="rounded-lg border border-line bg-navy/5 p-3"
-          >
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-[12.5px] font-medium text-muted">
-                {col.label}
-              </span>
-              <span className="rounded-full bg-surface px-2 text-[11px] text-faint">
-                {items.length}
-              </span>
-            </div>
-            {items.map(cartao)}
-            {items.length === 0 && (
-              <div className="py-3 text-center text-[11px] text-faint">—</div>
-            )}
+    <div>
+      {audienciasOrdenadas.length > 0 && (
+        <div className="mb-3 rounded-lg border border-gold/40 bg-gold/5 p-3">
+          <div className="mb-2 flex items-center gap-1.5 text-[12.5px] font-medium text-gold">
+            <Gavel size={14} /> Audiências
           </div>
-        );
-      })}
+          <div className="flex flex-wrap gap-2">
+            {audienciasOrdenadas.map((a) => {
+              const hoje = a.data === HOJE;
+              return (
+                <button
+                  key={a.id}
+                  onClick={() => router.push("/audiencias")}
+                  className={
+                    "rounded-md border px-2.5 py-1.5 text-left " +
+                    (hoje ? "border-gold bg-gold/20" : "border-gold/30 bg-surface")
+                  }
+                >
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-gold">
+                    {brCurto(a.data)} · {a.hora}
+                    {hoje && (
+                      <span className="rounded-full bg-gold px-1.5 text-[9px] font-bold uppercase leading-4 text-cream">
+                        Hoje
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[12px] text-ink">{a.titulo}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+        {STATUS_LIST.map((col) => {
+          const items = visiveis.filter((t) => t.status === col.key);
+          return (
+            <div
+              key={col.key}
+              className="rounded-lg border border-line bg-navy/5 p-3"
+            >
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-[12.5px] font-medium text-muted">
+                  {col.label}
+                </span>
+                <span className="rounded-full bg-surface px-2 text-[11px] text-faint">
+                  {items.length}
+                </span>
+              </div>
+              {items.map(cartao)}
+              {items.length === 0 && (
+                <div className="py-3 text-center text-[11px] text-faint">—</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 
@@ -215,20 +253,31 @@ export function TarefasView({
                 <div className="text-[14px] font-medium text-ink">{d.dia}</div>
               )}
             </div>
-            {audsDoDia(d.data).map((a) => (
-              <button
-                key={a.id}
-                onClick={() => router.push("/audiencias")}
-                className="mb-1.5 block w-full rounded-md border border-gold/40 bg-gold/10 p-2 text-left"
-              >
-                <div className="flex items-center gap-1 text-[10px] font-medium text-gold">
-                  <Gavel size={11} /> {a.hora} · Audiência
-                </div>
-                <div className="text-[11.5px] leading-tight text-ink">
-                  {a.titulo}
-                </div>
-              </button>
-            ))}
+            {audsDoDia(d.data).map((a) => {
+              const hoje = a.data === HOJE;
+              return (
+                <button
+                  key={a.id}
+                  onClick={() => router.push("/audiencias")}
+                  className={
+                    "mb-1.5 block w-full rounded-md border p-2 text-left " +
+                    (hoje ? "border-gold bg-gold/25" : "border-gold/40 bg-gold/10")
+                  }
+                >
+                  <div className="flex items-center gap-1 text-[10px] font-medium text-gold">
+                    <Gavel size={11} /> {a.hora} · Audiência
+                    {hoje && (
+                      <span className="rounded-full bg-gold px-1 text-[8px] font-bold uppercase leading-3 text-cream">
+                        Hoje
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11.5px] leading-tight text-ink">
+                    {a.titulo}
+                  </div>
+                </button>
+              );
+            })}
             {items.map((t) => (
               <div
                 key={t.id}
@@ -326,7 +375,10 @@ export function TarefasView({
                       key={a.id}
                       onClick={() => router.push("/audiencias")}
                       title={`${a.hora} — ${a.titulo} (audiência)`}
-                      className="flex items-center gap-1 truncate rounded bg-gold/20 px-1 py-0.5 text-left text-[10.5px] text-gold"
+                      className={
+                        "flex items-center gap-1 truncate rounded px-1 py-0.5 text-left text-[10.5px] text-gold " +
+                        (cel.iso === HOJE ? "bg-gold/35 font-medium" : "bg-gold/20")
+                      }
                     >
                       <Gavel size={9} className="shrink-0" />
                       <span className="truncate">
@@ -385,11 +437,16 @@ export function TarefasView({
         const borda = i > 0 ? "border-t border-line" : "";
         if (it.kind === "a") {
           const a = it.a;
+          const hoje = a.data === HOJE;
           return (
             <button
               key={"a" + a.id}
               onClick={() => router.push("/audiencias")}
-              className={"flex w-full items-center gap-3 bg-gold/5 px-4 py-3 text-left " + borda}
+              className={
+                "flex w-full items-center gap-3 px-4 py-3 text-left " +
+                (hoje ? "bg-gold/15 " : "bg-gold/5 ") +
+                borda
+              }
             >
               <Gavel size={15} className="shrink-0 text-gold" />
               <div className="min-w-0 flex-1">
@@ -400,7 +457,12 @@ export function TarefasView({
                   {a.local ? ` · ${a.local}` : ""}
                 </div>
               </div>
-              <span className="text-[11px] font-medium text-gold">
+              <span className="flex items-center gap-1.5 text-[11px] font-medium text-gold">
+                {hoje && (
+                  <span className="rounded-full bg-gold px-1.5 text-[9px] font-bold uppercase leading-4 text-cream">
+                    Hoje
+                  </span>
+                )}
                 {brCurto(a.data)} · {a.hora}
               </span>
             </button>
