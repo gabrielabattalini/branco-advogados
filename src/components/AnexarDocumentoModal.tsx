@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/Modal";
-import { criarDocumento } from "@/lib/actions";
+import { anexarDocumento } from "@/lib/actions";
 import type { PastaDocumentos } from "@/lib/data";
 
 const inputCls =
@@ -27,6 +27,7 @@ export function AnexarDocumentoModal({
   const [temArquivo, setTemArquivo] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
+  const arquivoRef = useRef<HTMLInputElement>(null);
 
   const pasta = pastas.find((p) => p.numero === numero);
   const proximo =
@@ -40,14 +41,16 @@ export function AnexarDocumentoModal({
   };
 
   const submit = async () => {
-    if (!nome.trim() || !numero || !temArquivo || salvando) return;
+    const file = arquivoRef.current?.files?.[0];
+    if (!nome.trim() || !numero || !file || salvando) return;
     setSalvando(true);
     setErro("");
     try {
-      const res = await criarDocumento({
-        processoNumero: numero,
-        nome: nome.trim(),
-      });
+      const fd = new FormData();
+      fd.set("processoNumero", numero);
+      fd.set("nome", nome.trim());
+      fd.set("arquivo", file);
+      const res = await anexarDocumento(fd);
       if (res.ok) {
         router.refresh();
         onClose();
@@ -114,6 +117,7 @@ export function AnexarDocumentoModal({
           </label>
           <input
             id="anexar-arquivo"
+            ref={arquivoRef}
             type="file"
             onChange={onArquivo}
             className="block w-full text-[12px] text-muted file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-navy file:px-3 file:py-1.5 file:text-cream hover:file:bg-navy-dark"
@@ -135,8 +139,9 @@ export function AnexarDocumentoModal({
         </div>
 
         <p className="text-[11px] text-faint">
-          O documento entra na pasta numerado automaticamente e é guardado em
-          duas cópias: Google Drive e servidor.
+          O documento entra na pasta numerado automaticamente. O arquivo é
+          enviado com segurança e só pode ser baixado por quem está logado no
+          sistema. Máximo de 20 MB.
         </p>
         {erro && <p className="text-[12px] text-danger">{erro}</p>}
       </div>

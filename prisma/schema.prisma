@@ -144,6 +144,11 @@ model Documento {
   data            String
   driveFileId     String?
   caminhoServidor String?
+  // Upload real via Vercel Blob. blobUrl fica só no servidor; o download é
+  // servido por rota autenticada (/api/documentos/[id]).
+  blobUrl         String?
+  tamanho         Int      @default(0) // bytes
+  mime            String   @default("")
   criadoEm        DateTime @default(now())
 
   @@unique([processoId, ordem])

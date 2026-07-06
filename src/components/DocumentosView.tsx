@@ -1,12 +1,49 @@
 "use client";
 
 import { useState } from "react";
-import { Folder, FileText, Check, Search, Paperclip, Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  Folder,
+  FileText,
+  Download,
+  Search,
+  Paperclip,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { AnexarDocumentoModal } from "@/components/AnexarDocumentoModal";
+import { excluirDocumento } from "@/lib/actions";
+import { ehGestor } from "@/lib/papeis";
 import type { PastaDocumentos } from "@/lib/data";
 
-export function DocumentosView({ pastas }: { pastas: PastaDocumentos[] }) {
+// Tamanho legível: 1.2 MB, 340 KB…
+function tam(bytes: number): string {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export function DocumentosView({
+  pastas,
+  papel,
+}: {
+  pastas: PastaDocumentos[];
+  papel: string;
+}) {
+  const router = useRouter();
+  const gestor = ehGestor(papel);
+  const [excluindo, setExcluindo] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
+
+  const remover = async (id: string, nome: string) => {
+    if (!confirm(`Excluir "${nome}"? Esta ação não pode ser desfeita.`)) return;
+    setExcluindo(id);
+    const res = await excluirDocumento(id);
+    if (!res.ok) alert(res.erro);
+    router.refresh();
+    setExcluindo(null);
+  };
   // undefined = modal fechado; null = aberto sem processo escolhido;
   // string = aberto já com o processo da pasta selecionado.
   const [anexarPara, setAnexarPara] = useState<string | null | undefined>(
@@ -40,8 +77,8 @@ export function DocumentosView({ pastas }: { pastas: PastaDocumentos[] }) {
       </div>
       <p className="mt-1 mb-4 text-[13px] text-muted">
         Pastas criadas automaticamente por cliente e processo, numeradas por
-        ordem de chegada. Cada arquivo é guardado em duas cópias: Google Drive e
-        servidor.
+        ordem de chegada. Os arquivos ficam guardados com segurança e só podem
+        ser abertos por quem está logado no sistema.
       </p>
 
       <div className="mb-5 flex items-center gap-2 rounded-md border border-line bg-surface px-3 py-2">
@@ -100,11 +137,33 @@ export function DocumentosView({ pastas }: { pastas: PastaDocumentos[] }) {
                   <div className="truncate text-[13px] text-ink">{d.nome}</div>
                   <div className="text-[11px] text-faint">
                     Adicionado {d.data}
+                    {d.tamanho ? ` · ${tam(d.tamanho)}` : ""}
                   </div>
                 </div>
-                <span className="inline-flex items-center gap-1 whitespace-nowrap text-[11px] text-ok">
-                  <Check size={13} /> Drive + servidor
-                </span>
+                {d.temArquivo ? (
+                  <a
+                    href={`/api/documentos/${d.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-line px-2.5 py-1 text-[11px] text-navy hover:bg-cream"
+                  >
+                    <Download size={13} /> Abrir
+                  </a>
+                ) : (
+                  <span className="whitespace-nowrap text-[11px] text-faint">
+                    sem arquivo
+                  </span>
+                )}
+                {gestor && (
+                  <button
+                    onClick={() => remover(d.id, d.nome)}
+                    disabled={excluindo === d.id}
+                    className="text-faint hover:text-danger disabled:opacity-40"
+                    aria-label="Excluir documento"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                )}
               </div>
             ))}
             {pasta.docs.length === 0 && (

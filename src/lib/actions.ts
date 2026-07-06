@@ -1,6 +1,7 @@
 "use server";
 
 import { Prisma } from "@prisma/client";
+import { put, del } from "@vercel/blob";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { STATUS_LIST, statusLabel } from "@/lib/mock";
@@ -571,25 +572,53 @@ export async function gerarTarefaDaIntimacao(
   }
 }
 
-export async function criarDocumento(input: {
-  processoNumero: string;
-  nome: string;
-}): Promise<ActionResult> {
+const MAX_ARQUIVO = 20 * 1024 * 1024; // 20 MB
+
+function armazenamentoConfigurado(): boolean {
+  return !!process.env.BLOB_READ_WRITE_TOKEN;
+}
+
+// Anexa um documento (arquivo real) a um processo. O arquivo vai para o
+// Vercel Blob; o registro guarda a URL (só no servidor) e é baixado por rota
+// autenticada. Recebe FormData: processoNumero, nome, arquivo.
+export async function anexarDocumento(
+  formData: FormData,
+): Promise<ActionResult> {
   const s = await getSessao();
   if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
-  const nome = input.nome.trim();
+  const processoNumero = String(formData.get("processoNumero") || "");
+  const nomeRaw = String(formData.get("nome") || "").trim();
+  const file = formData.get("arquivo");
+  if (!(file instanceof File) || file.size === 0)
+    return { ok: false, erro: "Selecione um arquivo para anexar." };
+  if (file.size > MAX_ARQUIVO)
+    return { ok: false, erro: "Arquivo muito grande (máximo 20 MB)." };
+  const nome = (nomeRaw || file.name).slice(0, 255);
   if (!nome) return { ok: false, erro: "Informe o nome do documento." };
-  if (nome.length > 255)
-    return { ok: false, erro: "Nome muito longo (máx. 255 caracteres)." };
+  if (!armazenamentoConfigurado())
+    return {
+      ok: false,
+      erro: "O armazenamento de arquivos ainda não foi configurado.",
+    };
+  const token = process.env.BLOB_READ_WRITE_TOKEN!;
   try {
     const processo = await prisma.processo.findUnique({
-      where: { numero: input.processoNumero },
+      where: { numero: processoNumero },
     });
     if (!processo) return { ok: false, erro: "Selecione um processo válido." };
 
-    // Numeração sequencial por processo (01, 02, 03…). A constraint
-    // @@unique([processoId, ordem]) garante que duas anexações simultâneas não
-    // recebam o mesmo número; em caso de corrida (P2002) tentamos a próxima.
+    // Sobe o arquivo (nome com sufixo aleatório → URL não adivinhável).
+    const seguro = nome.replace(/[^\w.\-]+/g, "_");
+    const blob = await put(`processos/${processo.id}/${seguro}`, file, {
+      access: "public",
+      addRandomSuffix: true,
+      token,
+      contentType: file.type || undefined,
+    });
+
+    // Numeração sequencial por processo (01, 02, 03…). @@unique([processoId,
+    // ordem]) evita colisão em anexações simultâneas; em corrida (P2002)
+    // recalcula e tenta a próxima.
     for (let tentativa = 0; tentativa < 5; tentativa++) {
       const ultimo = await prisma.documento.findFirst({
         where: { processoId: processo.id },
@@ -604,6 +633,9 @@ export async function criarDocumento(input: {
             ordem: proximaOrdem,
             nome,
             data: hojeBR(),
+            blobUrl: blob.url,
+            tamanho: file.size,
+            mime: file.type || "",
           },
         });
         revalidatePath("/documentos");
@@ -614,17 +646,41 @@ export async function criarDocumento(input: {
           e instanceof Prisma.PrismaClientKnownRequestError &&
           e.code === "P2002"
         ) {
-          continue; // outra anexação pegou esse número — recalcula e tenta de novo
+          continue;
         }
         throw e;
       }
     }
+    // Não conseguiu registrar: remove o blob órfão.
+    await del(blob.url, { token }).catch(() => {});
     return {
       ok: false,
       erro: "Conflito de numeração — tente anexar novamente.",
     };
   } catch {
     return { ok: false, erro: "Não foi possível anexar o documento." };
+  }
+}
+
+// Exclui um documento (arquivo no Blob + registro). Apenas gestores.
+export async function excluirDocumento(id: string): Promise<ActionResult> {
+  const s = await getSessao();
+  if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
+  if (!ehGestor(s.papel))
+    return { ok: false, erro: "Só um gestor pode excluir documentos." };
+  try {
+    const doc = await prisma.documento.findUnique({ where: { id } });
+    if (!doc) return { ok: false, erro: "Documento não encontrado." };
+    if (doc.blobUrl && process.env.BLOB_READ_WRITE_TOKEN)
+      await del(doc.blobUrl, {
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+      }).catch(() => {});
+    await prisma.documento.delete({ where: { id } });
+    revalidatePath("/documentos");
+    revalidatePath("/processos");
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Não foi possível excluir o documento." };
   }
 }
 

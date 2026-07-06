@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, Plus, Upload, FileText, Check } from "lucide-react";
+import { ChevronLeft, Plus, FileText, Download } from "lucide-react";
 import { getFichaProcesso, getResponsaveis } from "@/lib/data";
 import { AreaTag } from "@/components/AreaTag";
 import { AvatarGroup } from "@/components/Avatar";
@@ -131,9 +131,12 @@ export default async function ProcessoPage({
       <section className="mb-3 rounded-lg border border-line bg-surface p-5">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-[15px] font-medium text-navy">Documentos</h2>
-          <button className="inline-flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1 text-[12px] text-muted hover:bg-cream">
-            <Upload size={14} /> Enviar
-          </button>
+          <Link
+            href="/documentos"
+            className="inline-flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1 text-[12px] text-muted hover:bg-cream"
+          >
+            <Plus size={14} /> Anexar
+          </Link>
         </div>
         <div className="mb-1 text-[11px] text-faint">
           {p.cliente} › {p.numero}
@@ -157,9 +160,20 @@ export default async function ProcessoPage({
               <div className="text-[13px] text-ink">{d.nome}</div>
               <div className="text-[11px] text-faint">Adicionado {d.data}</div>
             </div>
-            <span className="inline-flex items-center gap-1 whitespace-nowrap text-[11px] text-ok">
-              <Check size={13} /> Drive + servidor
-            </span>
+            {d.temArquivo ? (
+              <a
+                href={`/api/documentos/${d.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-line px-2.5 py-1 text-[11px] text-navy hover:bg-cream"
+              >
+                <Download size={13} /> Abrir
+              </a>
+            ) : (
+              <span className="whitespace-nowrap text-[11px] text-faint">
+                sem arquivo
+              </span>
+            )}
           </div>
         ))}
       </section>

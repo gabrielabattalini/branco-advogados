@@ -315,7 +315,7 @@ function mapProcesso(p: {
 export type FichaProcesso = {
   processo: Processo;
   tarefas: TarefaFull[];
-  documentos: { ordem: string; nome: string; data: string }[];
+  documentos: DocItem[];
   publicacoes: { id: string; titulo: string; origem: string; estado: string }[];
 };
 
@@ -355,9 +355,13 @@ export async function getFichaProcesso(
       revisor: t.revisor || undefined,
     })),
     documentos: p.documentos.map((d) => ({
+      id: d.id,
       ordem: String(d.ordem).padStart(2, "0"),
       nome: d.nome,
       data: d.data,
+      temArquivo: !!d.blobUrl,
+      tamanho: d.tamanho,
+      mime: d.mime,
     })),
     publicacoes: p.publicacoes.map((pub) => ({
       id: pub.id,
@@ -652,12 +656,21 @@ export async function getAudiencias(): Promise<AudienciaDTO[]> {
   }));
 }
 
+export type DocItem = {
+  id: string;
+  ordem: string;
+  nome: string;
+  data: string;
+  temArquivo: boolean;
+  tamanho: number;
+  mime: string;
+};
 export type PastaDocumentos = {
   id: string;
   numero: string;
   cliente: string;
   area: Area;
-  docs: { ordem: string; nome: string; data: string }[];
+  docs: DocItem[];
 };
 
 // Todos os processos (com suas pastas, mesmo vazias) — a busca/anexo precisa
@@ -673,9 +686,13 @@ export async function getPastasDocumentos(): Promise<PastaDocumentos[]> {
     cliente: p.cliente,
     area: p.area as Area,
     docs: p.documentos.map((d) => ({
+      id: d.id,
       ordem: String(d.ordem).padStart(2, "0"),
       nome: d.nome,
       data: d.data,
+      temArquivo: !!d.blobUrl,
+      tamanho: d.tamanho,
+      mime: d.mime,
     })),
   }));
 }
