@@ -27,8 +27,10 @@ model Usuario {
   tentativasLogin Int       @default(0)
   bloqueadoAte    DateTime?
   // Notificações no Telegram: chatId vinculado + token temporário de vínculo.
+  // (sem @unique de propósito: o token é aleatório e efêmero, e o @unique faria
+  // o `prisma db push` do deploy exigir --accept-data-loss.)
   telegramChatId  String?
-  telegramToken   String?   @unique
+  telegramToken   String?
   criadoEm        DateTime  @default(now())
 }
 
