@@ -452,6 +452,33 @@ export async function getAgendaItens(): Promise<ItemAgenda[]> {
   return [...eventos, ...audiencias];
 }
 
+// Só os eventos da Agenda (sem as audiências, que já vêm por getAudiencias) —
+// usado para exibi-los junto das tarefas.
+export type EventoAgendaDTO = {
+  id: string;
+  data: string;
+  hora: string;
+  tipo: string;
+  titulo: string;
+  detalhe: string;
+  participantes: string[];
+};
+export async function getEventosAgenda(): Promise<EventoAgendaDTO[]> {
+  const rows = await prisma.eventoAgenda.findMany({
+    where: await escopoAgenda(),
+    orderBy: { hora: "asc" },
+  });
+  return rows.map((e) => ({
+    id: e.id,
+    data: e.data,
+    hora: e.hora,
+    tipo: e.tipo,
+    titulo: e.titulo,
+    detalhe: e.detalhe,
+    participantes: e.participantes,
+  }));
+}
+
 export type LembreteDTO = { id: string; offsetMin: number; enviado: boolean };
 export type AudienciaDTO = {
   id: string;

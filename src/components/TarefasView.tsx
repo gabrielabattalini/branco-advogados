@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, Gavel, Lock, Plus } from "lucide-react";
+import {
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Gavel,
+  Lock,
+  Plus,
+} from "lucide-react";
 import {
   STATUS_LIST,
   corDoStatus,
@@ -12,7 +19,7 @@ import {
 } from "@/lib/mock";
 import { ehGestor } from "@/lib/papeis";
 import { hojeISO, semanaUtil, brCurto } from "@/lib/hoje";
-import type { Responsavel, AudienciaDTO } from "@/lib/data";
+import type { Responsavel, AudienciaDTO, EventoAgendaDTO } from "@/lib/data";
 import { AreaTag } from "@/components/AreaTag";
 import { StatusSelect } from "@/components/StatusSelect";
 import { NovaTarefaModal } from "@/components/NovaTarefaModal";
@@ -28,6 +35,7 @@ export function TarefasView({
   responsaveis,
   ultimosResp,
   audiencias,
+  eventos,
   papel,
   me,
 }: {
@@ -36,6 +44,7 @@ export function TarefasView({
   responsaveis: Responsavel[];
   ultimosResp: Record<string, string[]>;
   audiencias: AudienciaDTO[];
+  eventos: EventoAgendaDTO[];
   papel: string;
   me: string;
 }) {
@@ -97,6 +106,20 @@ export function TarefasView({
       (!filtroAdv || a.participantes.includes(filtroAdv)),
   );
   const audsDoDia = (iso: string) => audVisiveis.filter((a) => a.data === iso);
+
+  // Eventos da Agenda (reuniões, prazos, atendimentos) — visual azul.
+  const TIPO_EV: Record<string, string> = {
+    reuniao: "Reunião",
+    audiencia: "Audiência",
+    prazo: "Prazo",
+    atendimento: "Atendimento",
+  };
+  const tipoLabel = (t: string) => TIPO_EV[t] ?? "Evento";
+  const eventVisiveis = eventos.filter(
+    (e) => !filtroAdv || e.participantes.includes(filtroAdv),
+  );
+  const eventosDoDia = (iso: string) =>
+    eventVisiveis.filter((e) => e.data === iso);
 
   const selCls =
     "rounded-md border border-line bg-surface px-2.5 py-1.5 text-[12px] text-muted outline-none";
@@ -163,6 +186,9 @@ export function TarefasView({
   const audienciasOrdenadas = [...audVisiveis].sort(
     (a, b) => a.data.localeCompare(b.data) || a.hora.localeCompare(b.hora),
   );
+  const eventosOrdenados = [...eventVisiveis].sort(
+    (a, b) => a.data.localeCompare(b.data) || a.hora.localeCompare(b.hora),
+  );
 
   const quadro = (
     <div>
@@ -192,6 +218,40 @@ export function TarefasView({
                     )}
                   </div>
                   <div className="text-[12px] text-ink">{a.titulo}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {eventosOrdenados.length > 0 && (
+        <div className="mb-3 rounded-lg border border-[#2f6f8f]/40 bg-[#2f6f8f]/5 p-3">
+          <div className="mb-2 flex items-center gap-1.5 text-[12.5px] font-medium text-[#2f6f8f]">
+            <Calendar size={14} /> Agenda
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {eventosOrdenados.map((e) => {
+              const hoje = e.data === HOJE;
+              return (
+                <button
+                  key={e.id}
+                  onClick={() => router.push("/agenda")}
+                  className={
+                    "rounded-md border px-2.5 py-1.5 text-left " +
+                    (hoje
+                      ? "border-[#2f6f8f] bg-[#2f6f8f]/20"
+                      : "border-[#2f6f8f]/30 bg-surface")
+                  }
+                >
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-[#2f6f8f]">
+                    {brCurto(e.data)} · {e.hora} · {tipoLabel(e.tipo)}
+                    {hoje && (
+                      <span className="rounded-full bg-[#2f6f8f] px-1.5 text-[9px] font-bold uppercase leading-4 text-cream">
+                        Hoje
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[12px] text-ink">{e.titulo}</div>
                 </button>
               );
             })}
@@ -274,6 +334,33 @@ export function TarefasView({
                   </div>
                   <div className="text-[11.5px] leading-tight text-ink">
                     {a.titulo}
+                  </div>
+                </button>
+              );
+            })}
+            {eventosDoDia(d.data).map((e) => {
+              const hoje = e.data === HOJE;
+              return (
+                <button
+                  key={e.id}
+                  onClick={() => router.push("/agenda")}
+                  className={
+                    "mb-1.5 block w-full rounded-md border p-2 text-left " +
+                    (hoje
+                      ? "border-[#2f6f8f] bg-[#2f6f8f]/25"
+                      : "border-[#2f6f8f]/40 bg-[#2f6f8f]/10")
+                  }
+                >
+                  <div className="flex items-center gap-1 text-[10px] font-medium text-[#2f6f8f]">
+                    <Calendar size={11} /> {e.hora} · {tipoLabel(e.tipo)}
+                    {hoje && (
+                      <span className="rounded-full bg-[#2f6f8f] px-1 text-[8px] font-bold uppercase leading-3 text-cream">
+                        Hoje
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11.5px] leading-tight text-ink">
+                    {e.titulo}
                   </div>
                 </button>
               );
@@ -386,6 +473,22 @@ export function TarefasView({
                       </span>
                     </button>
                   ))}
+                  {eventosDoDia(cel.iso).slice(0, 2).map((e) => (
+                    <button
+                      key={e.id}
+                      onClick={() => router.push("/agenda")}
+                      title={`${e.hora} — ${e.titulo} (${tipoLabel(e.tipo)})`}
+                      className={
+                        "flex items-center gap-1 truncate rounded px-1 py-0.5 text-left text-[10.5px] text-[#2f6f8f] " +
+                        (cel.iso === HOJE ? "bg-[#2f6f8f]/30 font-medium" : "bg-[#2f6f8f]/15")
+                      }
+                    >
+                      <Calendar size={9} className="shrink-0" />
+                      <span className="truncate">
+                        {e.hora} {e.titulo}
+                      </span>
+                    </button>
+                  ))}
                   {items.slice(0, 3).map((t) => {
                     const c = corDoStatus(t.status);
                     return (
@@ -429,6 +532,7 @@ export function TarefasView({
   const listaItens = [
     ...visiveis.map((t) => ({ kind: "t" as const, data: t.data, hora: "", t })),
     ...audVisiveis.map((a) => ({ kind: "a" as const, data: a.data, hora: a.hora, a })),
+    ...eventVisiveis.map((e) => ({ kind: "e" as const, data: e.data, hora: e.hora, e })),
   ].sort((x, y) => x.data.localeCompare(y.data) || x.hora.localeCompare(y.hora));
 
   const lista = (
@@ -464,6 +568,38 @@ export function TarefasView({
                   </span>
                 )}
                 {brCurto(a.data)} · {a.hora}
+              </span>
+            </button>
+          );
+        }
+        if (it.kind === "e") {
+          const e = it.e;
+          const hoje = e.data === HOJE;
+          return (
+            <button
+              key={"e" + e.id}
+              onClick={() => router.push("/agenda")}
+              className={
+                "flex w-full items-center gap-3 px-4 py-3 text-left " +
+                (hoje ? "bg-[#2f6f8f]/12 " : "bg-[#2f6f8f]/[0.05] ") +
+                borda
+              }
+            >
+              <Calendar size={15} className="shrink-0 text-[#2f6f8f]" />
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] text-ink">{e.titulo}</div>
+                <div className="text-[11px] text-muted">
+                  {tipoLabel(e.tipo)}
+                  {e.detalhe ? ` · ${e.detalhe}` : ""}
+                </div>
+              </div>
+              <span className="flex items-center gap-1.5 text-[11px] font-medium text-[#2f6f8f]">
+                {hoje && (
+                  <span className="rounded-full bg-[#2f6f8f] px-1.5 text-[9px] font-bold uppercase leading-4 text-cream">
+                    Hoje
+                  </span>
+                )}
+                {brCurto(e.data)} · {e.hora}
               </span>
             </button>
           );
