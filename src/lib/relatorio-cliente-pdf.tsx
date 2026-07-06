@@ -25,7 +25,18 @@ export type ProcRelCliente = {
   valorEstimado: string;
   audiencia: string;
   observacoes: string;
+  categoria: string;
+  infoAdicional: string;
 };
+
+// Ordem e rótulo das seções por modalidade.
+const SECOES: { valor: string; rotulo: string }[] = [
+  { valor: "judicial", rotulo: "AÇÕES JUDICIAIS" },
+  { valor: "recuperacao_falencia", rotulo: "RECUPERAÇÕES JUDICIAIS E FALÊNCIAS" },
+  { valor: "procon", rotulo: "PROCON" },
+  { valor: "administrativo", rotulo: "ATOS ADMINISTRATIVOS" },
+  { valor: "outro", rotulo: "OUTROS" },
+];
 export type RelatorioClienteDados = {
   cliente: string;
   mesAno: string; // ex.: "JUNHO DE 2026"
@@ -97,9 +108,23 @@ function Proc({ p, ordem }: { p: ProcRelCliente; ordem: number }) {
       />
       <Campo rotulo="4. AUDIÊNCIA:" valor={p.audiencia || "Não há."} />
       <Campo rotulo="5. OBSERVAÇÕES:" valor={p.observacoes || " "} />
+      <Campo rotulo="6. INFORMAÇÕES ADICIONAIS:" valor={p.infoAdicional} />
     </View>
   );
 }
+
+const secStyle = StyleSheet.create({
+  cab: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 10,
+    color: GREEN,
+    marginTop: 6,
+    marginBottom: 8,
+    paddingBottom: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: GREEN,
+  },
+});
 
 function romano(n: number): string {
   const un = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"];
@@ -125,9 +150,24 @@ function Relatorio({ dados }: { dados: RelatorioClienteDados }) {
           </Text>
         </View>
         <Text style={s.cliente}>CLIENTE: {dados.cliente}</Text>
-        {dados.processos.map((p, i) => (
-          <Proc key={p.numero + i} p={p} ordem={i + 1} />
-        ))}
+        {SECOES.map((sec) => {
+          const doGrupo = dados.processos.filter(
+            (p) => (p.categoria || "judicial") === sec.valor,
+          );
+          if (doGrupo.length === 0) return null;
+          // Se só existe a seção "judicial", não mostra cabeçalho de seção.
+          const soJudicial =
+            sec.valor === "judicial" &&
+            dados.processos.every((p) => (p.categoria || "judicial") === "judicial");
+          return (
+            <View key={sec.valor}>
+              {!soJudicial && <Text style={secStyle.cab}>{sec.rotulo}</Text>}
+              {doGrupo.map((p, i) => (
+                <Proc key={p.numero + i} p={p} ordem={i + 1} />
+              ))}
+            </View>
+          );
+        })}
       </Page>
     </Document>
   );
