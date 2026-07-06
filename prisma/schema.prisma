@@ -60,6 +60,22 @@ model LoginLog {
   @@index([usuarioId])
 }
 
+// Conta de acesso ao PORTAL DO CLIENTE (área externa, só leitura). Cada conta
+// representa uma empresa/cliente e vê apenas os processos cujo campo `cliente`
+// casa com `nomeCliente`. Totalmente separada dos usuários da equipe.
+model ClienteAcesso {
+  id           String    @id @default(cuid())
+  nomeCliente  String // deve casar com Processo.cliente
+  login        String    @unique // identificador que o cliente digita
+  senhaHash    String? // nulo até o escritório definir a senha inicial
+  ativo        Boolean   @default(true)
+  ultimoAcesso DateTime?
+  acessos      Int       @default(0)
+  tentativas   Int       @default(0)
+  bloqueadoAte DateTime?
+  criadoEm     DateTime  @default(now())
+}
+
 model Contato {
   id            String   @id @default(cuid())
   tipo          String // pf | pj

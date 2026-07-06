@@ -140,6 +140,36 @@ export function lerDispositivo(token: string | undefined | null): string | null 
   return userId;
 }
 
+// ---- Token de sessão do PORTAL DO CLIENTE (isolado da equipe) ----
+// Prefixo "cli:" no HMAC garante que um token de cliente jamais seja aceito
+// como sessão da equipe (e vice-versa), mesmo com a mesma chave.
+const MAX_CLIENTE_MS = 14 * 24 * 60 * 60 * 1000; // 14 dias
+
+export function assinarTokenCliente(id: string): string {
+  const corpo = `${id}.${Date.now()}`;
+  const sig = createHmac("sha256", chaveSessao())
+    .update("cli:" + corpo)
+    .digest("hex");
+  return `${corpo}.${sig}`;
+}
+
+export function lerTokenCliente(token: string | undefined | null): string | null {
+  if (!token) return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  const [id, iatStr, sig] = parts;
+  if (!id || !iatStr) return null;
+  const esperado = createHmac("sha256", chaveSessao())
+    .update(`cli:${id}.${iatStr}`)
+    .digest("hex");
+  const a = Buffer.from(sig);
+  const b = Buffer.from(esperado);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  const iat = Number(iatStr);
+  if (!Number.isFinite(iat) || Date.now() - iat > MAX_CLIENTE_MS) return null;
+  return id;
+}
+
 // ---- Ticket de definição de senha (1º acesso / reset) ----
 // Emitido só depois de o código por e-mail ser validado; autoriza a criação da
 // senha por poucos minutos. Assinado com a mesma chave HMAC e com expiração.

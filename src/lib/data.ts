@@ -374,6 +374,90 @@ export async function montarRelatorioDiario(
   return { data: dataISO, pessoas, total: hist.length };
 }
 
+// ---- Portal do cliente ----
+export type ProcessoCliente = {
+  numero: string;
+  area: Area;
+  tribunal: string;
+  status: string;
+  parteContraria: string;
+  andamentos: Lancamento[]; // últimos 5 (mais recente primeiro)
+};
+
+// Processos de um cliente (pelo nome, como em Processo.cliente) com os últimos 5
+// lançamentos de status. Usada pelo portal — NÃO exige sessão da equipe (a
+// página do portal já valida a sessão do cliente).
+export async function getProcessosDoCliente(
+  nomeCliente: string,
+): Promise<ProcessoCliente[]> {
+  const nome = (nomeCliente || "").trim();
+  if (!nome) return [];
+  const procs = await prisma.processo.findMany({
+    where: { cliente: nome },
+    orderBy: { criadoEm: "desc" },
+    include: { andamentos: { orderBy: { criadoEm: "desc" }, take: 5 } },
+  });
+  return procs.map((p) => ({
+    numero: p.numero,
+    area: p.area as Area,
+    tribunal: p.tribunal,
+    status: p.status,
+    parteContraria: p.parteContraria,
+    andamentos: p.andamentos.map((a) => ({
+      texto: a.texto,
+      autor: a.autor,
+      quando: a.criadoEm.toISOString(),
+    })),
+  }));
+}
+
+export type AcessoCliente = {
+  id: string;
+  nomeCliente: string;
+  login: string;
+  ativo: boolean;
+  temSenha: boolean;
+  ultimoAcesso: string | null;
+  acessos: number;
+  processos: number;
+};
+
+// Lista as contas do portal do cliente (gestor). Conta quantos processos cada
+// uma "enxerga" pelo nome, pra sinalizar vínculos vazios.
+export async function getAcessosClientes(): Promise<AcessoCliente[]> {
+  const s = await getSessao();
+  if (!s || !ehGestor(s.papel)) return [];
+  const contas = await prisma.clienteAcesso.findMany({
+    orderBy: [{ ativo: "desc" }, { nomeCliente: "asc" }],
+  });
+  const contagem = await prisma.processo.groupBy({
+    by: ["cliente"],
+    _count: { _all: true },
+  });
+  const porNome = new Map(contagem.map((c) => [c.cliente, c._count._all]));
+  return contas.map((c) => ({
+    id: c.id,
+    nomeCliente: c.nomeCliente,
+    login: c.login,
+    ativo: c.ativo,
+    temSenha: !!c.senhaHash,
+    ultimoAcesso: c.ultimoAcesso ? c.ultimoAcesso.toISOString() : null,
+    acessos: c.acessos,
+    processos: porNome.get(c.nomeCliente) ?? 0,
+  }));
+}
+
+// Nomes de clientes que têm processo (para o seletor ao criar um acesso).
+export async function getNomesClientesComProcesso(): Promise<string[]> {
+  const s = await getSessao();
+  if (!s || !ehGestor(s.papel)) return [];
+  const rows = await prisma.processo.groupBy({
+    by: ["cliente"],
+    orderBy: { cliente: "asc" },
+  });
+  return rows.map((r) => r.cliente).filter(Boolean);
+}
+
 export async function getProcessos(): Promise<Processo[]> {
   const rows = await prisma.processo.findMany({ orderBy: { criadoEm: "desc" } });
   return rows.map(mapProcesso);
