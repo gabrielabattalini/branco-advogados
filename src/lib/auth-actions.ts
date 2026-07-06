@@ -178,9 +178,11 @@ export async function entrar(input: {
     // Bloqueio de conta por tentativas (anti-bruteforce persistente).
     if (u && u.bloqueadoAte && u.bloqueadoAte.getTime() > Date.now()) {
       await registrarLog("bloqueado", email, u.id, info);
+      // Mensagem IDÊNTICA à do rate-limit em memória — não revela se a conta
+      // existe (antes, "Conta bloqueada..." denunciava e-mails válidos).
       return {
         ok: false,
-        erro: "Conta bloqueada por tentativas. Tente novamente em alguns minutos.",
+        erro: "Muitas tentativas. Tente novamente em alguns minutos.",
       };
     }
     // Mensagem genérica de propósito (não revela se o e-mail existe).
