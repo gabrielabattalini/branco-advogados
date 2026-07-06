@@ -4,6 +4,7 @@ import { ChevronLeft, Plus, FileText, Download } from "lucide-react";
 import { getFichaProcesso, getResponsaveis } from "@/lib/data";
 import { AreaTag } from "@/components/AreaTag";
 import { AvatarGroup } from "@/components/Avatar";
+import { AdicionarAndamento } from "@/components/AdicionarAndamento";
 import { statusLabel, corDoStatus } from "@/lib/mock";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ export default async function ProcessoPage({
     getResponsaveis(),
   ]);
   if (!ficha) notFound();
-  const { processo: p, tarefas, documentos, publicacoes, andamento } = ficha;
+  const { processo: p, tarefas, documentos, publicacoes, andamentos } = ficha;
   const primeiroNome = (ini: string) =>
     responsaveis.find((r) => r.iniciais === ini)?.nome.split(/\s+/)[0] ?? ini;
 
@@ -79,22 +80,43 @@ export default async function ProcessoPage({
         </div>
       </div>
 
-      {andamento && (
-        <section className="mb-3 rounded-lg border border-gold/40 bg-gold/5 p-5">
-          <h2 className="mb-1 text-[13px] font-medium text-gold">
-            Situação atual (relatório do cliente)
+      <section className="mb-3 rounded-lg border border-gold/40 bg-gold/5 p-5">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h2 className="text-[13px] font-medium text-gold">
+            Status do processo — últimos lançamentos (relatório do cliente)
           </h2>
-          <p className="whitespace-pre-wrap text-[13.5px] text-ink">
-            {andamento.texto}
+          <AdicionarAndamento processoNumero={p.numero} />
+        </div>
+        {andamentos.length === 0 ? (
+          <p className="text-[12.5px] text-muted">
+            Nenhum status registrado ainda. Ao concluir uma tarefa deste
+            processo o sistema pede a situação — ou clique em “Atualizar status”.
           </p>
-          <div className="mt-1.5 text-[11px] text-faint">
-            Atualizado por {andamento.autor} em{" "}
-            {new Date(andamento.quando).toLocaleDateString("pt-BR", {
-              timeZone: "America/Sao_Paulo",
-            })}
-          </div>
-        </section>
-      )}
+        ) : (
+          <ol className="flex flex-col gap-2">
+            {andamentos.map((a, i) => (
+              <li
+                key={i}
+                className={
+                  "border-l-2 pl-3 " +
+                  (i === 0 ? "border-gold" : "border-gold/30")
+                }
+              >
+                <p className="whitespace-pre-wrap text-[13.5px] text-ink">
+                  {a.texto}
+                </p>
+                <div className="mt-0.5 text-[11px] text-faint">
+                  {a.autor} ·{" "}
+                  {new Date(a.quando).toLocaleDateString("pt-BR", {
+                    timeZone: "America/Sao_Paulo",
+                  })}
+                  {i === 0 && " · atual"}
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
 
       <section className="mb-3 rounded-lg border border-line bg-surface p-5">
         <div className="mb-2 flex items-center justify-between">

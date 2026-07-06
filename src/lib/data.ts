@@ -409,12 +409,15 @@ function mapProcesso(p: {
   };
 }
 
+export type Lancamento = { texto: string; autor: string; quando: string };
 export type FichaProcesso = {
   processo: Processo;
   tarefas: TarefaFull[];
   documentos: DocItem[];
   publicacoes: { id: string; titulo: string; origem: string; estado: string }[];
-  andamento: { texto: string; autor: string; quando: string } | null;
+  // Últimos lançamentos de status (mais recente primeiro) — o relatório mostra
+  // os 5 mais recentes de cada processo.
+  andamentos: Lancamento[];
 };
 
 export async function getFichaProcesso(
@@ -429,11 +432,10 @@ export async function getFichaProcesso(
         where: { statusTriagem: { not: "pendente" } },
         orderBy: { criadoEm: "desc" },
       },
-      andamentos: { orderBy: { criadoEm: "desc" }, take: 1 },
+      andamentos: { orderBy: { criadoEm: "desc" }, take: 5 },
     },
   });
   if (!p) return null;
-  const ultimo = p.andamentos[0];
   return {
     processo: mapProcesso(p),
     tarefas: p.tarefas.map((t) => ({
@@ -469,13 +471,11 @@ export async function getFichaProcesso(
       origem: `${pub.tribunal} · ${pub.tipo}`,
       estado: pub.statusTriagem,
     })),
-    andamento: ultimo
-      ? {
-          texto: ultimo.texto,
-          autor: ultimo.autor,
-          quando: ultimo.criadoEm.toISOString(),
-        }
-      : null,
+    andamentos: p.andamentos.map((a) => ({
+      texto: a.texto,
+      autor: a.autor,
+      quando: a.criadoEm.toISOString(),
+    })),
   };
 }
 
