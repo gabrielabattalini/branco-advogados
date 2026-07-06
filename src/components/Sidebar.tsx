@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   UserCog,
   BarChart3,
+  FileBarChart,
 } from "lucide-react";
 import { ehGestor, labelPapel } from "@/lib/papeis";
 import { Logo } from "@/components/Logo";
@@ -44,6 +45,7 @@ export function Sidebar({
     ...(ehGestor(papel)
       ? [
           { href: "/carga", label: "Carga", Icon: BarChart3 },
+          { href: "/relatorio", label: "Relatório", Icon: FileBarChart },
           { href: "/admin", label: "Administração", Icon: ShieldCheck },
         ]
       : []),
