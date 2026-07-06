@@ -20,6 +20,112 @@ export async function docxParaTexto(buf: ArrayBuffer): Promise<string> {
     .join("\n");
 }
 
+// ---------- Word (.docx) → tabelas ----------
+// Cada tabela vira uma matriz de linhas; cada célula é um array de linhas de texto.
+export async function docxParaTabelas(
+  buf: ArrayBuffer,
+): Promise<string[][][]> {
+  const zip = await JSZip.loadAsync(buf);
+  const f = zip.file("word/document.xml");
+  if (!f) return [];
+  const xml = await f.async("string");
+  const limpar = (tc: string): string[] => {
+    const x = tc.replace(/<\/w:p>/g, "\n").replace(/<w:tab[^>]*\/>/g, "  ");
+    return x
+      .replace(/<[^>]+>/g, "")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&apos;/g, "'")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+  };
+  const tabelas: string[][][] = [];
+  for (const tbl of xml.match(/<w:tbl>[\s\S]*?<\/w:tbl>/g) ?? []) {
+    const linhas: string[][] = [];
+    for (const tr of tbl.match(/<w:tr[ >][\s\S]*?<\/w:tr>/g) ?? []) {
+      const celulas = [...tr.matchAll(/<w:tc>[\s\S]*?<\/w:tc>/g)].map((m) =>
+        limpar(m[0]).join("\n"),
+      );
+      linhas.push(celulas);
+    }
+    tabelas.push(linhas);
+  }
+  return tabelas;
+}
+
+// Relatório em formato de TABELA (ex.: LOMA — "Ações Judiciais").
+// Colunas: N. | PARTES | AÇÃO | PROCESSO/VARA + DISTR. | VALOR | FASE ATUAL.
+const CNJ_RE = /\d{7}-?\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/;
+const TIPO_PARTE_RE =
+  /^(Autora?|R[ée]us?|Exequente|Execut[ao]d?[ao]?|Embargantes?|Requerentes?|Requerid[ao]s?|Reclamantes?|Reclamad[ao]s?|Impetrantes?)\b/i;
+
+export function parseRelatorioTabela(
+  tabelas: string[][][],
+): RelatorioImportado | null {
+  // Acha a tabela de ações judiciais pelo cabeçalho (PARTES + FASE ATUAL).
+  let cliente = "";
+  const processos: ProcessoImportado[] = [];
+  for (const tab of tabelas) {
+    // Cliente: costuma estar na 1ª célula da tabela ("CLIENTE: ...").
+    if (!cliente) {
+      const topo = (tab[0]?.[0] ?? "").split("\n");
+      const l = topo.find((x) => /CLIENTE\s*:/i.test(x));
+      if (l) {
+        cliente = l
+          .replace(/.*CLIENTE\s*:/i, "")
+          .replace(/\s{2,}.*$/, "") // corta a data/coluna à direita
+          .replace(/\s+(JANEIRO|FEVEREIRO|MAR[ÇC]O|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO)\s+DE\s+\d{4}.*/i, "")
+          .trim();
+      }
+    }
+    const headerRow = tab.find(
+      (r) =>
+        r.length >= 5 &&
+        r.some((c) => /PARTES/i.test(c)) &&
+        r.some((c) => /FASE ATUAL/i.test(c)),
+    );
+    if (!headerRow) continue;
+    const hi = tab.indexOf(headerRow);
+    for (let ri = hi + 1; ri < tab.length; ri++) {
+      const cells = tab[ri];
+      if (cells.length < 6) continue;
+      const [nCol, partes, acao, procVara, valor, fase] = cells.map((c) =>
+        c.split("\n"),
+      );
+      const num = (nCol[0] ?? "").trim();
+      if (!/^\d+$/.test(num)) continue; // pula linhas que não são de processo
+      const cnjLine = procVara.find((l) => CNJ_RE.test(l)) ?? "";
+      const cnj = cnjLine.match(CNJ_RE)?.[0] ?? "";
+      if (!cnj) continue; // sem número CNJ → ainda não é processo
+      const vara = procVara
+        .filter((l) => !CNJ_RE.test(l) && !/^\d{2}\/\d{2}\/\d{4}$/.test(l))
+        .join(" ")
+        .trim();
+      const distr = procVara.find((l) => /^\d{2}\/\d{2}\/\d{4}$/.test(l)) ?? "";
+      const parteRaw = partes.join(" ").trim();
+      const tipo = (parteRaw.match(TIPO_PARTE_RE)?.[0] ?? "").trim();
+      const parte = parteRaw.replace(TIPO_PARTE_RE, "").replace(/^\s*:?\s*/, "").trim();
+      processos.push({
+        numero: cnj,
+        parteContrariaTipo: tipo,
+        parteContraria: parte,
+        juizo: vara,
+        sinteseDoPedido: acao.join(" ").trim(),
+        // FASE ATUAL: cada linha é um andamento; guardamos separados por "\n".
+        status: fase.map((l) => l.trim()).filter(Boolean).join("\n"),
+        valorCausa: valor.join(" ").replace(/\s+/g, " ").trim(),
+        audiencia: "",
+      });
+    }
+  }
+  if (processos.length === 0) return null;
+  return { cliente: cliente || "", processos };
+}
+
 // ---------- Relatório .docx → estrutura ----------
 export type ProcessoImportado = {
   numero: string;

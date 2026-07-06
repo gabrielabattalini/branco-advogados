@@ -111,6 +111,37 @@ export async function removerSituacao(
   }
 }
 
+// Remove um processo do relatório (ex.: importações antigas erradas).
+// Bloqueia se houver tarefas ou documentos vinculados.
+export async function removerProcesso(
+  processoId: string,
+): Promise<AcaoResult> {
+  const s = await exigirGestor();
+  if (!s) return { ok: false, erro: "Sem permissão." };
+  try {
+    const [tarefas, docs] = await Promise.all([
+      prisma.tarefa.count({ where: { processoId } }),
+      prisma.documento.count({ where: { processoId } }),
+    ]);
+    if (tarefas > 0 || docs > 0)
+      return {
+        ok: false,
+        erro: "Há tarefas ou documentos vinculados a este processo. Remova-os antes.",
+      };
+    await prisma.processoAndamento.deleteMany({ where: { processoId } });
+    await prisma.publicacao.updateMany({
+      where: { processoId },
+      data: { processoId: null },
+    });
+    await prisma.audiencia.deleteMany({ where: { processoId } });
+    await prisma.processo.delete({ where: { id: processoId } });
+    revalidatePath("/relatorio/clientes");
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Não foi possível remover o processo." };
+  }
+}
+
 // Envia o relatório do dia por e-mail na hora (botão "Enviar agora"). Gestor-only.
 export async function enviarRelatorioAgora(
   dataISO: string,
