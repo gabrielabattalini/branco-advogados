@@ -1,5 +1,6 @@
 import { Mulish, Spectral } from "next/font/google";
 import "@/components/site/site.css";
+import { CookieBanner } from "@/components/site/CookieBanner";
 
 const mulish = Mulish({
   subsets: ["latin"],
@@ -14,5 +15,10 @@ const spectral = Spectral({
 });
 
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
-  return <div className={`${mulish.variable} ${spectral.variable}`}>{children}</div>;
+  return (
+    <div className={`${mulish.variable} ${spectral.variable}`}>
+      {children}
+      <CookieBanner />
+    </div>
+  );
 }

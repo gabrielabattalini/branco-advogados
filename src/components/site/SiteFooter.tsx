@@ -86,7 +86,17 @@ export default function SiteFooter() {
             <input className="site-input" type="tel" name="Telefone" placeholder="Telefone" style={inputStyle} />
             <input className="site-input" type="email" name="Email" placeholder="E-mail" required style={inputStyle} />
             <textarea className="site-input" name="Mensagem" rows={3} placeholder="Mensagem" required style={{ ...inputStyle, resize: "none" }} />
-            <button type="submit" className="site-btn-gold" style={{ marginTop: 12, background: COR.gold, color: COR.green, border: "none", padding: 15, fontFamily: SANS, fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", cursor: "pointer" }}>
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, lineHeight: 1.5, color: "rgba(232,230,220,0.7)", marginTop: 4 }}>
+              <input type="checkbox" name="Consentimento LGPD" value="Aceito" required style={{ marginTop: 3, accentColor: COR.gold }} />
+              <span>
+                Li e concordo com a{" "}
+                <a href="/privacidade" style={{ color: COR.goldLight, textDecoration: "underline" }}>
+                  Política de Privacidade
+                </a>{" "}
+                e autorizo o contato.
+              </span>
+            </label>
+            <button type="submit" className="site-btn-gold" style={{ marginTop: 8, background: COR.gold, color: COR.green, border: "none", padding: 15, fontFamily: SANS, fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", cursor: "pointer" }}>
               Enviar
             </button>
           </div>
@@ -95,7 +105,12 @@ export default function SiteFooter() {
 
       <div style={{ maxWidth: 1260, margin: "64px auto 0", padding: "26px 40px", borderTop: "1px solid rgba(232,230,220,0.14)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }} className="site-pad">
         <span style={{ fontSize: 12.5, color: "rgba(232,230,220,0.55)" }}>© {new Date().getFullYear()} Branco Advogados. Todos os direitos reservados.</span>
-        <span style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: COR.gold }}>Advocacia Empresarial · Jundiaí/SP</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
+          <a href="/privacidade" style={{ fontSize: 12.5, color: "rgba(232,230,220,0.7)" }}>
+            Política de Privacidade
+          </a>
+          <span style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: COR.gold }}>Advocacia Empresarial · Jundiaí/SP</span>
+        </div>
       </div>
     </footer>
   );
