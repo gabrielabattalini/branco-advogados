@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, Lock, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Gavel, Lock, Plus } from "lucide-react";
 import {
   STATUS_LIST,
   corDoStatus,
@@ -12,7 +12,7 @@ import {
 } from "@/lib/mock";
 import { ehGestor } from "@/lib/papeis";
 import { hojeISO, semanaUtil } from "@/lib/hoje";
-import type { Responsavel } from "@/lib/data";
+import type { Responsavel, AudienciaDTO } from "@/lib/data";
 import { AreaTag } from "@/components/AreaTag";
 import { StatusSelect } from "@/components/StatusSelect";
 import { NovaTarefaModal } from "@/components/NovaTarefaModal";
@@ -27,6 +27,7 @@ export function TarefasView({
   processos,
   responsaveis,
   ultimosResp,
+  audiencias,
   papel,
   me,
 }: {
@@ -34,6 +35,7 @@ export function TarefasView({
   processos: Processo[];
   responsaveis: Responsavel[];
   ultimosResp: Record<string, string[]>;
+  audiencias: AudienciaDTO[];
   papel: string;
   me: string;
 }) {
@@ -87,6 +89,14 @@ export function TarefasView({
       (!filtroAdv || t.responsaveis.includes(filtroAdv)) &&
       statusSel.includes(t.status),
   );
+
+  // Audiências entram no calendário junto das tarefas (menos as canceladas).
+  const audVisiveis = audiencias.filter(
+    (a) =>
+      a.status !== "cancelada" &&
+      (!filtroAdv || a.participantes.includes(filtroAdv)),
+  );
+  const audsDoDia = (iso: string) => audVisiveis.filter((a) => a.data === iso);
 
   const selCls =
     "rounded-md border border-line bg-surface px-2.5 py-1.5 text-[12px] text-muted outline-none";
@@ -205,6 +215,20 @@ export function TarefasView({
                 <div className="text-[14px] font-medium text-ink">{d.dia}</div>
               )}
             </div>
+            {audsDoDia(d.data).map((a) => (
+              <button
+                key={a.id}
+                onClick={() => router.push("/audiencias")}
+                className="mb-1.5 block w-full rounded-md border border-gold/40 bg-gold/10 p-2 text-left"
+              >
+                <div className="flex items-center gap-1 text-[10px] font-medium text-gold">
+                  <Gavel size={11} /> {a.hora} · Audiência
+                </div>
+                <div className="text-[11.5px] leading-tight text-ink">
+                  {a.titulo}
+                </div>
+              </button>
+            ))}
             {items.map((t) => (
               <div
                 key={t.id}
@@ -297,6 +321,19 @@ export function TarefasView({
                   )}
                 </div>
                 <div className="flex flex-col gap-1">
+                  {audsDoDia(cel.iso).slice(0, 2).map((a) => (
+                    <button
+                      key={a.id}
+                      onClick={() => router.push("/audiencias")}
+                      title={`${a.hora} — ${a.titulo} (audiência)`}
+                      className="flex items-center gap-1 truncate rounded bg-gold/20 px-1 py-0.5 text-left text-[10.5px] text-gold"
+                    >
+                      <Gavel size={9} className="shrink-0" />
+                      <span className="truncate">
+                        {a.hora} {a.titulo}
+                      </span>
+                    </button>
+                  ))}
                   {items.slice(0, 3).map((t) => {
                     const c = corDoStatus(t.status);
                     return (
