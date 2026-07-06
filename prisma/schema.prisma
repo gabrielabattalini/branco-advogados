@@ -76,6 +76,20 @@ model ClienteAcesso {
   criadoEm     DateTime  @default(now())
 }
 
+// Configuração de envio do relatório mensal por cliente (importada da planilha).
+model ClienteRelatorio {
+  id          String   @id @default(cuid())
+  nome        String // casa com Processo.cliente
+  emails      String   @default("") // destinatários, separados por ; ou ,
+  corpoEmail  String   @default("") // texto do e-mail; {MES_ANO_REFERENCIA_TITULO} = mês/ano
+  nomeArquivo String   @default("") // base do nome do PDF anexado
+  tipo        String   @default("") // PF | PJ
+  ativo       Boolean  @default(true)
+  criadoEm    DateTime @default(now())
+
+  @@index([nome])
+}
+
 model Contato {
   id            String   @id @default(cuid())
   tipo          String // pf | pj
@@ -109,6 +123,12 @@ model Processo {
   valorCausa          String
   distribuido         String
   fase                String
+  // Campos fixos do relatório do cliente (pré-cadastrados; só o status muda).
+  parteContrariaTipo  String       @default("") // autora | ré | executada | exequente | embargante...
+  juizo               String       @default("") // vara/comarca (JUÍZO)
+  sinteseDoPedido     String       @default("")
+  valorEstimado       String       @default("")
+  observacoesRel      String       @default("") // observações do relatório
   criadoEm            DateTime     @default(now())
   tarefas             Tarefa[]
   documentos          Documento[]

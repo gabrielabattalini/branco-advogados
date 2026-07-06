@@ -15,6 +15,7 @@ import {
   BarChart3,
   FileBarChart,
   ExternalLink,
+  Upload,
 } from "lucide-react";
 import { ehGestor, labelPapel } from "@/lib/papeis";
 import { Logo } from "@/components/Logo";
@@ -46,6 +47,7 @@ export function Sidebar({
           { href: "/carga", label: "Estatísticas", Icon: BarChart3 },
           { href: "/relatorio", label: "Relatório", Icon: FileBarChart },
           { href: "/portal-clientes", label: "Portal clientes", Icon: ExternalLink },
+          { href: "/importar", label: "Importar / Limpar", Icon: Upload },
           { href: "/admin", label: "Administração", Icon: ShieldCheck },
         ]
       : []),
