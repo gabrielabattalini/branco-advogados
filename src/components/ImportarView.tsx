@@ -2,9 +2,8 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, FileSpreadsheet, FileText, Loader2, Check, AlertTriangle } from "lucide-react";
+import { FileSpreadsheet, FileText, Loader2, Check, AlertTriangle } from "lucide-react";
 import {
-  limparDadosExemplo,
   importarPlanilhaClientes,
   importarRelatoriosDocx,
 } from "@/lib/importar-actions";
@@ -15,27 +14,10 @@ export function ImportarView() {
   const router = useRouter();
   const planRef = useRef<HTMLInputElement>(null);
   const docsRef = useRef<HTMLInputElement>(null);
-  const [limpando, setLimpando] = useState(false);
   const [impPlan, setImpPlan] = useState(false);
   const [impDocs, setImpDocs] = useState(false);
-  const [msgLimpar, setMsgLimpar] = useState<Msg>(null);
   const [msgPlan, setMsgPlan] = useState<Msg>(null);
   const [msgDocs, setMsgDocs] = useState<Msg>(null);
-
-  const limpar = async () => {
-    if (
-      !confirm(
-        "Apagar TODOS os dados de exemplo (processos, tarefas, contatos, audiências)? Usuários e acessos são mantidos. Esta ação não pode ser desfeita.",
-      )
-    )
-      return;
-    setLimpando(true);
-    setMsgLimpar(null);
-    const res = await limparDadosExemplo();
-    setMsgLimpar({ ok: res.ok, texto: res.ok ? res.msg : res.erro });
-    setLimpando(false);
-    router.refresh();
-  };
 
   const enviarPlanilha = async () => {
     const file = planRef.current?.files?.[0];
@@ -81,35 +63,15 @@ export function ImportarView() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="font-serif text-2xl text-navy">Importar / Limpar</h1>
+      <h1 className="font-serif text-2xl text-navy">Importar</h1>
       <p className="mt-1 mb-5 text-[13px] text-muted">
-        Prepare o sistema com os dados reais do escritório.
+        Traga os dados reais do escritório para o sistema.
       </p>
 
-      {/* 1. Limpar exemplos */}
-      <div className={card + " mb-4 border-danger/30"}>
-        <div className="flex items-center gap-2 text-[14px] font-medium text-danger">
-          <Trash2 size={16} /> 1. Limpar dados de exemplo
-        </div>
-        <p className="mt-1 text-[12.5px] text-muted">
-          Remove os processos, tarefas, contatos e audiências fictícios. Mantém
-          usuários e acessos. Faça isso <strong>antes</strong> de importar.
-        </p>
-        <button
-          onClick={limpar}
-          disabled={limpando}
-          className="mt-3 inline-flex items-center gap-2 rounded-md border border-danger px-3 py-2 text-sm text-danger hover:bg-danger/5 disabled:opacity-40"
-        >
-          {limpando ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
-          {limpando ? "Limpando…" : "Limpar dados de exemplo"}
-        </button>
-        {aviso(msgLimpar)}
-      </div>
-
-      {/* 2. Planilha de clientes */}
+      {/* 1. Planilha de clientes */}
       <div className={card + " mb-4"}>
         <div className="flex items-center gap-2 text-[14px] font-medium text-navy">
-          <FileSpreadsheet size={16} /> 2. Planilha de clientes (envio)
+          <FileSpreadsheet size={16} /> 1. Planilha de clientes (envio)
         </div>
         <p className="mt-1 mb-3 text-[12.5px] text-muted">
           Sobe a planilha (.xlsx/.xlsm) com nome, e-mails, corpo do e-mail, nome
@@ -127,10 +89,10 @@ export function ImportarView() {
         {aviso(msgPlan)}
       </div>
 
-      {/* 3. Relatórios .docx */}
+      {/* 2. Relatórios .docx */}
       <div className={card}>
         <div className="flex items-center gap-2 text-[14px] font-medium text-navy">
-          <FileText size={16} /> 3. Relatórios dos clientes (.docx)
+          <FileText size={16} /> 2. Relatórios dos clientes (.docx)
         </div>
         <p className="mt-1 mb-3 text-[12.5px] text-muted">
           Sobe um ou vários relatórios .docx. O sistema cria os processos (parte

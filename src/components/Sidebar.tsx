@@ -47,7 +47,7 @@ export function Sidebar({
           { href: "/carga", label: "Estatísticas", Icon: BarChart3 },
           { href: "/relatorio", label: "Relatório", Icon: FileBarChart },
           { href: "/portal-clientes", label: "Portal clientes", Icon: ExternalLink },
-          { href: "/importar", label: "Importar / Limpar", Icon: Upload },
+          { href: "/importar", label: "Importar", Icon: Upload },
           { href: "/admin", label: "Administração", Icon: ShieldCheck },
         ]
       : []),

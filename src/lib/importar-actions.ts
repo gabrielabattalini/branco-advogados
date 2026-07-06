@@ -19,29 +19,6 @@ async function exigirGestor() {
   return s;
 }
 
-// Apaga TODO o conteúdo de demonstração (processos, tarefas, contatos, etc.),
-// mantendo usuários e acessos. Usar antes de importar os dados reais.
-export async function limparDadosExemplo(): Promise<ImportResult> {
-  const s = await exigirGestor();
-  if (!s) return { ok: false, erro: "Sem permissão." };
-  try {
-    await prisma.tarefaHistorico.deleteMany({});
-    await prisma.processoAndamento.deleteMany({});
-    await prisma.lembrete.deleteMany({});
-    await prisma.documento.deleteMany({});
-    await prisma.tarefa.deleteMany({});
-    await prisma.publicacao.deleteMany({});
-    await prisma.audiencia.deleteMany({});
-    await prisma.eventoAgenda.deleteMany({});
-    await prisma.arquivoAASP.deleteMany({});
-    await prisma.processo.deleteMany({});
-    await prisma.contato.deleteMany({});
-    return { ok: true, msg: "Dados de exemplo removidos." };
-  } catch {
-    return { ok: false, erro: "Não foi possível limpar os dados." };
-  }
-}
-
 // Importa a planilha de clientes (nome, e-mails, corpo, arquivo, PF/PJ).
 export async function importarPlanilhaClientes(
   formData: FormData,
