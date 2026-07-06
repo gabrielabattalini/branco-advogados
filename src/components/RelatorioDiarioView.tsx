@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ChevronLeft,
@@ -108,6 +109,12 @@ export function RelatorioDiarioView({
 
   return (
     <div className="mx-auto max-w-3xl">
+      <Link
+        href="/relatorio"
+        className="mb-3 inline-flex items-center gap-1 text-[12px] text-muted hover:text-navy"
+      >
+        <ChevronLeft size={14} /> Relatórios
+      </Link>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-serif text-2xl text-navy">Relatório do dia</h1>
