@@ -322,7 +322,7 @@ export function NovaAudienciaModal({
         {/* Lembretes */}
         <div className="rounded-md border border-line bg-cream/50 p-3">
           <div className="mb-2 flex items-center gap-1.5 text-[12px] font-medium text-navy">
-            <Bell size={13} /> Lembretes por e-mail (antes da audiência)
+            <Bell size={13} /> Lembretes por e-mail e Telegram (antes da audiência)
           </div>
           <div className="mb-2 flex flex-wrap gap-1.5">
             {lembretes.length === 0 && (

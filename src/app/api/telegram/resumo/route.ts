@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { enviarTelegram, telegramConfigurado, escT } from "@/lib/telegram";
 import { hojeISO, addDiasISO, brCurto } from "@/lib/hoje";
+import { linhasAudienciaTelegram } from "@/lib/audiencia-aviso";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,7 @@ async function processar() {
     }),
     prisma.audiencia.findMany({
       where: { status: "agendada", data: hoje },
-      select: { titulo: true, hora: true, local: true, participantes: true },
+      include: { processo: { select: { numero: true } } },
       orderBy: { hora: "asc" },
     }),
   ]);
@@ -74,10 +75,21 @@ async function processar() {
     ];
     if (audis.length) {
       linhas.push("", "⚖️ <b>Audiências hoje</b>");
-      for (const a of audis)
-        linhas.push(
-          `• ${escT(a.hora)} — ${escT(a.titulo)}${a.local ? ` (${escT(a.local)})` : ""}`,
-        );
+      for (const a of audis) {
+        linhas.push(`• <b>${escT(a.hora)} — ${escT(a.titulo)}</b>`);
+        for (const l of linhasAudienciaTelegram({
+          titulo: a.titulo,
+          data: a.data,
+          hora: a.hora,
+          tipo: a.tipo,
+          modalidade: a.modalidade,
+          link: a.link,
+          local: a.local,
+          partes: a.partes,
+          processoNumero: a.processo?.numero,
+        }))
+          linhas.push(`   ${l}`);
+      }
     }
     if (atrasadas.length) {
       linhas.push("", `🔴 <b>Em atraso (${atrasadas.length})</b>`);

@@ -12,6 +12,7 @@ import {
   labelTipoAudiencia,
   linkSeguro,
 } from "@/lib/audiencia";
+import { linhasAudienciaTelegram } from "@/lib/audiencia-aviso";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,7 @@ async function processar() {
       enviadoEm: null,
       audiencia: { status: "agendada", inicioUtc: { gt: agora } },
     },
-    include: { audiencia: true },
+    include: { audiencia: { include: { processo: true } } },
     take: 300,
   });
   const devidos = lembretes.filter(
@@ -100,7 +101,7 @@ async function processar() {
   <p style="margin:0 0 12px;color:#6e6a60">Faltam ${esc(antecedencia)} para a audiência.</p>
   <ul style="padding-left:18px;line-height:1.6">
     ${linha("Quando", quando)}
-    ${a.modalidade === "virtual" ? linha("Modalidade", "Virtual") : ""}
+    ${linha("Modalidade", a.modalidade === "virtual" ? "Virtual" : "Presencial")}
     ${
       a.modalidade === "virtual" && linkSeguro(a.link)
         ? `<li><strong>Link:</strong> <a href="${esc(linkSeguro(a.link))}">${esc(linkSeguro(a.link))}</a></li>`
@@ -108,6 +109,7 @@ async function processar() {
     }
     ${linha("Local", a.local)}
     ${linha("Partes", a.partes)}
+    ${linha("Processo", a.processo?.numero ?? "")}
     ${linha("Observações", a.observacoes)}
   </ul>
   <p style="color:#9a9488;font-size:12px;margin-top:16px">Branco Advogados · sistema interno</p>
@@ -121,18 +123,25 @@ async function processar() {
       if (res.enviado) algumOk = true;
     }
 
-    // ---- Telegram ----
+    // ---- Telegram ---- (aviso completo: tipo, modalidade, link, local,
+    // partes e nº do processo)
     if (temTelegram && chats.length) {
-      const partes = [
+      const msg = [
         `⚖️ <b>Lembrete de audiência</b>`,
-        `${escT(a.titulo)} — ${escT(labelTipoAudiencia(a.tipo))}`,
-        `🗓 ${escT(quando)} (faltam ${escT(antecedencia)})`,
-        a.modalidade === "virtual" && linkSeguro(a.link)
-          ? `🔗 ${escT(linkSeguro(a.link))}`
-          : "",
-        a.local ? `📍 ${escT(a.local)}` : "",
-      ].filter(Boolean);
-      const msg = partes.join("\n");
+        `<b>${escT(a.titulo)}</b>`,
+        `⏰ Faltam ${escT(antecedencia)}`,
+        ...linhasAudienciaTelegram({
+          titulo: a.titulo,
+          data: a.data,
+          hora: a.hora,
+          tipo: a.tipo,
+          modalidade: a.modalidade,
+          link: a.link,
+          local: a.local,
+          partes: a.partes,
+          processoNumero: a.processo?.numero,
+        }),
+      ].join("\n");
       const rs = await Promise.all(chats.map((c) => enviarTelegram(c, msg)));
       if (rs.some((r) => r.enviado)) algumOk = true;
     }
