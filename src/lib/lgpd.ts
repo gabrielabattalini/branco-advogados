@@ -3,7 +3,7 @@
 // (LGPD_CNPJ, LGPD_DPO_NOME, LGPD_DPO_EMAIL) — ou edite os padrões abaixo.
 export const LGPD = {
   controlador: "Branco Advogados Associados",
-  cnpj: process.env.LGPD_CNPJ || "",
+  cnpj: process.env.LGPD_CNPJ || "01.256.531/0001-02",
   encarregadoNome: process.env.LGPD_DPO_NOME || "",
   encarregadoEmail: process.env.LGPD_DPO_EMAIL || "privacidade@brancoadvogados.com.br",
   contatoEmail: "branco@brancoadvogados.com.br",
