@@ -11,7 +11,7 @@ import {
   type Processo,
 } from "@/lib/mock";
 import { ehGestor } from "@/lib/papeis";
-import { hojeISO, semanaUtil } from "@/lib/hoje";
+import { hojeISO, semanaUtil, brCurto } from "@/lib/hoje";
 import type { Responsavel, AudienciaDTO } from "@/lib/data";
 import { AreaTag } from "@/components/AreaTag";
 import { StatusSelect } from "@/components/StatusSelect";
@@ -373,51 +373,78 @@ export function TarefasView({
     </div>
   );
 
+  // Lista única: tarefas + audiências, ordenadas por data (e hora da audiência).
+  const listaItens = [
+    ...visiveis.map((t) => ({ kind: "t" as const, data: t.data, hora: "", t })),
+    ...audVisiveis.map((a) => ({ kind: "a" as const, data: a.data, hora: a.hora, a })),
+  ].sort((x, y) => x.data.localeCompare(y.data) || x.hora.localeCompare(y.hora));
+
   const lista = (
     <div className="overflow-hidden rounded-lg border border-line bg-surface">
-      {visiveis.map((t, i) => (
-        <div
-          key={t.id}
-          className={
-            "flex items-center gap-3 px-4 py-3 " +
-            (i > 0 ? "border-t border-line" : "")
-          }
-        >
-          <button
-            onClick={() => setEditar(t)}
-            className="min-w-0 flex-1 text-left"
-          >
-            <div className="text-[13px] text-ink">{t.titulo}</div>
-            {t.descricao && (
-              <div className="line-clamp-1 text-[11px] text-muted">
-                {t.descricao}
+      {listaItens.map((it, i) => {
+        const borda = i > 0 ? "border-t border-line" : "";
+        if (it.kind === "a") {
+          const a = it.a;
+          return (
+            <button
+              key={"a" + a.id}
+              onClick={() => router.push("/audiencias")}
+              className={"flex w-full items-center gap-3 bg-gold/5 px-4 py-3 text-left " + borda}
+            >
+              <Gavel size={15} className="shrink-0 text-gold" />
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] text-ink">{a.titulo}</div>
+                <div className="text-[11px] text-muted">
+                  Audiência · {a.tipo}
+                  {a.modalidade ? ` · ${a.modalidade}` : ""}
+                  {a.local ? ` · ${a.local}` : ""}
+                </div>
               </div>
-            )}
-            <div className="font-mono text-[11px] text-faint">
-              {t.processo || "sem processo"}
-            </div>
-          </button>
-          {coord && <AreaTag area={t.area} />}
-          <div className="text-right">
-            <div className="text-[13px] font-medium text-navy">
-              {nomesResp(t.responsaveis)}
-            </div>
-            {(t.solicitante || t.revisor) && (
-              <div className="text-[10px] text-faint">
-                {t.solicitante && `Sol: ${primeiroNome(t.solicitante)}`}
-                {t.solicitante && t.revisor && " · "}
-                {t.revisor && `Rev: ${primeiroNome(t.revisor)}`}
+              <span className="text-[11px] font-medium text-gold">
+                {brCurto(a.data)} · {a.hora}
+              </span>
+            </button>
+          );
+        }
+        const t = it.t;
+        return (
+          <div key={"t" + t.id} className={"flex items-center gap-3 px-4 py-3 " + borda}>
+            <button
+              onClick={() => setEditar(t)}
+              className="min-w-0 flex-1 text-left"
+            >
+              <div className="text-[13px] text-ink">{t.titulo}</div>
+              {t.descricao && (
+                <div className="line-clamp-1 text-[11px] text-muted">
+                  {t.descricao}
+                </div>
+              )}
+              <div className="font-mono text-[11px] text-faint">
+                {t.processo || "sem processo"}
               </div>
-            )}
+            </button>
+            {coord && <AreaTag area={t.area} />}
+            <div className="text-right">
+              <div className="text-[13px] font-medium text-navy">
+                {nomesResp(t.responsaveis)}
+              </div>
+              {(t.solicitante || t.revisor) && (
+                <div className="text-[10px] text-faint">
+                  {t.solicitante && `Sol: ${primeiroNome(t.solicitante)}`}
+                  {t.solicitante && t.revisor && " · "}
+                  {t.revisor && `Rev: ${primeiroNome(t.revisor)}`}
+                </div>
+              )}
+            </div>
+            <span
+              className={"w-12 text-right text-[11px] " + prazoCls(t.prazoUrgente)}
+            >
+              {t.prazo}
+            </span>
+            <StatusSelect value={t.status} onChange={(s) => setStatus(t.id, s)} />
           </div>
-          <span
-            className={"w-12 text-right text-[11px] " + prazoCls(t.prazoUrgente)}
-          >
-            {t.prazo}
-          </span>
-          <StatusSelect value={t.status} onChange={(s) => setStatus(t.id, s)} />
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 
