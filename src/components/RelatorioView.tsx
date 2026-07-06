@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Printer, FileText, Download } from "lucide-react";
+import { ChevronLeft, ChevronRight, Printer, FileText, Download, Eye } from "lucide-react";
 import type { CargaTarefa, MembroEquipe } from "@/lib/data";
 import { NOMES_MES } from "@/lib/calendario";
 
@@ -162,12 +162,18 @@ export function RelatorioView({
             className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-[13px] text-ink outline-none"
           />
           <a
+            href={`/relatorio/diario?data=${diaAtiv}`}
+            className="inline-flex items-center gap-2 rounded-md bg-navy px-3 py-1.5 text-sm text-cream hover:bg-navy-dark"
+          >
+            <Eye size={15} /> Ver relatório
+          </a>
+          <a
             href={`/api/relatorio-diario?data=${diaAtiv}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-md bg-navy px-3 py-1.5 text-sm text-cream hover:bg-navy-dark"
+            className="inline-flex items-center gap-2 rounded-md border border-line px-3 py-1.5 text-sm text-navy hover:bg-cream"
           >
-            <Download size={15} /> Baixar PDF
+            <Download size={15} /> PDF
           </a>
         </div>
       </div>
