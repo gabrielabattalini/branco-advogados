@@ -497,6 +497,38 @@ export type ProcRelClienteDTO = {
   audiencia: string;
   observacoes: string;
 };
+// Texto da próxima audiência agendada de um processo, para o relatório.
+// Ex.: "Instrução em 12/08/2026 às 14:00 (virtual)." — "" se não houver.
+type AudienciaMin = {
+  data: string;
+  hora: string;
+  tipo: string;
+  modalidade: string;
+  local: string;
+  status: string;
+};
+const TIPO_AUD: Record<string, string> = {
+  instrucao: "Instrução",
+  conciliacao: "Conciliação",
+  inicial: "Inicial",
+  una: "Una",
+  outra: "Audiência",
+};
+export function textoProximaAudiencia(audiencias: AudienciaMin[]): string {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const futuras = audiencias
+    .filter((a) => a.status === "agendada" && a.data >= hoje)
+    .sort((a, b) => (a.data + a.hora).localeCompare(b.data + b.hora));
+  const a = futuras[0];
+  if (!a) return "";
+  const [y, m, d] = a.data.split("-");
+  const quando = y ? `${d}/${m}/${y}` : a.data;
+  const tipo = TIPO_AUD[a.tipo] ?? "Audiência";
+  const modal = a.modalidade === "virtual" ? " (virtual)" : " (presencial)";
+  const local = a.local ? ` — ${a.local}` : "";
+  return `${tipo} em ${quando}${a.hora ? ` às ${a.hora}` : ""}${modal}${local}.`;
+}
+
 // Dados de um cliente para o relatório mensal (processos + situação atual).
 // Sem checagem de sessão — chamado por rota já protegida (gestor/cron).
 export async function getRelatorioClienteDados(
@@ -507,7 +539,10 @@ export async function getRelatorioClienteDados(
   const procs = await prisma.processo.findMany({
     where: { cliente: nome },
     orderBy: { criadoEm: "asc" },
-    include: { andamentos: { orderBy: { criadoEm: "desc" }, take: 5 } },
+    include: {
+      andamentos: { orderBy: { criadoEm: "desc" }, take: 5 },
+      audiencias: true,
+    },
   });
   if (procs.length === 0) return null;
   return {
@@ -521,8 +556,65 @@ export async function getRelatorioClienteDados(
       status: p.andamentos.map((a) => a.texto),
       valorCausa: p.valorCausa,
       valorEstimado: p.valorEstimado,
-      audiencia: "",
+      audiencia: p.audienciaRel || textoProximaAudiencia(p.audiencias),
       observacoes: p.observacoesRel,
+    })),
+  };
+}
+
+// ---- Editor do relatório dos clientes (preencher/atualizar no sistema) ----
+export type SituacaoEditorDTO = { id: string; texto: string; criadoEm: string };
+export type ProcRelEditorDTO = {
+  id: string;
+  numero: string;
+  parteContraria: string;
+  parteContrariaTipo: string;
+  juizo: string;
+  tribunal: string;
+  sinteseDoPedido: string;
+  valorCausa: string;
+  valorEstimado: string;
+  audienciaRel: string;
+  audienciaSugerida: string;
+  observacoesRel: string;
+  situacoes: SituacaoEditorDTO[];
+};
+export async function getRelatorioClienteEditor(
+  nomeCliente: string,
+): Promise<{ cliente: string; processos: ProcRelEditorDTO[] } | null> {
+  const s = await getSessao();
+  if (!s || !ehGestor(s.papel)) return null;
+  const nome = (nomeCliente || "").trim();
+  if (!nome) return null;
+  const procs = await prisma.processo.findMany({
+    where: { cliente: nome },
+    orderBy: { criadoEm: "asc" },
+    include: {
+      andamentos: { orderBy: { criadoEm: "desc" } },
+      audiencias: true,
+    },
+  });
+  if (procs.length === 0) return null;
+  return {
+    cliente: nome,
+    processos: procs.map((p) => ({
+      id: p.id,
+      numero: p.numero,
+      parteContraria: p.parteContraria,
+      parteContrariaTipo: p.parteContrariaTipo,
+      juizo: p.juizo,
+      tribunal: p.tribunal,
+      sinteseDoPedido: p.sinteseDoPedido,
+      valorCausa: p.valorCausa,
+      valorEstimado: p.valorEstimado,
+      audienciaRel: p.audienciaRel,
+      audienciaSugerida: textoProximaAudiencia(p.audiencias),
+      observacoesRel: p.observacoesRel,
+      situacoes: p.andamentos.map((a) => ({
+        id: a.id,
+        texto: a.texto,
+        criadoEm: a.criadoEm.toISOString(),
+      })),
     })),
   };
 }

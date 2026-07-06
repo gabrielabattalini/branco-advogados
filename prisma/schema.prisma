@@ -128,6 +128,7 @@ model Processo {
   juizo               String       @default("") // vara/comarca (JUÍZO)
   sinteseDoPedido     String       @default("")
   valorEstimado       String       @default("")
+  audienciaRel        String       @default("") // texto da audiência no relatório (vazio = puxa da próxima audiência)
   observacoesRel      String       @default("") // observações do relatório
   criadoEm            DateTime     @default(now())
   tarefas             Tarefa[]

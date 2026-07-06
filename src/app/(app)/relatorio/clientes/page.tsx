@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronLeft, Download, Mail, AlertTriangle, Scale } from "lucide-react";
+import { ChevronLeft, Download, Mail, AlertTriangle, Scale, Pencil } from "lucide-react";
 import { getClientesRelatorio } from "@/lib/data";
 import { getSessao } from "@/lib/sessao";
 import { ehGestor } from "@/lib/papeis";
@@ -23,9 +23,9 @@ export default async function RelatorioClientesPage() {
       </Link>
       <h1 className="font-serif text-2xl text-navy">Relatório dos clientes</h1>
       <p className="mt-1 mb-5 text-[13px] text-muted">
-        Um relatório por cliente, no papel timbrado do escritório, com a situação
-        atual de cada processo. O envio automático (até o dia 5) usa o e-mail
-        cadastrado na planilha.
+        Um relatório por cliente, no papel timbrado do escritório. Clique em um
+        cliente para preencher e atualizar cada processo. O envio automático (até
+        o dia 5) usa o e-mail cadastrado na planilha.
       </p>
 
       {clientes.length === 0 ? (
@@ -43,8 +43,11 @@ export default async function RelatorioClientesPage() {
               key={c.nome}
               className="flex flex-wrap items-center gap-3 border-t border-line px-4 py-3 first:border-t-0"
             >
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-medium text-ink">
+              <Link
+                href={`/relatorio/clientes/${encodeURIComponent(c.nome)}`}
+                className="group min-w-0 flex-1"
+              >
+                <div className="truncate text-[13px] font-medium text-ink group-hover:text-navy">
                   {c.nome}
                 </div>
                 <div className="flex flex-wrap items-center gap-x-3 text-[11px] text-faint">
@@ -61,7 +64,13 @@ export default async function RelatorioClientesPage() {
                     </span>
                   )}
                 </div>
-              </div>
+              </Link>
+              <Link
+                href={`/relatorio/clientes/${encodeURIComponent(c.nome)}`}
+                className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-[12px] text-navy hover:bg-cream"
+              >
+                <Pencil size={13} /> Editar
+              </Link>
               <a
                 href={`/api/relatorio-cliente?cliente=${encodeURIComponent(c.nome)}`}
                 target="_blank"
