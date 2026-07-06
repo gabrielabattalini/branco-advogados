@@ -458,6 +458,75 @@ export async function getNomesClientesComProcesso(): Promise<string[]> {
   return rows.map((r) => r.cliente).filter(Boolean);
 }
 
+// ---- Relatório mensal dos clientes ----
+export type ClienteRelListagem = {
+  nome: string;
+  processos: number;
+  emails: string;
+  temConfig: boolean;
+};
+export async function getClientesRelatorio(): Promise<ClienteRelListagem[]> {
+  const s = await getSessao();
+  if (!s || !ehGestor(s.papel)) return [];
+  const grupos = await prisma.processo.groupBy({
+    by: ["cliente"],
+    _count: { _all: true },
+    orderBy: { cliente: "asc" },
+  });
+  const configs = await prisma.clienteRelatorio.findMany();
+  const cfg = new Map(configs.map((c) => [c.nome, c]));
+  return grupos
+    .filter((g) => g.cliente)
+    .map((g) => ({
+      nome: g.cliente,
+      processos: g._count._all,
+      emails: cfg.get(g.cliente)?.emails ?? "",
+      temConfig: cfg.has(g.cliente),
+    }));
+}
+
+export type ProcRelClienteDTO = {
+  numero: string;
+  parteContrariaTipo: string;
+  parteContraria: string;
+  juizo: string;
+  sinteseDoPedido: string;
+  status: string[];
+  valorCausa: string;
+  valorEstimado: string;
+  audiencia: string;
+  observacoes: string;
+};
+// Dados de um cliente para o relatório mensal (processos + situação atual).
+// Sem checagem de sessão — chamado por rota já protegida (gestor/cron).
+export async function getRelatorioClienteDados(
+  nomeCliente: string,
+): Promise<{ cliente: string; processos: ProcRelClienteDTO[] } | null> {
+  const nome = (nomeCliente || "").trim();
+  if (!nome) return null;
+  const procs = await prisma.processo.findMany({
+    where: { cliente: nome },
+    orderBy: { criadoEm: "asc" },
+    include: { andamentos: { orderBy: { criadoEm: "desc" }, take: 5 } },
+  });
+  if (procs.length === 0) return null;
+  return {
+    cliente: nome,
+    processos: procs.map((p) => ({
+      numero: p.numero,
+      parteContrariaTipo: p.parteContrariaTipo,
+      parteContraria: p.parteContraria,
+      juizo: p.juizo || p.tribunal,
+      sinteseDoPedido: p.sinteseDoPedido,
+      status: p.andamentos.map((a) => a.texto),
+      valorCausa: p.valorCausa,
+      valorEstimado: p.valorEstimado,
+      audiencia: "",
+      observacoes: p.observacoesRel,
+    })),
+  };
+}
+
 export async function getProcessos(): Promise<Processo[]> {
   const rows = await prisma.processo.findMany({ orderBy: { criadoEm: "desc" } });
   return rows.map(mapProcesso);

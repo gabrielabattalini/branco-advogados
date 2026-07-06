@@ -24,12 +24,12 @@ const relatorios = [
     pronto: true,
   },
   {
-    href: "#",
+    href: "/relatorio/clientes",
     Icon: Users,
     titulo: "Relatório dos clientes",
     descricao:
-      "Visão consolidada por cliente (processos, andamentos e atividades). Em breve.",
-    pronto: false,
+      "Um relatório por cliente, no papel timbrado, com a situação atual de cada processo. PDF e envio até o dia 5.",
+    pronto: true,
   },
 ];
 
