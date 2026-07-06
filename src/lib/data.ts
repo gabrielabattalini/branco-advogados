@@ -73,7 +73,7 @@ export type ItemBusca = {
 
 export async function getBuscaGlobal(): Promise<ItemBusca[]> {
   const [escT, escA] = [await escopoTarefas(), await escopoAgenda()];
-  const [procs, conts, tars, audis] = await Promise.all([
+  const [procs, conts, tars, audis, docs] = await Promise.all([
     prisma.processo.findMany({
       select: { id: true, numero: true, cliente: true },
       orderBy: { criadoEm: "desc" },
@@ -96,6 +96,11 @@ export async function getBuscaGlobal(): Promise<ItemBusca[]> {
       where: escA,
       select: { titulo: true, data: true, hora: true },
       orderBy: { inicioUtc: "desc" },
+      take: 300,
+    }),
+    prisma.documento.findMany({
+      select: { nome: true, processo: { select: { id: true, numero: true } } },
+      orderBy: { criadoEm: "desc" },
       take: 300,
     }),
   ]);
@@ -127,6 +132,13 @@ export async function getBuscaGlobal(): Promise<ItemBusca[]> {
       titulo: a.titulo,
       sub: `${brData(a.data)} ${a.hora}`,
       href: "/audiencias",
+    });
+  for (const d of docs)
+    itens.push({
+      tipo: "Documento",
+      titulo: d.nome,
+      sub: d.processo?.numero ?? "",
+      href: d.processo ? `/processos/${d.processo.id}` : "/documentos",
     });
   return itens;
 }
