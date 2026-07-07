@@ -465,6 +465,46 @@ export type ClienteRelListagem = {
   emails: string;
   temConfig: boolean;
 };
+// Normaliza para comparar nomes/arquivos (sem acento, maiúsculas, espaços).
+const DIACRITICOS = /[̀-ͯ]/g;
+function normNome(s: string): string {
+  return (s || "")
+    .normalize("NFD")
+    .replace(DIACRITICOS, "")
+    .toUpperCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Casa um grupo de processos (cliente + arquivo de origem) com a linha da
+// planilha de envio. Tenta pelo nome do arquivo (mais confiável) e, como
+// reforço, pelo nome do cliente.
+function acharConfigRelatorio<T extends { nome: string; nomeArquivo: string }>(
+  cliente: string,
+  arquivo: string,
+  configs: T[],
+): T | undefined {
+  const nc = normNome(cliente);
+  const na = normNome(arquivo);
+  if (na) {
+    const exato = configs.find((c) => normNome(c.nomeArquivo) === na);
+    if (exato) return exato;
+    const prefixo = configs.find((c) => {
+      const x = normNome(c.nomeArquivo);
+      return (
+        x && (na.startsWith(x) || x.startsWith(na)) && Math.min(x.length, na.length) >= 4
+      );
+    });
+    if (prefixo) return prefixo;
+  }
+  const nomeExato = configs.find((c) => normNome(c.nome) === nc);
+  if (nomeExato) return nomeExato;
+  return configs.find((c) => {
+    const x = normNome(c.nome);
+    return x.length >= 4 && nc.includes(x);
+  });
+}
+
 export async function getClientesRelatorio(): Promise<ClienteRelListagem[]> {
   const s = await getSessao();
   if (!s || !ehGestor(s.papel)) return [];
@@ -473,16 +513,27 @@ export async function getClientesRelatorio(): Promise<ClienteRelListagem[]> {
     _count: { _all: true },
     orderBy: { cliente: "asc" },
   });
+  const arqRows = await prisma.processo.findMany({
+    select: { cliente: true, arquivoOrigem: true },
+    distinct: ["cliente"],
+  });
+  const arqPorCliente = new Map(arqRows.map((r) => [r.cliente, r.arquivoOrigem]));
   const configs = await prisma.clienteRelatorio.findMany();
-  const cfg = new Map(configs.map((c) => [c.nome, c]));
   return grupos
     .filter((g) => g.cliente)
-    .map((g) => ({
-      nome: g.cliente,
-      processos: g._count._all,
-      emails: cfg.get(g.cliente)?.emails ?? "",
-      temConfig: cfg.has(g.cliente),
-    }));
+    .map((g) => {
+      const cfg = acharConfigRelatorio(
+        g.cliente,
+        arqPorCliente.get(g.cliente) ?? "",
+        configs,
+      );
+      return {
+        nome: g.cliente,
+        processos: g._count._all,
+        emails: cfg?.emails ?? "",
+        temConfig: !!cfg,
+      };
+    });
 }
 
 export type ProcRelClienteDTO = {

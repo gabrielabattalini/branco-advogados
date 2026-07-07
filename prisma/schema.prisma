@@ -134,6 +134,7 @@ model Processo {
   // judicial | recuperacao_falencia | procon | administrativo | outro
   categoria           String       @default("judicial")
   infoAdicional       String       @default("") // dados extras (ex.: crédito habilitado em RJ/falência)
+  arquivoOrigem       String       @default("") // nome do .docx importado — casa com a planilha de envio
   criadoEm            DateTime     @default(now())
   tarefas             Tarefa[]
   documentos          Documento[]

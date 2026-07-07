@@ -235,6 +235,7 @@ export async function importarRelatoriosDocx(
       }
       clientes++;
       const cliente = rel.cliente;
+      const arquivoOrigem = (file.name || "").replace(/\.docx?$/i, "").trim();
       const lista = rel.processos;
       // Grava em lotes concorrentes (o relatório pode ter muitos processos).
       for (let i = 0; i < lista.length; i += 8) {
@@ -258,6 +259,7 @@ export async function importarRelatoriosDocx(
               juizo: p.juizo,
               sinteseDoPedido: p.sinteseDoPedido,
               categoria: p.categoria ?? "judicial",
+              arquivoOrigem,
             };
             const proc = await prisma.processo.upsert({
               where: { numero },
