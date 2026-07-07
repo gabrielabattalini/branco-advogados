@@ -506,14 +506,6 @@ export function acharConfigRelatorio<T extends { nome: string; nomeArquivo: stri
   });
 }
 
-// Estado do envio automático mensal (para o toggle na lista de clientes).
-export async function getEnvioAutomatico(): Promise<boolean> {
-  const s = await getSessao();
-  if (!s || !ehGestor(s.papel)) return false;
-  const { envioAutomaticoLigado } = await import("@/lib/config");
-  return envioAutomaticoLigado();
-}
-
 export async function getClientesRelatorio(): Promise<ClienteRelListagem[]> {
   const s = await getSessao();
   if (!s || !ehGestor(s.papel)) return [];

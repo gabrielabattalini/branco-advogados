@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ChevronLeft, Download, Mail, AlertTriangle, Scale, Pencil } from "lucide-react";
-import { getClientesRelatorio, getEnvioAutomatico } from "@/lib/data";
+import { getClientesRelatorio } from "@/lib/data";
 import { getSessao } from "@/lib/sessao";
 import { ehGestor } from "@/lib/papeis";
-import { EnvioAutoToggle, EnviarBotao, EnvioAtivoBotao } from "@/components/RelatorioClientesExtras";
+import { AcoesEnvioTodos, EnviarBotao, EnvioAtivoBotao } from "@/components/RelatorioClientesExtras";
 
 export const dynamic = "force-dynamic";
 
@@ -12,10 +12,7 @@ export default async function RelatorioClientesPage() {
   const s = await getSessao();
   if (!s) redirect("/login");
   if (!ehGestor(s.papel)) redirect("/painel");
-  const [clientes, envioAuto] = await Promise.all([
-    getClientesRelatorio(),
-    getEnvioAutomatico(),
-  ]);
+  const clientes = await getClientesRelatorio();
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -32,7 +29,7 @@ export default async function RelatorioClientesPage() {
         nome do arquivo). Envie na hora pelo botão ou deixe no automático.
       </p>
 
-      {clientes.length > 0 && <EnvioAutoToggle ligado={envioAuto} />}
+      {clientes.length > 0 && <AcoesEnvioTodos />}
 
       {clientes.length === 0 ? (
         <div className="rounded-lg border border-dashed border-line bg-surface px-4 py-12 text-center text-[13px] text-faint">
