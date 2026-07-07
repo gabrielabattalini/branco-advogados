@@ -464,6 +464,7 @@ export type ClienteRelListagem = {
   processos: number;
   emails: string;
   temConfig: boolean;
+  ativo: boolean; // envio automático ligado para este cliente
 };
 // Normaliza para comparar nomes/arquivos (sem acento, maiúsculas, espaços).
 const DIACRITICOS = /[̀-ͯ]/g;
@@ -479,7 +480,7 @@ function normNome(s: string): string {
 // Casa um grupo de processos (cliente + arquivo de origem) com a linha da
 // planilha de envio. Tenta pelo nome do arquivo (mais confiável) e, como
 // reforço, pelo nome do cliente.
-function acharConfigRelatorio<T extends { nome: string; nomeArquivo: string }>(
+export function acharConfigRelatorio<T extends { nome: string; nomeArquivo: string }>(
   cliente: string,
   arquivo: string,
   configs: T[],
@@ -505,59 +506,12 @@ function acharConfigRelatorio<T extends { nome: string; nomeArquivo: string }>(
   });
 }
 
-// Config de envio de cada cliente (edição na aba Envio) + toggle global.
-export type EnvioConfigItem = {
-  id: string;
-  nome: string;
-  emails: string;
-  corpoEmail: string;
-  nomeArquivo: string;
-  tipo: string;
-  ativo: boolean;
-  ultimoEnvio: string;
-  cliente: string | null; // cliente casado no sistema (se houver)
-  processos: number;
-};
-export async function getEnvioConfig(): Promise<{
-  ligado: boolean;
-  itens: EnvioConfigItem[];
-} | null> {
+// Estado do envio automático mensal (para o toggle na lista de clientes).
+export async function getEnvioAutomatico(): Promise<boolean> {
   const s = await getSessao();
-  if (!s || !ehGestor(s.papel)) return null;
-  const { CHAVE_ENVIO_AUTO, getConfig } = await import("@/lib/config");
-  const configs = await prisma.clienteRelatorio.findMany({ orderBy: { nome: "asc" } });
-  const grupos = await prisma.processo.groupBy({
-    by: ["cliente"],
-    _count: { _all: true },
-  });
-  const arqRows = await prisma.processo.findMany({
-    select: { cliente: true, arquivoOrigem: true },
-    distinct: ["cliente"],
-  });
-  const arqPorCliente = new Map(arqRows.map((r) => [r.cliente, r.arquivoOrigem]));
-  const matchPorConfig = new Map<string, { cliente: string; processos: number }>();
-  for (const g of grupos) {
-    if (!g.cliente) continue;
-    const cfg = acharConfigRelatorio(g.cliente, arqPorCliente.get(g.cliente) ?? "", configs);
-    if (cfg && !matchPorConfig.has(cfg.id))
-      matchPorConfig.set(cfg.id, { cliente: g.cliente, processos: g._count._all });
-  }
-  const ligado = (await getConfig(CHAVE_ENVIO_AUTO, "off")) === "on";
-  return {
-    ligado,
-    itens: configs.map((c) => ({
-      id: c.id,
-      nome: c.nome,
-      emails: c.emails,
-      corpoEmail: c.corpoEmail,
-      nomeArquivo: c.nomeArquivo,
-      tipo: c.tipo,
-      ativo: c.ativo,
-      ultimoEnvio: c.ultimoEnvio,
-      cliente: matchPorConfig.get(c.id)?.cliente ?? null,
-      processos: matchPorConfig.get(c.id)?.processos ?? 0,
-    })),
-  };
+  if (!s || !ehGestor(s.papel)) return false;
+  const { envioAutomaticoLigado } = await import("@/lib/config");
+  return envioAutomaticoLigado();
 }
 
 export async function getClientesRelatorio(): Promise<ClienteRelListagem[]> {
@@ -587,6 +541,7 @@ export async function getClientesRelatorio(): Promise<ClienteRelListagem[]> {
         processos: g._count._all,
         emails: cfg?.emails ?? "",
         temConfig: !!cfg,
+        ativo: cfg?.ativo ?? false,
       };
     });
 }
@@ -691,9 +646,21 @@ export type ProcRelEditorDTO = {
   infoAdicional: string;
   situacoes: SituacaoEditorDTO[];
 };
+export type EnvioClienteDTO = {
+  emails: string;
+  corpoEmail: string;
+  nomeArquivo: string;
+  tipo: string;
+  ativo: boolean;
+  ultimoEnvio: string;
+};
 export async function getRelatorioClienteEditor(
   nomeCliente: string,
-): Promise<{ cliente: string; processos: ProcRelEditorDTO[] } | null> {
+): Promise<{
+  cliente: string;
+  processos: ProcRelEditorDTO[];
+  envio: EnvioClienteDTO;
+} | null> {
   const s = await getSessao();
   if (!s || !ehGestor(s.papel)) return null;
   const nome = (nomeCliente || "").trim();
@@ -707,8 +674,20 @@ export async function getRelatorioClienteEditor(
     },
   });
   if (procs.length === 0) return null;
+  const arquivo = procs[0]?.arquivoOrigem ?? "";
+  const configs = await prisma.clienteRelatorio.findMany();
+  const cfg = acharConfigRelatorio(nome, arquivo, configs);
+  const envio: EnvioClienteDTO = {
+    emails: cfg?.emails ?? "",
+    corpoEmail: cfg?.corpoEmail ?? "",
+    nomeArquivo: cfg?.nomeArquivo || arquivo,
+    tipo: cfg?.tipo ?? "",
+    ativo: cfg?.ativo ?? true,
+    ultimoEnvio: cfg?.ultimoEnvio ?? "",
+  };
   return {
     cliente: nome,
+    envio,
     processos: procs.map((p) => ({
       id: p.id,
       numero: p.numero,

@@ -6,11 +6,10 @@ import { getSessao } from "@/lib/sessao";
 import { ehGestor } from "@/lib/papeis";
 import { CATEGORIAS_VALIDAS } from "@/lib/relatorio-categorias";
 import { setConfig, CHAVE_ENVIO_AUTO } from "@/lib/config";
+import { acharConfigRelatorio } from "@/lib/data";
 import {
   enviarRelatorioCliente,
-  enviarRelatoriosClientes,
   type EnvioClienteResultado,
-  type EnvioLoteResultado,
 } from "@/lib/relatorio-cliente-envio";
 import { enviarRelatorioDiario, type ResultadoEnvio } from "@/lib/relatorio-envio";
 
@@ -154,22 +153,35 @@ export async function removerProcesso(
   }
 }
 
-// ---- Aba de Envio (config da planilha + envio dos relatórios dos clientes) ----
+// ---- Envio do relatório de cada cliente (dentro da página do cliente) ----
 
-// Liga/desliga o envio automático mensal dos relatórios dos clientes.
+// Acha (ou cria) a config de envio de um cliente. Retorna o id.
+async function configDoCliente(cliente: string): Promise<string | null> {
+  const proc = await prisma.processo.findFirst({
+    where: { cliente },
+    select: { arquivoOrigem: true },
+  });
+  if (!proc) return null;
+  const configs = await prisma.clienteRelatorio.findMany();
+  const cfg = acharConfigRelatorio(cliente, proc.arquivoOrigem ?? "", configs);
+  return cfg?.id ?? null;
+}
+
+// Liga/desliga o envio automático mensal.
 export async function setEnvioAutomaticoClientes(
   ligado: boolean,
 ): Promise<AcaoResult> {
   const s = await exigirGestor();
   if (!s) return { ok: false, erro: "Sem permissão." };
   await setConfig(CHAVE_ENVIO_AUTO, ligado ? "on" : "off");
-  revalidatePath("/relatorio/envio");
+  revalidatePath("/relatorio/clientes");
   return { ok: true };
 }
 
-// Salva a config de envio de um cliente (e-mails, corpo, arquivo, tipo, ativo).
-export async function salvarEnvioConfig(
-  id: string,
+// Salva os dados de envio de um cliente (e-mails, corpo, nome do arquivo,
+// tipo, envio automático). Cria o cadastro se ainda não existir.
+export async function salvarEnvioCliente(
+  cliente: string,
   campos: {
     emails: string;
     corpoEmail: string;
@@ -180,53 +192,105 @@ export async function salvarEnvioConfig(
 ): Promise<AcaoResult> {
   const s = await exigirGestor();
   if (!s) return { ok: false, erro: "Sem permissão." };
+  const dados = {
+    emails: (campos.emails ?? "").trim().slice(0, 2000),
+    corpoEmail: (campos.corpoEmail ?? "").slice(0, 6000),
+    nomeArquivo: (campos.nomeArquivo ?? "").trim().slice(0, 200),
+    tipo: /pj/i.test(campos.tipo) ? "PJ" : /pf/i.test(campos.tipo) ? "PF" : "",
+    ativo: !!campos.ativo,
+  };
   try {
-    await prisma.clienteRelatorio.update({
-      where: { id },
-      data: {
-        emails: (campos.emails ?? "").trim().slice(0, 2000),
-        corpoEmail: (campos.corpoEmail ?? "").slice(0, 6000),
-        nomeArquivo: (campos.nomeArquivo ?? "").trim().slice(0, 200),
-        tipo: /pj/i.test(campos.tipo) ? "PJ" : /pf/i.test(campos.tipo) ? "PF" : "",
-        ativo: !!campos.ativo,
-      },
+    const proc = await prisma.processo.findFirst({
+      where: { cliente },
+      select: { arquivoOrigem: true },
     });
-    revalidatePath("/relatorio/envio");
+    const configs = await prisma.clienteRelatorio.findMany();
+    const cfg = acharConfigRelatorio(cliente, proc?.arquivoOrigem ?? "", configs);
+    if (cfg) {
+      await prisma.clienteRelatorio.update({ where: { id: cfg.id }, data: dados });
+    } else {
+      await prisma.clienteRelatorio.create({
+        data: {
+          nome: cliente,
+          ...dados,
+          nomeArquivo: dados.nomeArquivo || (proc?.arquivoOrigem ?? ""),
+        },
+      });
+    }
+    revalidatePath("/relatorio/clientes");
     return { ok: true };
   } catch {
     return { ok: false, erro: "Não foi possível salvar." };
   }
 }
 
-// Remove um cadastro de envio.
-export async function removerEnvioConfig(id: string): Promise<AcaoResult> {
+// Liga/desliga o envio automático de UM cliente (botão na lista).
+export async function setEnvioAtivoCliente(
+  cliente: string,
+  ativo: boolean,
+): Promise<AcaoResult> {
   const s = await exigirGestor();
   if (!s) return { ok: false, erro: "Sem permissão." };
   try {
-    await prisma.clienteRelatorio.delete({ where: { id } });
-    revalidatePath("/relatorio/envio");
+    const proc = await prisma.processo.findFirst({
+      where: { cliente },
+      select: { arquivoOrigem: true },
+    });
+    const configs = await prisma.clienteRelatorio.findMany();
+    const cfg = acharConfigRelatorio(cliente, proc?.arquivoOrigem ?? "", configs);
+    if (cfg) {
+      await prisma.clienteRelatorio.update({ where: { id: cfg.id }, data: { ativo } });
+    } else {
+      await prisma.clienteRelatorio.create({
+        data: { nome: cliente, nomeArquivo: proc?.arquivoOrigem ?? "", ativo },
+      });
+    }
+    revalidatePath("/relatorio/clientes");
     return { ok: true };
   } catch {
-    return { ok: false, erro: "Não foi possível remover." };
+    return { ok: false, erro: "Não foi possível alterar." };
   }
 }
 
-// Envia o relatório de um cliente agora (botão "Enviar agora").
-export async function enviarRelatorioClienteAgora(
-  id: string,
+// Liga/desliga o envio automático de TODOS os clientes que têm relatório.
+export async function setEnvioAtivoTodos(ativo: boolean): Promise<AcaoResult> {
+  const s = await exigirGestor();
+  if (!s) return { ok: false, erro: "Sem permissão." };
+  try {
+    const arqRows = await prisma.processo.findMany({
+      select: { cliente: true, arquivoOrigem: true },
+      distinct: ["cliente"],
+    });
+    const configs = await prisma.clienteRelatorio.findMany();
+    for (const r of arqRows) {
+      if (!r.cliente) continue;
+      const cfg = acharConfigRelatorio(r.cliente, r.arquivoOrigem ?? "", configs);
+      if (cfg) {
+        if (cfg.ativo !== ativo)
+          await prisma.clienteRelatorio.update({ where: { id: cfg.id }, data: { ativo } });
+      } else {
+        await prisma.clienteRelatorio.create({
+          data: { nome: r.cliente, nomeArquivo: r.arquivoOrigem ?? "", ativo },
+        });
+      }
+    }
+    revalidatePath("/relatorio/clientes");
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Não foi possível alterar todos." };
+  }
+}
+
+// Envia agora o relatório de um cliente (botão ao lado do relatório).
+export async function enviarRelatorioPorCliente(
+  cliente: string,
 ): Promise<EnvioClienteResultado> {
   const s = await exigirGestor();
   if (!s) return { ok: false, motivo: "sem permissão" };
+  const id = await configDoCliente(cliente);
+  if (!id)
+    return { ok: false, motivo: "Cadastre o e-mail de envio na página do cliente." };
   return enviarRelatorioCliente(id);
-}
-
-// Envia agora os relatórios de todos os clientes ativos.
-export async function enviarTodosRelatoriosClientesAgora(): Promise<
-  EnvioLoteResultado | { erro: string }
-> {
-  const s = await exigirGestor();
-  if (!s) return { erro: "sem permissão" };
-  return enviarRelatoriosClientes({ soAtivos: true });
 }
 
 // Envia o relatório do dia por e-mail na hora (botão "Enviar agora"). Gestor-only.
