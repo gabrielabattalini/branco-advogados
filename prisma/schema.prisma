@@ -84,10 +84,18 @@ model ClienteRelatorio {
   corpoEmail  String   @default("") // texto do e-mail; {MES_ANO_REFERENCIA_TITULO} = mês/ano
   nomeArquivo String   @default("") // base do nome do PDF anexado
   tipo        String   @default("") // PF | PJ
-  ativo       Boolean  @default(true)
+  ativo       Boolean  @default(true) // envio automático ligado para este cliente
+  ultimoEnvio String   @default("") // "AAAA-MM" do último mês enviado (evita duplicar)
   criadoEm    DateTime @default(now())
 
   @@index([nome])
+}
+
+// Configurações globais simples (chave/valor). Ex.: envio automático on/off.
+model Configuracao {
+  chave     String   @id
+  valor     String   @default("")
+  atualizado DateTime @default(now()) @updatedAt
 }
 
 model Contato {
