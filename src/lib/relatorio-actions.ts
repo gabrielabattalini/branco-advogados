@@ -252,6 +252,35 @@ export async function setEnvioAtivoCliente(
   }
 }
 
+// Liga/desliga o envio automático de TODOS os clientes que têm relatório.
+export async function setEnvioAtivoTodos(ativo: boolean): Promise<AcaoResult> {
+  const s = await exigirGestor();
+  if (!s) return { ok: false, erro: "Sem permissão." };
+  try {
+    const arqRows = await prisma.processo.findMany({
+      select: { cliente: true, arquivoOrigem: true },
+      distinct: ["cliente"],
+    });
+    const configs = await prisma.clienteRelatorio.findMany();
+    for (const r of arqRows) {
+      if (!r.cliente) continue;
+      const cfg = acharConfigRelatorio(r.cliente, r.arquivoOrigem ?? "", configs);
+      if (cfg) {
+        if (cfg.ativo !== ativo)
+          await prisma.clienteRelatorio.update({ where: { id: cfg.id }, data: { ativo } });
+      } else {
+        await prisma.clienteRelatorio.create({
+          data: { nome: r.cliente, nomeArquivo: r.arquivoOrigem ?? "", ativo },
+        });
+      }
+    }
+    revalidatePath("/relatorio/clientes");
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Não foi possível alterar todos." };
+  }
+}
+
 // Envia agora o relatório de um cliente (botão ao lado do relatório).
 export async function enviarRelatorioPorCliente(
   cliente: string,

@@ -6,6 +6,7 @@ import { Send, Loader2, Check, AlertTriangle, Power } from "lucide-react";
 import {
   setEnvioAutomaticoClientes,
   setEnvioAtivoCliente,
+  setEnvioAtivoTodos,
   enviarRelatorioPorCliente,
 } from "@/lib/relatorio-actions";
 
@@ -50,6 +51,7 @@ export function EnvioAutoToggle({ ligado }: { ligado: boolean }) {
   const router = useRouter();
   const [on, setOn] = useState(ligado);
   const [busy, setBusy] = useState(false);
+  const [todosBusy, setTodosBusy] = useState<"" | "on" | "off">("");
   const toggle = async () => {
     setBusy(true);
     const novo = !on;
@@ -57,8 +59,14 @@ export function EnvioAutoToggle({ ligado }: { ligado: boolean }) {
     setBusy(false);
     if (res.ok) { setOn(novo); router.refresh(); } else alert(res.erro);
   };
+  const todos = async (ativo: boolean) => {
+    setTodosBusy(ativo ? "on" : "off");
+    const res = await setEnvioAtivoTodos(ativo);
+    setTodosBusy("");
+    if (res.ok) router.refresh(); else alert(res.erro);
+  };
   return (
-    <div className="mb-5 flex items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3">
+    <div className="mb-5 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3">
       <Power size={16} className={on ? "text-ok" : "text-faint"} />
       <div className="min-w-0 flex-1">
         <div className="text-[13px] font-medium text-navy">Envio automático mensal</div>
@@ -69,15 +77,33 @@ export function EnvioAutoToggle({ ligado }: { ligado: boolean }) {
         </div>
       </div>
       <button
+        onClick={() => todos(true)}
+        disabled={todosBusy !== ""}
+        className="inline-flex items-center gap-1.5 rounded-md border border-ok/40 bg-ok/10 px-3 py-1.5 text-[12px] text-ok hover:bg-ok/15 disabled:opacity-40"
+      >
+        {todosBusy === "on" ? <Loader2 size={13} className="animate-spin" /> : <Power size={13} />}
+        Ligar todos
+      </button>
+      <button
+        onClick={() => todos(false)}
+        disabled={todosBusy !== ""}
+        className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-[12px] text-muted hover:bg-cream disabled:opacity-40"
+      >
+        {todosBusy === "off" ? <Loader2 size={13} className="animate-spin" /> : <Power size={13} />}
+        Desligar todos
+      </button>
+      <span className="mx-1 h-6 w-px bg-line" />
+      <button
         onClick={toggle}
         disabled={busy}
+        title="Chave geral do envio automático"
         className={
           "inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-[13px] disabled:opacity-40 " +
           (on ? "border border-line text-muted hover:bg-cream" : "bg-navy text-cream hover:bg-navy-dark")
         }
       >
         {busy ? <Loader2 size={14} className="animate-spin" /> : <Power size={14} />}
-        {on ? "Desligar" : "Ligar"}
+        {on ? "Desligar geral" : "Ligar geral"}
       </button>
     </div>
   );
