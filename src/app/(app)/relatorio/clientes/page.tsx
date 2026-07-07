@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ChevronLeft, Download, Mail, AlertTriangle, Scale, Pencil } from "lucide-react";
-import { getClientesRelatorio } from "@/lib/data";
+import { getClientesRelatorio, getEnvioAutomatico } from "@/lib/data";
 import { getSessao } from "@/lib/sessao";
 import { ehGestor } from "@/lib/papeis";
+import { EnvioAutoToggle, EnviarBotao } from "@/components/RelatorioClientesExtras";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,10 @@ export default async function RelatorioClientesPage() {
   const s = await getSessao();
   if (!s) redirect("/login");
   if (!ehGestor(s.papel)) redirect("/painel");
-  const clientes = await getClientesRelatorio();
+  const [clientes, envioAuto] = await Promise.all([
+    getClientesRelatorio(),
+    getEnvioAutomatico(),
+  ]);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -24,9 +28,11 @@ export default async function RelatorioClientesPage() {
       <h1 className="font-serif text-2xl text-navy">Relatório dos clientes</h1>
       <p className="mt-1 mb-5 text-[13px] text-muted">
         Um relatório por cliente, no papel timbrado do escritório. Clique em um
-        cliente para preencher e atualizar cada processo. O envio automático (até
-        o dia 5) usa o e-mail cadastrado na planilha.
+        cliente para preencher os processos e os dados de envio (e-mail, corpo,
+        nome do arquivo). Envie na hora pelo botão ou deixe no automático.
       </p>
+
+      {clientes.length > 0 && <EnvioAutoToggle ligado={envioAuto} />}
 
       {clientes.length === 0 ? (
         <div className="rounded-lg border border-dashed border-line bg-surface px-4 py-12 text-center text-[13px] text-faint">
@@ -65,6 +71,7 @@ export default async function RelatorioClientesPage() {
                   )}
                 </div>
               </Link>
+              <EnviarBotao cliente={c.nome} />
               <Link
                 href={`/relatorio/clientes/${encodeURIComponent(c.nome)}`}
                 className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-[12px] text-navy hover:bg-cream"

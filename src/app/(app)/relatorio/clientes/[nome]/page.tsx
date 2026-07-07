@@ -49,7 +49,11 @@ export default async function RelatorioClienteEditorPage({
         </a>
       </div>
 
-      <RelatorioClienteEditor processos={dados.processos} />
+      <RelatorioClienteEditor
+        cliente={dados.cliente}
+        envio={dados.envio}
+        processos={dados.processos}
+      />
     </div>
   );
 }

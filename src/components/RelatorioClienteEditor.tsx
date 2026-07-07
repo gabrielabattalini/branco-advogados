@@ -10,6 +10,9 @@ import {
   Pencil,
   X,
   CalendarClock,
+  Send,
+  Mail,
+  AlertTriangle,
   Loader2,
 } from "lucide-react";
 import {
@@ -18,9 +21,110 @@ import {
   editarSituacao,
   removerSituacao,
   removerProcesso,
+  salvarEnvioCliente,
+  enviarRelatorioPorCliente,
 } from "@/lib/relatorio-actions";
 import { CATEGORIAS_RELATORIO } from "@/lib/relatorio-categorias";
-import type { ProcRelEditorDTO, SituacaoEditorDTO } from "@/lib/data";
+import type { ProcRelEditorDTO, SituacaoEditorDTO, EnvioClienteDTO } from "@/lib/data";
+
+// Card de envio do relatório do cliente: e-mails, corpo, nome do arquivo,
+// tipo, envio automático + botões Salvar e Enviar agora.
+function EnvioCard({ cliente, envio }: { cliente: string; envio: EnvioClienteDTO }) {
+  const router = useRouter();
+  const [f, setF] = useState({
+    emails: envio.emails,
+    corpoEmail: envio.corpoEmail,
+    nomeArquivo: envio.nomeArquivo,
+    tipo: envio.tipo,
+    ativo: envio.ativo,
+  });
+  const [salvando, setSalvando] = useState(false);
+  const [salvo, setSalvo] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; texto: string } | null>(null);
+  const set =
+    (k: keyof typeof f) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+      setF({ ...f, [k]: k === "ativo" ? (e.target as HTMLInputElement).checked : e.target.value });
+      setSalvo(false);
+    };
+
+  const salvar = async () => {
+    setSalvando(true);
+    const res = await salvarEnvioCliente(cliente, f);
+    setSalvando(false);
+    if (res.ok) { setSalvo(true); router.refresh(); } else alert(res.erro);
+  };
+  const enviar = async () => {
+    setEnviando(true);
+    setMsg(null);
+    // salva antes de enviar, para usar os dados atuais
+    await salvarEnvioCliente(cliente, f);
+    const res = await enviarRelatorioPorCliente(cliente);
+    setEnviando(false);
+    setMsg({
+      ok: res.ok,
+      texto: res.ok ? `Enviado para ${res.destinatarios} e-mail(s).` : res.motivo || "Falha no envio.",
+    });
+    router.refresh();
+  };
+
+  return (
+    <div className="rounded-lg border border-navy/25 bg-cream/30">
+      <div className="flex items-center gap-2 border-b border-line px-5 py-3">
+        <Mail size={16} className="text-navy" />
+        <div className="text-[14px] font-medium text-navy">Envio do relatório</div>
+        {envio.ultimoEnvio && (
+          <span className="ml-auto text-[11px] text-faint">último envio: {envio.ultimoEnvio}</span>
+        )}
+      </div>
+      <div className="flex flex-col gap-3 p-5">
+        <div>
+          <label className={labelCls}>E-mails (separe por ; ou ,)</label>
+          <input className={inputCls} value={f.emails} onChange={set("emails")} placeholder="fulano@empresa.com; outro@empresa.com" />
+        </div>
+        <div className="grid grid-cols-[1fr_110px] gap-3">
+          <div>
+            <label className={labelCls}>Nome do arquivo</label>
+            <input className={inputCls} value={f.nomeArquivo} onChange={set("nomeArquivo")} />
+          </div>
+          <div>
+            <label className={labelCls}>Tipo</label>
+            <select className={inputCls} value={f.tipo} onChange={set("tipo")}>
+              <option value="">—</option>
+              <option value="PF">PF</option>
+              <option value="PJ">PJ</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>Corpo do e-mail — {"{MES_ANO_REFERENCIA_TITULO}"} vira o mês</label>
+          <textarea className={inputCls + " min-h-[80px] resize-y"} value={f.corpoEmail} onChange={set("corpoEmail")} maxLength={6000} />
+        </div>
+        <label className="inline-flex cursor-pointer items-center gap-2 text-[13px] text-muted">
+          <input type="checkbox" checked={f.ativo} onChange={set("ativo")} />
+          Incluir no envio automático mensal (até o dia 5)
+        </label>
+        <div className="flex flex-wrap items-center gap-3">
+          <button onClick={salvar} disabled={salvando} className="inline-flex items-center gap-2 rounded-md border border-line px-4 py-2 text-sm text-navy hover:bg-surface disabled:opacity-40">
+            {salvando ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+            {salvando ? "Salvando…" : "Salvar envio"}
+          </button>
+          {salvo && <span className="inline-flex items-center gap-1 text-[13px] text-ok"><Check size={15} /> Salvo</span>}
+          <button onClick={enviar} disabled={enviando} className="inline-flex items-center gap-2 rounded-md bg-navy px-4 py-2 text-sm text-cream hover:bg-navy-dark disabled:opacity-40">
+            {enviando ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+            {enviando ? "Enviando…" : "Enviar agora"}
+          </button>
+          {msg && (
+            <span className={"inline-flex items-center gap-1 text-[12.5px] " + (msg.ok ? "text-ok" : "text-danger")}>
+              {msg.ok ? <Check size={14} /> : <AlertTriangle size={14} />} {msg.texto}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const inputCls =
   "w-full rounded-md border border-line bg-surface px-3 py-2 text-[13px] text-ink outline-none focus:border-navy/60";
@@ -306,12 +410,17 @@ function ProcessoForm({ p }: { p: ProcRelEditorDTO }) {
 }
 
 export function RelatorioClienteEditor({
+  cliente,
+  envio,
   processos,
 }: {
+  cliente: string;
+  envio: EnvioClienteDTO;
   processos: ProcRelEditorDTO[];
 }) {
   return (
     <div className="flex flex-col gap-5">
+      <EnvioCard cliente={cliente} envio={envio} />
       {processos.map((p) => (
         <ProcessoForm key={p.id} p={p} />
       ))}
