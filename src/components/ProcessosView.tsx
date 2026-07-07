@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Search, Plus, ChevronRight } from "lucide-react";
+import { Search, Plus, ChevronRight, BarChart3 } from "lucide-react";
 import type { Area, Processo } from "@/lib/mock";
 import type { Responsavel } from "@/lib/data";
 import { AreaTag } from "@/components/AreaTag";
@@ -54,6 +54,12 @@ export function ProcessosView({
               className="w-56 bg-transparent text-ink outline-none placeholder:text-faint"
             />
           </div>
+          <Link
+            href="/sistemas"
+            className="flex items-center gap-2 rounded-md border border-line bg-surface px-3 py-2 text-sm text-navy hover:bg-cream"
+          >
+            <BarChart3 size={16} /> Levantamento
+          </Link>
           <button
             onClick={() => setShowNovo(true)}
             className="flex items-center gap-2 rounded-md bg-navy px-3 py-2 text-sm text-cream hover:bg-navy-dark"

@@ -206,6 +206,8 @@ export type Processo = {
   valorCausa: string;
   distribuido: string;
   fase: string;
+  sistema?: string;
+  linkSistema?: string;
 };
 
 export const processos: Processo[] = [

@@ -143,6 +143,8 @@ model Processo {
   categoria           String       @default("judicial")
   infoAdicional       String       @default("") // dados extras (ex.: crédito habilitado em RJ/falência)
   arquivoOrigem       String       @default("") // nome do .docx importado — casa com a planilha de envio
+  sistema             String       @default("") // sistema onde tramita (PJe, e-SAJ, Projudi, EPROC...)
+  linkSistema         String       @default("") // link direto do processo naquele sistema
   criadoEm            DateTime     @default(now())
   tarefas             Tarefa[]
   documentos          Documento[]

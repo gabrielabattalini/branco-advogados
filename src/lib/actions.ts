@@ -507,6 +507,8 @@ export async function criarProcesso(input: {
   responsavel: string;
   responsavelIniciais: string;
   valorCausa: string;
+  sistema?: string;
+  linkSistema?: string;
 }): Promise<ActionResult> {
   const s = await getSessao();
   if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
@@ -529,6 +531,8 @@ export async function criarProcesso(input: {
         valorCausa: input.valorCausa.trim() || "—",
         distribuido: hojeBR(),
         fase: "Conhecimento",
+        sistema: (input.sistema ?? "").trim().slice(0, 60),
+        linkSistema: (input.linkSistema ?? "").trim().slice(0, 500),
       },
     });
     revalidatePath("/processos");
@@ -541,6 +545,30 @@ export async function criarProcesso(input: {
       return { ok: false, erro: "Já existe um processo com esse número." };
     }
     return { ok: false, erro: "Não foi possível cadastrar o processo." };
+  }
+}
+
+// Atualiza o sistema e o link de um processo (na ficha do processo).
+export async function atualizarSistemaProcesso(
+  id: string,
+  sistema: string,
+  linkSistema: string,
+): Promise<ActionResult> {
+  const s = await getSessao();
+  if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
+  try {
+    await prisma.processo.update({
+      where: { id },
+      data: {
+        sistema: (sistema ?? "").trim().slice(0, 60),
+        linkSistema: (linkSistema ?? "").trim().slice(0, 500),
+      },
+    });
+    revalidatePath(`/processos/${id}`);
+    revalidatePath("/processos");
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Não foi possível salvar." };
   }
 }
 

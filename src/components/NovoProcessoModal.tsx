@@ -28,6 +28,8 @@ export function NovoProcessoModal({
   );
   const [tribunal, setTribunal] = useState("");
   const [valorCausa, setValorCausa] = useState("");
+  const [sistema, setSistema] = useState("");
+  const [linkSistema, setLinkSistema] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
 
@@ -55,6 +57,8 @@ export function NovoProcessoModal({
         responsavel: r.nome,
         responsavelIniciais: r.iniciais,
         valorCausa,
+        sistema,
+        linkSistema,
       });
       if (res.ok) {
         router.refresh();
@@ -159,6 +163,37 @@ export function NovoProcessoModal({
             onChange={(e) => setTribunal(e.target.value)}
             placeholder="Ex.: TRT15 · 2ª Vara do Trabalho de Jundiaí"
           />
+        </div>
+        <div className="grid grid-cols-[160px_1fr] gap-3">
+          <div>
+            <label className={labelCls}>Sistema</label>
+            <input
+              className={inputCls}
+              list="sistemas-lista"
+              value={sistema}
+              onChange={(e) => setSistema(e.target.value)}
+              placeholder="PJe, e-SAJ…"
+            />
+            <datalist id="sistemas-lista">
+              <option value="PJe" />
+              <option value="e-SAJ" />
+              <option value="Projudi" />
+              <option value="EPROC" />
+              <option value="ESAJ" />
+              <option value="PJe-JT" />
+              <option value="Creta" />
+              <option value="Físico" />
+            </datalist>
+          </div>
+          <div>
+            <label className={labelCls}>Link do processo no sistema</label>
+            <input
+              className={inputCls}
+              value={linkSistema}
+              onChange={(e) => setLinkSistema(e.target.value)}
+              placeholder="https://…"
+            />
+          </div>
         </div>
         {erro && <p className="text-[12px] text-danger">{erro}</p>}
       </div>
