@@ -101,10 +101,6 @@ function EnvioCard({ cliente, envio }: { cliente: string; envio: EnvioClienteDTO
           <label className={labelCls}>Corpo do e-mail — {"{MES_ANO_REFERENCIA_TITULO}"} vira o mês</label>
           <textarea className={inputCls + " min-h-[80px] resize-y"} value={f.corpoEmail} onChange={set("corpoEmail")} maxLength={6000} />
         </div>
-        <label className="inline-flex cursor-pointer items-center gap-2 text-[13px] text-muted">
-          <input type="checkbox" checked={f.ativo} onChange={set("ativo")} />
-          Incluir no envio automático mensal (até o dia 5)
-        </label>
         <div className="flex flex-wrap items-center gap-3">
           <button onClick={salvar} disabled={salvando} className="inline-flex items-center gap-2 rounded-md border border-line px-4 py-2 text-sm text-navy hover:bg-surface disabled:opacity-40">
             {salvando ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
