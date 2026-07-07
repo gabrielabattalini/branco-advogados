@@ -464,6 +464,7 @@ export type ClienteRelListagem = {
   processos: number;
   emails: string;
   temConfig: boolean;
+  ativo: boolean; // envio automático ligado para este cliente
 };
 // Normaliza para comparar nomes/arquivos (sem acento, maiúsculas, espaços).
 const DIACRITICOS = /[̀-ͯ]/g;
@@ -540,6 +541,7 @@ export async function getClientesRelatorio(): Promise<ClienteRelListagem[]> {
         processos: g._count._all,
         emails: cfg?.emails ?? "",
         temConfig: !!cfg,
+        ativo: cfg?.ativo ?? false,
       };
     });
 }

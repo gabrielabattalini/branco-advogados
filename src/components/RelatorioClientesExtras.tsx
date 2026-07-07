@@ -5,8 +5,45 @@ import { useRouter } from "next/navigation";
 import { Send, Loader2, Check, AlertTriangle, Power } from "lucide-react";
 import {
   setEnvioAutomaticoClientes,
+  setEnvioAtivoCliente,
   enviarRelatorioPorCliente,
 } from "@/lib/relatorio-actions";
+
+// Liga/desliga o envio automático de um cliente específico (na linha da lista).
+export function EnvioAtivoBotao({
+  cliente,
+  ativo,
+}: {
+  cliente: string;
+  ativo: boolean;
+}) {
+  const router = useRouter();
+  const [on, setOn] = useState(ativo);
+  const [busy, setBusy] = useState(false);
+  const toggle = async () => {
+    setBusy(true);
+    const novo = !on;
+    const res = await setEnvioAtivoCliente(cliente, novo);
+    setBusy(false);
+    if (res.ok) { setOn(novo); router.refresh(); } else alert(res.erro);
+  };
+  return (
+    <button
+      onClick={toggle}
+      disabled={busy}
+      title={on ? "Envio automático LIGADO — clique para desligar" : "Envio automático DESLIGADO — clique para ligar"}
+      className={
+        "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[12px] disabled:opacity-40 " +
+        (on
+          ? "border-ok/40 bg-ok/10 text-ok hover:bg-ok/15"
+          : "border-line text-faint hover:bg-cream")
+      }
+    >
+      {busy ? <Loader2 size={13} className="animate-spin" /> : <Power size={13} />}
+      Auto {on ? "on" : "off"}
+    </button>
+  );
+}
 
 // Liga/desliga o envio automático mensal (no topo da lista).
 export function EnvioAutoToggle({ ligado }: { ligado: boolean }) {

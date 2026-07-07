@@ -4,7 +4,7 @@ import { ChevronLeft, Download, Mail, AlertTriangle, Scale, Pencil } from "lucid
 import { getClientesRelatorio, getEnvioAutomatico } from "@/lib/data";
 import { getSessao } from "@/lib/sessao";
 import { ehGestor } from "@/lib/papeis";
-import { EnvioAutoToggle, EnviarBotao } from "@/components/RelatorioClientesExtras";
+import { EnvioAutoToggle, EnviarBotao, EnvioAtivoBotao } from "@/components/RelatorioClientesExtras";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +71,7 @@ export default async function RelatorioClientesPage() {
                   )}
                 </div>
               </Link>
+              <EnvioAtivoBotao cliente={c.nome} ativo={c.ativo} />
               <EnviarBotao cliente={c.nome} />
               <Link
                 href={`/relatorio/clientes/${encodeURIComponent(c.nome)}`}
