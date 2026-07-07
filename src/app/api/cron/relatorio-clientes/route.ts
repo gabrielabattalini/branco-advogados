@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { hojeISO } from "@/lib/hoje";
-import { envioAutomaticoLigado } from "@/lib/config";
 import { enviarRelatoriosClientes } from "@/lib/relatorio-cliente-envio";
 
 export const dynamic = "force-dynamic";
@@ -15,12 +14,10 @@ function cronAutorizado(req: Request): boolean {
   );
 }
 
-// Cron diário: nos primeiros 5 dias do mês, se o envio automático estiver
-// ligado, envia o relatório dos clientes ativos que ainda não foram enviados
-// no mês de referência (evita duplicar).
+// Cron diário: nos primeiros 5 dias do mês, envia o relatório dos clientes
+// marcados como automático que ainda não foram enviados no mês de referência
+// (evita duplicar).
 async function executar() {
-  if (!(await envioAutomaticoLigado()))
-    return { ok: true, pulado: "envio automático desligado" };
   const dia = Number(hojeISO().slice(8, 10));
   if (dia > 5) return { ok: true, pulado: `fora da janela (dia ${dia})` };
   const r = await enviarRelatoriosClientes({

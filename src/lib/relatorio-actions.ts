@@ -5,7 +5,6 @@ import { prisma } from "@/lib/db";
 import { getSessao } from "@/lib/sessao";
 import { ehGestor } from "@/lib/papeis";
 import { CATEGORIAS_VALIDAS } from "@/lib/relatorio-categorias";
-import { setConfig, CHAVE_ENVIO_AUTO } from "@/lib/config";
 import { acharConfigRelatorio } from "@/lib/data";
 import {
   enviarRelatorioCliente,
@@ -165,17 +164,6 @@ async function configDoCliente(cliente: string): Promise<string | null> {
   const configs = await prisma.clienteRelatorio.findMany();
   const cfg = acharConfigRelatorio(cliente, proc.arquivoOrigem ?? "", configs);
   return cfg?.id ?? null;
-}
-
-// Liga/desliga o envio automático mensal.
-export async function setEnvioAutomaticoClientes(
-  ligado: boolean,
-): Promise<AcaoResult> {
-  const s = await exigirGestor();
-  if (!s) return { ok: false, erro: "Sem permissão." };
-  await setConfig(CHAVE_ENVIO_AUTO, ligado ? "on" : "off");
-  revalidatePath("/relatorio/clientes");
-  return { ok: true };
 }
 
 // Salva os dados de envio de um cliente (e-mails, corpo, nome do arquivo,
