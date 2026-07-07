@@ -11,6 +11,7 @@ import {
   parseRecuperacaoFalencia,
   parsePlanilhaClientes,
   parsePlanilhaContatos,
+  type RelatorioImportado,
 } from "@/lib/importar";
 
 export type ImportResult =
@@ -194,35 +195,44 @@ export async function importarRelatoriosDocx(
   try {
     let processos = 0;
     let clientes = 0;
+    const pulados: string[] = []; // arquivos ignorados (inválidos/sem processo)
     const ord = Date.now(); // base de carimbo p/ preservar a ordem dos andamentos
     for (const file of files) {
-      const buf = await file.arrayBuffer();
-      const tabelas = await docxParaTabelas(buf);
-      const texto = await docxParaTexto(buf);
-      // Roda os dois leitores (tabela tipo LOMA e campos rotulados) e usa o que
-      // encontrar mais processos — cobre relatórios híbridos com segurança.
-      const relTab = parseRelatorioTabela(tabelas);
-      const relLbl = parseRelatorioDocx(texto);
-      let rel =
-        (relTab?.processos.length ?? 0) > relLbl.processos.length
-          ? relTab!
-          : relLbl;
-      if (!rel.cliente) {
-        rel.cliente = relTab?.cliente || relLbl.cliente || "";
-      }
-      if (!rel.cliente) {
-        const m = texto.match(/CLIENTE\s*:?\s*([^\n]+)/i);
-        rel.cliente = m ? m[1].replace(/\s{2,}.*$/, "").trim() : "";
-      }
-      // Seção separada de Recuperação Judicial / Falência (quando houver).
-      const jaTem = new Set(rel.processos.map((p) => p.numero));
-      for (const rj of parseRecuperacaoFalencia(tabelas)) {
-        if (!jaTem.has(rj.numero)) {
-          jaTem.add(rj.numero);
-          rel.processos.push(rj);
+      // Cada arquivo é isolado: um inválido não derruba o lote inteiro.
+      let rel: RelatorioImportado | null = null;
+      let tabelas: string[][][] = [];
+      try {
+        const buf = await file.arrayBuffer();
+        tabelas = await docxParaTabelas(buf);
+        const texto = await docxParaTexto(buf);
+        // Roda os dois leitores (tabela tipo LOMA e campos rotulados) e usa o
+        // que encontrar mais processos — cobre híbridos com segurança.
+        const relTab = parseRelatorioTabela(tabelas);
+        const relLbl = parseRelatorioDocx(texto);
+        rel =
+          (relTab?.processos.length ?? 0) > relLbl.processos.length
+            ? relTab!
+            : relLbl;
+        if (!rel.cliente) rel.cliente = relTab?.cliente || relLbl.cliente || "";
+        if (!rel.cliente) {
+          const m = texto.match(/CLIENTE\s*:?\s*([^\n]+)/i);
+          rel.cliente = m ? m[1].replace(/\s{2,}.*$/, "").trim() : "";
         }
+        // Seção separada de Recuperação Judicial / Falência (quando houver).
+        const jaTem = new Set(rel.processos.map((p) => p.numero));
+        for (const rj of parseRecuperacaoFalencia(tabelas)) {
+          if (!jaTem.has(rj.numero)) {
+            jaTem.add(rj.numero);
+            rel.processos.push(rj);
+          }
+        }
+      } catch {
+        rel = null; // arquivo corrompido / não é um .docx válido
       }
-      if (!rel.cliente || rel.processos.length === 0) continue;
+      if (!rel || !rel.cliente || rel.processos.length === 0) {
+        pulados.push(file.name || "arquivo sem nome");
+        continue;
+      }
       clientes++;
       const cliente = rel.cliente;
       const lista = rel.processos;
@@ -281,9 +291,13 @@ export async function importarRelatoriosDocx(
         processos += chunk.length;
       }
     }
+    const aviso =
+      pulados.length > 0
+        ? ` · ${pulados.length} arquivo(s) ignorado(s) (inválidos ou sem processo): ${pulados.join(", ")}`
+        : "";
     return {
       ok: true,
-      msg: `${clientes} relatório(s) · ${processos} processo(s) importado(s).`,
+      msg: `${clientes} relatório(s) · ${processos} processo(s) importado(s)${aviso}.`,
     };
   } catch {
     return { ok: false, erro: "Não foi possível importar os relatórios." };
