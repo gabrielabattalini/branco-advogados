@@ -709,6 +709,65 @@ export async function getProcessos(): Promise<Processo[]> {
   return rows.map(mapProcesso);
 }
 
+// ---- Levantamento de sistemas/tribunais (a partir do número CNJ) ----
+const UF_TJ: Record<string, string> = {
+  "01": "TJAC", "02": "TJAL", "03": "TJAP", "04": "TJAM", "05": "TJBA",
+  "06": "TJCE", "07": "TJDFT", "08": "TJES", "09": "TJGO", "10": "TJMA",
+  "11": "TJMT", "12": "TJMS", "13": "TJMG", "14": "TJPA", "15": "TJPB",
+  "16": "TJPR", "17": "TJPE", "18": "TJPI", "19": "TJRJ", "20": "TJRN",
+  "21": "TJRS", "22": "TJRO", "23": "TJRR", "24": "TJSC", "25": "TJSE",
+  "26": "TJSP", "27": "TJTO",
+};
+export function tribunalDoCNJ(numero: string): string {
+  const m = (numero || "").match(/\d{7}-?\d{2}\.\d{4}\.(\d)\.(\d{2})\./);
+  if (!m) return "Sem número CNJ";
+  const j = m[1];
+  const tr = m[2];
+  if (j === "8") return UF_TJ[tr] ?? `Justiça Estadual (${tr})`;
+  if (j === "5") return `TRT${Number(tr)} (Trabalho)`;
+  if (j === "4") return `TRF${Number(tr)} (Federal)`;
+  if (j === "6") return "Justiça Eleitoral";
+  if (j === "7" || j === "9") return "Justiça Militar";
+  if (j === "1") return "STF";
+  if (j === "2") return "Conselhos (CNJ/CJF/CSJT)";
+  if (j === "3") return "STJ";
+  return `Segmento ${j}`;
+}
+
+export type LevantamentoItem = { rotulo: string; total: number };
+export async function getLevantamentoSistemas(): Promise<{
+  total: number;
+  porTribunal: LevantamentoItem[];
+  porSistema: LevantamentoItem[];
+  semSistema: number;
+} | null> {
+  const s = await getSessao();
+  if (!s) return null;
+  const rows = await prisma.processo.findMany({
+    select: { numero: true, sistema: true },
+  });
+  const trib = new Map<string, number>();
+  const sist = new Map<string, number>();
+  let semSistema = 0;
+  for (const r of rows) {
+    const t = tribunalDoCNJ(r.numero);
+    trib.set(t, (trib.get(t) ?? 0) + 1);
+    const sis = (r.sistema || "").trim();
+    if (sis) sist.set(sis, (sist.get(sis) ?? 0) + 1);
+    else semSistema++;
+  }
+  const ordena = (m: Map<string, number>): LevantamentoItem[] =>
+    [...m.entries()]
+      .map(([rotulo, total]) => ({ rotulo, total }))
+      .sort((a, b) => b.total - a.total);
+  return {
+    total: rows.length,
+    porTribunal: ordena(trib),
+    porSistema: ordena(sist),
+    semSistema,
+  };
+}
+
 function mapProcesso(p: {
   id: string;
   numero: string;
@@ -722,6 +781,8 @@ function mapProcesso(p: {
   valorCausa: string;
   distribuido: string;
   fase: string;
+  sistema?: string;
+  linkSistema?: string;
 }): Processo {
   return {
     id: p.id,
@@ -736,6 +797,8 @@ function mapProcesso(p: {
     valorCausa: p.valorCausa,
     distribuido: p.distribuido,
     fase: p.fase,
+    sistema: p.sistema ?? "",
+    linkSistema: p.linkSistema ?? "",
   };
 }
 

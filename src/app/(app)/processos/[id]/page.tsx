@@ -5,6 +5,7 @@ import { getFichaProcesso, getResponsaveis } from "@/lib/data";
 import { AreaTag } from "@/components/AreaTag";
 import { AvatarGroup } from "@/components/Avatar";
 import { AdicionarAndamento } from "@/components/AdicionarAndamento";
+import { SistemaProcessoCard } from "@/components/SistemaProcessoCard";
 import { statusLabel, corDoStatus } from "@/lib/mock";
 
 export const dynamic = "force-dynamic";
@@ -79,6 +80,12 @@ export default async function ProcessoPage({
           ))}
         </div>
       </div>
+
+      <SistemaProcessoCard
+        id={p.id}
+        sistema={p.sistema ?? ""}
+        linkSistema={p.linkSistema ?? ""}
+      />
 
       <section className="mb-3 rounded-lg border border-gold/40 bg-gold/5 p-5">
         <div className="mb-2 flex items-center justify-between gap-2">
