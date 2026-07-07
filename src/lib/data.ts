@@ -505,6 +505,61 @@ function acharConfigRelatorio<T extends { nome: string; nomeArquivo: string }>(
   });
 }
 
+// Config de envio de cada cliente (edição na aba Envio) + toggle global.
+export type EnvioConfigItem = {
+  id: string;
+  nome: string;
+  emails: string;
+  corpoEmail: string;
+  nomeArquivo: string;
+  tipo: string;
+  ativo: boolean;
+  ultimoEnvio: string;
+  cliente: string | null; // cliente casado no sistema (se houver)
+  processos: number;
+};
+export async function getEnvioConfig(): Promise<{
+  ligado: boolean;
+  itens: EnvioConfigItem[];
+} | null> {
+  const s = await getSessao();
+  if (!s || !ehGestor(s.papel)) return null;
+  const { CHAVE_ENVIO_AUTO, getConfig } = await import("@/lib/config");
+  const configs = await prisma.clienteRelatorio.findMany({ orderBy: { nome: "asc" } });
+  const grupos = await prisma.processo.groupBy({
+    by: ["cliente"],
+    _count: { _all: true },
+  });
+  const arqRows = await prisma.processo.findMany({
+    select: { cliente: true, arquivoOrigem: true },
+    distinct: ["cliente"],
+  });
+  const arqPorCliente = new Map(arqRows.map((r) => [r.cliente, r.arquivoOrigem]));
+  const matchPorConfig = new Map<string, { cliente: string; processos: number }>();
+  for (const g of grupos) {
+    if (!g.cliente) continue;
+    const cfg = acharConfigRelatorio(g.cliente, arqPorCliente.get(g.cliente) ?? "", configs);
+    if (cfg && !matchPorConfig.has(cfg.id))
+      matchPorConfig.set(cfg.id, { cliente: g.cliente, processos: g._count._all });
+  }
+  const ligado = (await getConfig(CHAVE_ENVIO_AUTO, "off")) === "on";
+  return {
+    ligado,
+    itens: configs.map((c) => ({
+      id: c.id,
+      nome: c.nome,
+      emails: c.emails,
+      corpoEmail: c.corpoEmail,
+      nomeArquivo: c.nomeArquivo,
+      tipo: c.tipo,
+      ativo: c.ativo,
+      ultimoEnvio: c.ultimoEnvio,
+      cliente: matchPorConfig.get(c.id)?.cliente ?? null,
+      processos: matchPorConfig.get(c.id)?.processos ?? 0,
+    })),
+  };
+}
+
 export async function getClientesRelatorio(): Promise<ClienteRelListagem[]> {
   const s = await getSessao();
   if (!s || !ehGestor(s.papel)) return [];

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CalendarDays, FileBarChart, Users, ChevronRight } from "lucide-react";
+import { CalendarDays, FileBarChart, Users, Send, ChevronRight } from "lucide-react";
 import { getSessao } from "@/lib/sessao";
 import { ehGestor } from "@/lib/papeis";
 
@@ -29,6 +29,14 @@ const relatorios = [
     titulo: "Relatório dos clientes",
     descricao:
       "Um relatório por cliente, no papel timbrado, com a situação atual de cada processo. PDF e envio até o dia 5.",
+    pronto: true,
+  },
+  {
+    href: "/relatorio/envio",
+    Icon: Send,
+    titulo: "Envio dos relatórios",
+    descricao:
+      "Para onde vai cada relatório (e-mails), o corpo do e-mail e o nome do arquivo. Liga/desliga o envio automático mensal e permite enviar na hora.",
     pronto: true,
   },
 ];
