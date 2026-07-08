@@ -6,6 +6,7 @@ import { AreaTag } from "@/components/AreaTag";
 import { AvatarGroup } from "@/components/Avatar";
 import { AdicionarAndamento } from "@/components/AdicionarAndamento";
 import { SistemaProcessoCard } from "@/components/SistemaProcessoCard";
+import { EditarProcesso } from "@/components/EditarProcesso";
 import { statusLabel, corDoStatus } from "@/lib/mock";
 
 export const dynamic = "force-dynamic";
@@ -60,6 +61,7 @@ export default async function ProcessoPage({
             <span className="rounded bg-ok/15 px-2 py-0.5 text-[11px] text-ok">
               {p.status}
             </span>
+            <EditarProcesso processo={p} responsaveis={responsaveis} />
           </div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-4 border-t border-line pt-4 sm:grid-cols-3">
