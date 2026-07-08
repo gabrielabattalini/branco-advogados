@@ -548,6 +548,54 @@ export async function criarProcesso(input: {
   }
 }
 
+// Edita os dados de um processo (ficha do processo).
+export async function atualizarProcesso(
+  id: string,
+  input: {
+    numero: string;
+    area: string;
+    tribunal: string;
+    cliente: string;
+    parteContraria: string;
+    responsavel: string;
+    responsavelIniciais: string;
+    valorCausa: string;
+    distribuido: string;
+    fase: string;
+  },
+): Promise<ActionResult> {
+  const s = await getSessao();
+  if (!s) return { ok: false, erro: "Sessão expirada. Entre novamente." };
+  const numero = input.numero.trim();
+  if (numero.replace(/\D/g, "").length < 14 || !input.cliente.trim())
+    return { ok: false, erro: "Número (CNJ) e cliente são obrigatórios." };
+  const area = AREAS.includes(input.area) ? input.area : "civel";
+  try {
+    await prisma.processo.update({
+      where: { id },
+      data: {
+        numero,
+        area,
+        tribunal: input.tribunal.trim() || "—",
+        cliente: input.cliente.trim(),
+        parteContraria: input.parteContraria.trim() || "—",
+        responsavel: input.responsavel.trim(),
+        responsavelIniciais: input.responsavelIniciais.trim(),
+        valorCausa: input.valorCausa.trim() || "—",
+        distribuido: input.distribuido.trim(),
+        fase: input.fase.trim(),
+      },
+    });
+    revalidatePath(`/processos/${id}`);
+    revalidatePath("/processos");
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")
+      return { ok: false, erro: "Já existe outro processo com esse número." };
+    return { ok: false, erro: "Não foi possível salvar." };
+  }
+}
+
 // Atualiza o sistema e o link de um processo (na ficha do processo).
 export async function atualizarSistemaProcesso(
   id: string,
